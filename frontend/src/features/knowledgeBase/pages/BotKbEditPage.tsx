@@ -985,29 +985,37 @@ const BotKbEditPage: React.FC = () => {
         return true;
       }
 
-      // Mcp tool validation
-      if (isMcpTool(tool) && !tool.mcpConfig?.endpointUrl) {
-        setErrorMessages(
-          `tools-${idx}-mcpConfig.endpoint_url`,
-          t('input.validationError.required')
+      // Mcp tool validation: every configured server must have all fields filled,
+      // and labels must be unique within the bot.
+      if (isMcpTool(tool)) {
+        const labels = tool.mcpServers.map((server) => server.label);
+        const hasDuplicateLabel = labels.some(
+          (label, labelIdx) => label !== '' && labels.indexOf(label) !== labelIdx
         );
-        return true;
-      }
 
-      if (isMcpTool(tool) && !tool.mcpConfig?.clientId) {
-        setErrorMessages(
-          `tools-${idx}-mcpConfig.client_id`,
-          t('input.validationError.required')
-        );
-        return true;
-      }
+        if (hasDuplicateLabel) {
+          setErrorMessages(
+            `tools-${idx}-mcpServers.label`,
+            t('input.validationError.required')
+          );
+          return true;
+        }
 
-      if (isMcpTool(tool) && !tool.mcpConfig?.clientSecret) {
-        setErrorMessages(
-          `tools-${idx}-mcpConfig.client_secret`,
-          t('input.validationError.required')
+        const hasInvalidServer = tool.mcpServers.some(
+          (server) =>
+            !server.label ||
+            !server.endpointUrl ||
+            !server.clientId ||
+            !server.clientSecret
         );
-        return true;
+
+        if (hasInvalidServer) {
+          setErrorMessages(
+            `tools-${idx}-mcpServers`,
+            t('input.validationError.required')
+          );
+          return true;
+        }
       }
 
       return false; // Tool is valid

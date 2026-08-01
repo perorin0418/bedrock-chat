@@ -186,7 +186,7 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
 
         const updatedTools = prevTools.map((tool) =>
           tool.name === 'internet_search'
-            ? {
+            ? ({
                 ...tool,
                 toolType: 'internet' as ToolType,
                 name: 'internet_search',
@@ -196,7 +196,7 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
                   newEngine === 'firecrawl' && isInternetTool(tool)
                     ? tool.firecrawlConfig
                     : undefined,
-              }
+              } as AgentTool)
             : tool
         );
         return updatedTools;
