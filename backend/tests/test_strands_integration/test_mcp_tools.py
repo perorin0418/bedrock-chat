@@ -351,6 +351,68 @@ class TestMcpToolsScope(unittest.TestCase):
             self.assertEqual(len(tools), 1)
             self.assertEqual(tools[0].mcp_tool.name, "foo_bar_search")
 
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_colliding_with_base_tool_name_is_skipped_not_raised(
+        self, mock_get_token, mock_mcp_client_cls
+    ):
+        """A renamed MCP tool that matches a reserved base (non-MCP) tool
+        name -- e.g. label "internet" + tool "search" -> "internet_search",
+        colliding with the built-in internet_search tool -- must be skipped
+        (logged) rather than crashing `Agent(tools=...)` construction with a
+        duplicate-name error."""
+        mock_get_token.return_value = "token-1"
+        mock_client_instance = MagicMock()
+        mock_client_instance.list_tools_sync.return_value = [_FakeMcpTool("search")]
+        mock_mcp_client_cls.return_value = mock_client_instance
+
+        bot = _make_bot([_make_mcp_tool(_make_server("internet"))])
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(tools, [])
+
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_hyphen_underscore_collision_is_skipped_not_raised(
+        self, mock_get_token, mock_mcp_client_cls
+    ):
+        """`strands`'s tool registry treats `-` and `_` as equivalent when
+        detecting name collisions (ToolRegistry.register_tool), so two MCP
+        tools whose prefixed names differ only by hyphen vs underscore must
+        still be deduplicated instead of both being kept and crashing later
+        at `Agent(tools=...)` construction time."""
+        mock_get_token.return_value = "token-1"
+
+        client_one = MagicMock()
+        client_one.list_tools_sync.return_value = [_FakeMcpTool("bar-search")]
+
+        client_two = MagicMock()
+        client_two.list_tools_sync.return_value = [_FakeMcpTool("search")]
+
+        clients = [client_one, client_two]
+
+        def client_factory(*args, **kwargs):
+            return clients.pop(0)
+
+        mock_mcp_client_cls.side_effect = client_factory
+
+        # "foo" + "bar-search" -> "foo_bar-search"
+        # "foo_bar" + "search" -> "foo_bar_search"
+        # These are different raw strings but normalize (- -> _) to the same
+        # name, so only the first one should survive.
+        bot = _make_bot(
+            [
+                _make_mcp_tool(
+                    _make_server("foo", client_id="client-1"),
+                    _make_server("foo_bar", client_id="client-2"),
+                )
+            ]
+        )
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(len(tools), 1)
+            self.assertEqual(tools[0].mcp_tool.name, "foo_bar-search")
+
 
 class TestLabelStrippingMcpClient(unittest.TestCase):
     """Verifies the fix for the tool-name-prefixing bug: the model-facing

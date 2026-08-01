@@ -16,6 +16,7 @@ export const McpConfig = ({ config, onChange }: Props) => {
         label={t('agent.tools.mcpConfig.label.label')}
         placeholder={t('agent.tools.mcpConfig.label.placeholder')}
         value={config.label}
+        maxLength={20}
         onChange={(value) => onChange({ ...config, label: value })}
       />
       <InputText

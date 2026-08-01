@@ -24,6 +24,27 @@ _token_cache: dict[str, tuple[str, float]] = {}
 TOKEN_REFRESH_MARGIN_SECONDS = 90
 MCP_CONNECTION_TIMEOUT_SECONDS = 10
 
+# Tool names registered by `get_strands_registered_tools`/`get_strands_tools`
+# (see app/strands_integration/utils.py) that can end up in the combined tool
+# list alongside MCP tools. A renamed MCP tool (label-prefixed) that collides
+# with one of these must be skipped, the same as an MCP-to-MCP collision,
+# since `strands`'s tool registry raises on any duplicate/normalized-duplicate
+# name at `Agent(tools=...)` construction time.
+RESERVED_TOOL_NAMES = {
+    "internet_search",  # app/strands_integration/tools/internet_search.py
+    "bedrock_agent",  # app/strands_integration/tools/bedrock_agent.py
+    "knowledge_base_tool",  # app/strands_integration/tools/knowledge_search.py
+    "simple_list",  # app/strands_integration/tools/simple_list.py
+    "structured_list",  # app/strands_integration/tools/simple_list.py
+}
+
+
+def _normalize_tool_name(name: str) -> str:
+    """Normalize a tool name the same way `strands.tools.registry.ToolRegistry`
+    does when checking for collisions, so `foo-bar` and `foo_bar` are treated
+    as the same name."""
+    return name.replace("-", "_")
+
 
 def get_mcp_bearer_token(
     client_id: str, client_secret: str, cognito_domain: str, cache_key: str
@@ -127,7 +148,9 @@ def mcp_tools_scope(bot: BotModel | None):
         return
 
     combined_tools: list[MCPAgentTool] = []
-    combined_tool_names: set[str] = set()
+    combined_tool_names: set[str] = {
+        _normalize_tool_name(name) for name in RESERVED_TOOL_NAMES
+    }
     with ExitStack() as stack:
         for server in mcp_tool.mcpServers:
             try:
@@ -168,14 +191,15 @@ def mcp_tools_scope(bot: BotModel | None):
             for tool in server_tools:
                 tool.mcp_tool.name = f"{prefix}{tool.mcp_tool.name}"
                 tool.mcp_client = _LabelStrippingMcpClient(tool.mcp_client, prefix)
-                if tool.mcp_tool.name in combined_tool_names:
+                normalized_name = _normalize_tool_name(tool.mcp_tool.name)
+                if normalized_name in combined_tool_names:
                     logger.warning(
                         f"Tool '{tool.mcp_tool.name}' from MCP server "
                         f"'{server.label}' collides with an already-added tool "
                         "name, skipping it"
                     )
                     continue
-                combined_tool_names.add(tool.mcp_tool.name)
+                combined_tool_names.add(normalized_name)
                 combined_tools.append(tool)
 
         yield combined_tools

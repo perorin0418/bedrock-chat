@@ -11,6 +11,7 @@ type Props = {
   hint?: string;
   errorMessage?: string;
   icon?: ReactNode;
+  maxLength?: number;
   onChange?: (s: string) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
 };
@@ -37,6 +38,7 @@ const InputText = React.forwardRef<HTMLInputElement, Props>((props, ref) => {
         disabled={props.disabled}
         value={props.value}
         placeholder={props.placeholder}
+        maxLength={props.maxLength}
         onChange={(e) => {
           props.onChange?.(e.target.value);
         }}

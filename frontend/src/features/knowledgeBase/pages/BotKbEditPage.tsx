@@ -1028,6 +1028,18 @@ const BotKbEditPage: React.FC = () => {
           );
           return true;
         }
+
+        const hasTooLongLabel = tool.mcpServers.some(
+          (server) => server.label.length > 20
+        );
+
+        if (hasTooLongLabel) {
+          setErrorMessages(
+            `tools-${idx}-mcpServers.label`,
+            t('input.validationError.required')
+          );
+          return true;
+        }
       }
 
       return false; // Tool is valid
