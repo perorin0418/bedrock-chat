@@ -136,8 +136,33 @@ class BedrockAgentTool(BaseSchema):
     bedrockAgentConfig: Optional[BedrockAgentConfig] | None = None
 
 
+class McpConfig(BaseSchema):
+    endpoint_url: str
+    client_id: str
+    client_secret: str
+
+    @field_validator("endpoint_url")
+    def validate_endpoint_url(cls, v):
+        if v == "":
+            raise ValueError("MCP endpoint URL is empty")
+        return v
+
+    @field_validator("client_id")
+    def validate_client_id(cls, v):
+        if v == "":
+            raise ValueError("MCP client ID is empty")
+        return v
+
+
+class McpTool(BaseSchema):
+    tool_type: Literal["mcp"] = "mcp"
+    name: str
+    description: str
+    mcpConfig: Optional[McpConfig] | None = None
+
+
 Tool = Annotated[
-    PlainTool | InternetTool | BedrockAgentTool, Discriminator("tool_type")
+    PlainTool | InternetTool | BedrockAgentTool | McpTool, Discriminator("tool_type")
 ]
 
 
