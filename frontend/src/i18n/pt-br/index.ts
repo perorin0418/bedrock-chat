@@ -219,8 +219,14 @@ const translation = {
         mcp: {
           name: 'Servidor MCP',
           description: 'Conecte-se ao servidor MCP configurado para usar suas ferramentas.',
+          addServer: 'Adicionar Servidor',
+          removeServer: 'Remover',
         },
         mcpConfig: {
+          label: {
+            label: 'Rótulo do Servidor',
+            placeholder: 'Apenas letras, números e sublinhado (ex: powersort)',
+          },
           endpointUrl: {
             label: 'URL do Endpoint',
             placeholder: 'Digite a URL do endpoint do servidor MCP',

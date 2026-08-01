@@ -13,6 +13,12 @@ export const McpConfig = ({ config, onChange }: Props) => {
   return (
     <div className="space-y-4">
       <InputText
+        label={t('agent.tools.mcpConfig.label.label')}
+        placeholder={t('agent.tools.mcpConfig.label.placeholder')}
+        value={config.label}
+        onChange={(value) => onChange({ ...config, label: value })}
+      />
+      <InputText
         label={t('agent.tools.mcpConfig.endpointUrl.label')}
         placeholder={t('agent.tools.mcpConfig.endpointUrl.placeholder')}
         value={config.endpointUrl}
