@@ -150,6 +150,37 @@ class TestMcpToolsScope(unittest.TestCase):
         with mcp_tools_scope(bot) as tools:
             self.assertEqual(tools, [])
 
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_body_exception_propagates_unchanged(self, mock_get_token, mock_mcp_client_cls):
+        mock_get_token.return_value = "token-1"
+        mock_client_instance = MagicMock()
+        mock_client_instance.list_tools_sync.return_value = []
+        mock_mcp_client_cls.return_value = mock_client_instance
+
+        bot = _make_bot(
+            [
+                McpToolModel(
+                    tool_type="mcp",
+                    name="mcp",
+                    description="MCP knowledge search",
+                    mcpConfig=McpConfigModel(
+                        endpoint_url="https://example.com/mcp",
+                        client_id="client-1",
+                        secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/test-user/test-bot",
+                        client_secret="s3cr3t",
+                    ),
+                )
+            ]
+        )
+
+        class BodyError(Exception):
+            pass
+
+        with self.assertRaises(BodyError):
+            with mcp_tools_scope(bot) as tools:
+                raise BodyError("boom")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -94,8 +94,21 @@ def mcp_tools_scope(bot: BotModel | None):
                 headers={"Authorization": f"Bearer {token}"},
             )
         )
-        with client:
-            yield client.list_tools_sync()
+        client.__enter__()
     except Exception as e:
         logger.error(f"MCP connection failed, falling back without MCP tools: {e}")
         yield []
+        return
+
+    try:
+        tools = client.list_tools_sync()
+    except Exception as e:
+        logger.error(f"MCP connection failed, falling back without MCP tools: {e}")
+        client.__exit__(None, None, None)
+        yield []
+        return
+
+    try:
+        yield tools
+    finally:
+        client.__exit__(None, None, None)
