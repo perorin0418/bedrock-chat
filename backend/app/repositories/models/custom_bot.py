@@ -22,6 +22,8 @@ from app.routes.schemas.bot import (
     GenerationParams,
     InternetTool,
     Knowledge,
+    McpConfig,
+    McpTool,
     PlainTool,
     ReasoningParams,
     Tool,
@@ -252,8 +254,85 @@ class BedrockAgentToolModel(BaseModel):
         )
 
 
+class McpConfigModel(BaseModel):
+    endpoint_url: str
+    client_id: str
+    secret_arn: str
+    client_secret: SecureString
+
+    @classmethod
+    def from_mcp_config(cls, config: McpConfig, user_id: str, bot_id: str) -> Self:
+        """Create a configuration model from the input and save the client secret to Secrets Manager"""
+        secret_arn = store_api_key_to_secret_manager(
+            user_id, bot_id, "mcp", config.client_secret
+        )
+
+        return cls(
+            endpoint_url=config.endpoint_url,
+            client_id=config.client_id,
+            secret_arn=secret_arn,
+            client_secret=config.client_secret,
+        )
+
+    @model_validator(mode="before")
+    @classmethod
+    def load_secret_from_arn(cls, data):
+        """Load the client secret from Secrets Manager when it is empty"""
+        if (
+            isinstance(data, dict)
+            and "client_secret" in data
+            and data["client_secret"] == ""
+            and "secret_arn" in data
+        ):
+            try:
+                client_secret = get_api_key_from_secret_manager(data["secret_arn"])
+                data["client_secret"] = client_secret
+            except Exception as e:
+                logger.error(f"Failed to retrieve MCP secret from ARN: {e}")
+                raise ValueError(
+                    f"Failed to retrieve MCP secret from ARN: {data['secret_arn']}"
+                )
+
+        return data
+
+
+class McpToolModel(BaseModel):
+    tool_type: Literal["mcp"] = Field(
+        "mcp",
+        description="Type of tool. It does need additional settings for the MCP server connection.",
+    )
+    name: str
+    description: str
+    mcpConfig: Optional[McpConfigModel] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def load_mcp_secret(cls, data):
+        """Ensures validation of nested `McpConfigModel` with secret loading."""
+        if (
+            isinstance(data, dict)
+            and data.get("mcpConfig")
+            and isinstance(data["mcpConfig"], dict)
+        ):
+            data["mcpConfig"] = McpConfigModel.model_validate(data["mcpConfig"])
+        return data
+
+    @classmethod
+    def from_tool_input(cls, tool: McpTool, user_id: str, bot_id: str) -> Self:
+        mcp_config = None
+        if tool.mcpConfig:
+            mcp_config = McpConfigModel.from_mcp_config(tool.mcpConfig, user_id, bot_id)
+
+        return cls(
+            tool_type="mcp",
+            name=tool.name,
+            description=tool.description,
+            mcpConfig=mcp_config,
+        )
+
+
 ToolModel = Annotated[
-    PlainToolModel | InternetToolModel | BedrockAgentToolModel,
+    PlainToolModel | InternetToolModel | BedrockAgentToolModel | McpToolModel,
     Discriminator("tool_type"),
 ]
 
@@ -293,6 +372,10 @@ class AgentModel(BaseModel):
                 )
             elif tool_input.tool_type == "bedrock_agent":
                 tools.append(BedrockAgentToolModel.from_tool_input(tool_input))
+            elif tool_input.tool_type == "mcp":
+                tools.append(
+                    McpToolModel.from_tool_input(tool_input, user_id, bot_id)
+                )
 
         return cls(tools=tools)
 
@@ -329,6 +412,23 @@ class AgentModel(BaseModel):
                         bedrockAgentConfig=(
                             BedrockAgentConfig(**tool.bedrockAgentConfig.model_dump())
                             if tool.bedrockAgentConfig
+                            else None
+                        ),
+                    )
+                )
+            elif isinstance(tool, McpToolModel):
+                tools.append(
+                    McpTool(
+                        tool_type="mcp",
+                        name=tool.name,
+                        description=tool.description,
+                        mcpConfig=(
+                            McpConfig(
+                                endpoint_url=tool.mcpConfig.endpoint_url,
+                                client_id=tool.mcpConfig.client_id,
+                                client_secret=tool.mcpConfig.client_secret,
+                            )
+                            if tool.mcpConfig
                             else None
                         ),
                     )
