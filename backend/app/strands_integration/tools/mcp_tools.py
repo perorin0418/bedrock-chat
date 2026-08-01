@@ -94,7 +94,8 @@ def mcp_tools_scope(bot: BotModel | None):
                 config.endpoint_url,
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
-            )
+            ),
+            startup_timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
         )
         client.__enter__()
     except Exception as e:
