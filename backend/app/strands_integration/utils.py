@@ -21,7 +21,9 @@ def get_strands_registered_tools(bot: BotModel | None = None) -> list[StrandsAge
     from app.strands_integration.tools.internet_search import (
         create_internet_search_tool,
     )
-    from app.strands_integration.tools.mcp_placeholder import create_mcp_placeholder_tool
+    from app.strands_integration.tools.mcp_placeholder import (
+        create_mcp_placeholder_tool,
+    )
     from app.strands_integration.tools.simple_list import simple_list, structured_list
 
     tools: list[StrandsAgentTool] = []
