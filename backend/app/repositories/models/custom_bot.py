@@ -338,9 +338,7 @@ class McpToolModel(BaseModel):
                 user_id, bot_id, "mcp", json.dumps(secrets_by_label)
             )
 
-        servers = [
-            McpConfigModel.from_mcp_config(server) for server in tool.mcpServers
-        ]
+        servers = [McpConfigModel.from_mcp_config(server) for server in tool.mcpServers]
 
         return cls(
             tool_type="mcp",
