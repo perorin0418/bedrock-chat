@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Annotated, Any, Dict, List, Literal, Optional, Self, Type, get_args
 
@@ -255,45 +256,21 @@ class BedrockAgentToolModel(BaseModel):
 
 
 class McpConfigModel(BaseModel):
+    label: str
     endpoint_url: str
     client_id: str
-    secret_arn: str
     client_secret: SecureString = Field(..., repr=False)
 
     @classmethod
-    def from_mcp_config(cls, config: McpConfig, user_id: str, bot_id: str) -> Self:
-        """Create a configuration model from the input and save the client secret to Secrets Manager"""
-        secret_arn = store_api_key_to_secret_manager(
-            user_id, bot_id, "mcp", config.client_secret
-        )
-
+    def from_mcp_config(cls, config: McpConfig) -> Self:
+        """Create a configuration model from the input (secret storage is handled once,
+        for all servers together, at the McpToolModel level)."""
         return cls(
+            label=config.label,
             endpoint_url=config.endpoint_url,
             client_id=config.client_id,
-            secret_arn=secret_arn,
             client_secret=config.client_secret,
         )
-
-    @model_validator(mode="before")
-    @classmethod
-    def load_secret_from_arn(cls, data):
-        """Load the client secret from Secrets Manager when it is empty"""
-        if (
-            isinstance(data, dict)
-            and "client_secret" in data
-            and data["client_secret"] == ""
-            and "secret_arn" in data
-        ):
-            try:
-                client_secret = get_api_key_from_secret_manager(data["secret_arn"])
-                data["client_secret"] = client_secret
-            except Exception as e:
-                logger.error(f"Failed to retrieve MCP secret from ARN: {e}")
-                raise ValueError(
-                    f"Failed to retrieve MCP secret from ARN: {data['secret_arn']}"
-                )
-
-        return data
 
 
 class McpToolModel(BaseModel):
@@ -303,31 +280,74 @@ class McpToolModel(BaseModel):
     )
     name: str
     description: str
-    mcpConfig: Optional[McpConfigModel] | None = None
+    mcpServers: list[McpConfigModel] = []
+    secret_arn: str | None = None
 
     @model_validator(mode="before")
     @classmethod
-    def load_mcp_secret(cls, data):
-        """Ensures validation of nested `McpConfigModel` with secret loading."""
-        if (
-            isinstance(data, dict)
-            and data.get("mcpConfig")
-            and isinstance(data["mcpConfig"], dict)
-        ):
-            data["mcpConfig"] = McpConfigModel.model_validate(data["mcpConfig"])
+    def load_mcp_secrets(cls, data):
+        """Load per-server client secrets from the shared Secrets Manager entry when empty.
+
+        All of a bot's MCP server secrets are stored together as one JSON blob
+        (`{label: client_secret, ...}`) under a single Secrets Manager entry
+        (`secret_arn`), keyed by each server's `label`.
+        """
+        if isinstance(data, dict) and data.get("mcpServers") and data.get("secret_arn"):
+            servers = data["mcpServers"]
+
+            def _get_secret(s):
+                return (
+                    s.get("client_secret", "")
+                    if isinstance(s, dict)
+                    else s.client_secret
+                )
+
+            def _get_label(s):
+                return s.get("label") if isinstance(s, dict) else s.label
+
+            def _set_secret(s, value):
+                if isinstance(s, dict):
+                    s["client_secret"] = value
+                else:
+                    s.client_secret = value
+
+            needs_load = any(_get_secret(s) == "" for s in servers)
+            if needs_load:
+                try:
+                    secrets_by_label = json.loads(
+                        get_api_key_from_secret_manager(data["secret_arn"])
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to retrieve MCP secrets from ARN: {e}")
+                    raise ValueError(
+                        f"Failed to retrieve MCP secrets from ARN: {data['secret_arn']}"
+                    )
+                for s in servers:
+                    if _get_secret(s) == "":
+                        _set_secret(s, secrets_by_label.get(_get_label(s), ""))
         return data
 
     @classmethod
     def from_tool_input(cls, tool: McpTool, user_id: str, bot_id: str) -> Self:
-        mcp_config = None
-        if tool.mcpConfig:
-            mcp_config = McpConfigModel.from_mcp_config(tool.mcpConfig, user_id, bot_id)
+        secret_arn = None
+        if tool.mcpServers:
+            secrets_by_label = {
+                server.label: server.client_secret for server in tool.mcpServers
+            }
+            secret_arn = store_api_key_to_secret_manager(
+                user_id, bot_id, "mcp", json.dumps(secrets_by_label)
+            )
+
+        servers = [
+            McpConfigModel.from_mcp_config(server) for server in tool.mcpServers
+        ]
 
         return cls(
             tool_type="mcp",
             name=tool.name,
             description=tool.description,
-            mcpConfig=mcp_config,
+            mcpServers=servers,
+            secret_arn=secret_arn,
         )
 
 
@@ -420,15 +440,15 @@ class AgentModel(BaseModel):
                         tool_type="mcp",
                         name=tool.name,
                         description=tool.description,
-                        mcpConfig=(
+                        mcpServers=[
                             McpConfig(
-                                endpoint_url=tool.mcpConfig.endpoint_url,
-                                client_id=tool.mcpConfig.client_id,
-                                client_secret=tool.mcpConfig.client_secret,
+                                label=server.label,
+                                endpoint_url=server.endpoint_url,
+                                client_id=server.client_id,
+                                client_secret=server.client_secret,
                             )
-                            if tool.mcpConfig
-                            else None
-                        ),
+                            for server in tool.mcpServers
+                        ],
                     )
                 )
             else:
