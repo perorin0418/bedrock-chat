@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -137,9 +138,20 @@ class BedrockAgentTool(BaseSchema):
 
 
 class McpConfig(BaseSchema):
+    label: str
     endpoint_url: str
     client_id: str
     client_secret: str
+
+    @field_validator("label")
+    def validate_label(cls, v):
+        if v == "":
+            raise ValueError("MCP server label is empty")
+        if not re.match(r"^[a-zA-Z0-9_]+$", v):
+            raise ValueError(
+                "MCP server label must contain only letters, digits, and underscores"
+            )
+        return v
 
     @field_validator("endpoint_url")
     def validate_endpoint_url(cls, v):
@@ -166,7 +178,14 @@ class McpTool(BaseSchema):
     tool_type: Literal["mcp"] = "mcp"
     name: str
     description: str
-    mcpConfig: Optional[McpConfig] | None = None
+    mcpServers: list[McpConfig] = []
+
+    @field_validator("mcpServers")
+    def validate_unique_labels(cls, v):
+        labels = [server.label for server in v]
+        if len(labels) != len(set(labels)):
+            raise ValueError("MCP server labels must be unique")
+        return v
 
 
 Tool = Annotated[
