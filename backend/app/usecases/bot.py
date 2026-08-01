@@ -59,6 +59,7 @@ from app.routes.schemas.bot import (
     GenerationParams,
     InternetTool,
     Knowledge,
+    McpTool,
     PartialVisibilityInput,
     PlainTool,
     PrivateVisibilityInput,
@@ -683,6 +684,14 @@ def fetch_available_agent_tools() -> list[Tool]:
                 result.append(
                     BedrockAgentTool(
                         tool_type="bedrock_agent",
+                        name=tool.tool_name,
+                        description=description,
+                    )
+                )
+            elif tool.tool_name == "mcp":
+                result.append(
+                    McpTool(
+                        tool_type="mcp",
                         name=tool.tool_name,
                         description=description,
                     )
