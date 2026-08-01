@@ -15,6 +15,7 @@ from app.repositories.models.custom_bot import (
 )
 from app.routes.schemas.conversation import ChatInput
 from app.strands_integration.agent import create_strands_agent
+from app.strands_integration.tools.mcp_tools import mcp_tools_scope
 from app.strands_integration.converters import (
     simple_message_models_to_strands_messages,
     strands_message_to_simple_message_model,
@@ -85,59 +86,61 @@ def converse_with_strands(
     prompt_caching_enabled = bot.prompt_caching_enabled if bot is not None else True
     has_tools = bot is not None and bot.is_agent_enabled()
 
-    agent = create_strands_agent(
-        bot=bot,
-        instructions=instructions,
-        model_name=chat_input.message.model,
-        generation_params=generation_params,
-        guardrail=guardrail,
-        enable_reasoning=chat_input.enable_reasoning,
-        prompt_caching_enabled=prompt_caching_enabled,
-        has_tools=has_tools,
-        hooks=[tool_capture],
-    )
+    with mcp_tools_scope(bot) as mcp_tools:
+        agent = create_strands_agent(
+            bot=bot,
+            instructions=instructions,
+            model_name=chat_input.message.model,
+            generation_params=generation_params,
+            guardrail=guardrail,
+            enable_reasoning=chat_input.enable_reasoning,
+            prompt_caching_enabled=prompt_caching_enabled,
+            has_tools=has_tools,
+            hooks=[tool_capture],
+            extra_tools=mcp_tools,
+        )
 
-    thinking_log: list[SimpleMessageModel] = []
+        thinking_log: list[SimpleMessageModel] = []
 
-    def on_message(message: Message):
-        if any(
-            "toolUse" in content or "toolResult" in content
-            for content in message["content"]
-        ):
-            thinking_log.append(strands_message_to_simple_message_model(message))
+        def on_message(message: Message):
+            if any(
+                "toolUse" in content or "toolResult" in content
+                for content in message["content"]
+            ):
+                thinking_log.append(strands_message_to_simple_message_model(message))
 
-    agent.callback_handler = create_callback_handler(
-        on_stream=on_stream,
-        on_reasoning=on_reasoning,
-        on_message=on_message,
-    )
+        agent.callback_handler = create_callback_handler(
+            on_stream=on_stream,
+            on_reasoning=on_reasoning,
+            on_message=on_message,
+        )
 
-    # Convert SimpleMessageModel list to Strands Messages format
-    strands_messages = simple_message_models_to_strands_messages(
-        simple_messages=messages,
-        model=chat_input.message.model,
-        guardrail=guardrail,
-        search_results=search_results,
-        prompt_caching_enabled=prompt_caching_enabled,
-    )
+        # Convert SimpleMessageModel list to Strands Messages format
+        strands_messages = simple_message_models_to_strands_messages(
+            simple_messages=messages,
+            model=chat_input.message.model,
+            guardrail=guardrail,
+            search_results=search_results,
+            prompt_caching_enabled=prompt_caching_enabled,
+        )
 
-    def run_agent(agent: Agent) -> tuple[StopReason, Message, EventLoopMetrics]:
-        try:
-            result = agent(strands_messages)
-            return (
-                result.stop_reason,
-                result.message,
-                result.metrics,
-            )
+        def run_agent(agent: Agent) -> tuple[StopReason, Message, EventLoopMetrics]:
+            try:
+                result = agent(strands_messages)
+                return (
+                    result.stop_reason,
+                    result.message,
+                    result.metrics,
+                )
 
-        except MaxTokensReachedException:
-            return (
-                "max_tokens",
-                agent.messages[-1],
-                agent.event_loop_metrics,
-            )
+            except MaxTokensReachedException:
+                return (
+                    "max_tokens",
+                    agent.messages[-1],
+                    agent.event_loop_metrics,
+                )
 
-    stop_reason, result_message, metrics = run_agent(agent)
+        stop_reason, result_message, metrics = run_agent(agent)
 
     # Convert Strands Message to MessageModel
     message = strands_message_to_message_model(
