@@ -253,6 +253,24 @@ const translation = {
             placeholder: 'Enter Alias ID',
           },
         },
+        mcp: {
+          name: 'MCP Server',
+          description: 'Connect to the configured MCP server to use its tools.',
+        },
+        mcpConfig: {
+          endpointUrl: {
+            label: 'Endpoint URL',
+            placeholder: 'Enter the MCP server endpoint URL',
+          },
+          clientId: {
+            label: 'Client ID',
+            placeholder: 'Enter Client ID',
+          },
+          clientSecret: {
+            label: 'Client Secret',
+            placeholder: 'Enter Client Secret',
+          },
+        },
       },
     },
     bot: {
