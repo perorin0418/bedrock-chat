@@ -62,5 +62,94 @@ class TestGetMcpBearerToken(unittest.TestCase):
         mock_post.assert_called_once()
 
 
+from app.repositories.models.custom_bot import (
+    ActiveModelsModel,
+    AgentModel,
+    GenerationParamsModel,
+    KnowledgeModel,
+    McpConfigModel,
+    McpToolModel,
+    ReasoningParamsModel,
+    UsageStatsModel,
+)
+from app.repositories.models.custom_bot import BotModel
+from app.strands_integration.tools.mcp_tools import mcp_tools_scope
+
+
+def _make_bot(tools):
+    return BotModel(
+        id="test-bot",
+        title="Test Bot",
+        description="",
+        instruction="",
+        create_time=1627984879.9,
+        last_used_time=1627984879.9,
+        shared_scope="private",
+        shared_status="unshared",
+        allowed_cognito_groups=[],
+        allowed_cognito_users=[],
+        is_starred=False,
+        owner_user_id="test-user",
+        generation_params=GenerationParamsModel(
+            max_tokens=2000,
+            top_k=250,
+            top_p=0.999,
+            temperature=0.6,
+            stop_sequences=["Human: ", "Assistant: "],
+            reasoning_params=ReasoningParamsModel(budget_tokens=1024),
+        ),
+        agent=AgentModel(tools=tools),
+        knowledge=KnowledgeModel(
+            source_urls=[], sitemap_urls=[], filenames=[], s3_urls=[]
+        ),
+        prompt_caching_enabled=False,
+        sync_status="RUNNING",
+        sync_status_reason="reason",
+        sync_last_exec_id="",
+        published_api_stack_name=None,
+        published_api_datetime=None,
+        published_api_codebuild_id=None,
+        display_retrieved_chunks=True,
+        conversation_quick_starters=[],
+        bedrock_knowledge_base=None,
+        bedrock_guardrails=None,
+        active_models=ActiveModelsModel(),
+        usage_stats=UsageStatsModel(usage_count=0),
+    )
+
+
+class TestMcpToolsScope(unittest.TestCase):
+    def test_yields_empty_list_when_bot_is_none(self):
+        with mcp_tools_scope(None) as tools:
+            self.assertEqual(tools, [])
+
+    def test_yields_empty_list_when_no_mcp_tool_configured(self):
+        bot = _make_bot([])
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(tools, [])
+
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_yields_empty_list_on_connection_failure(self, mock_get_token):
+        mock_get_token.side_effect = Exception("token fetch failed")
+        bot = _make_bot(
+            [
+                McpToolModel(
+                    tool_type="mcp",
+                    name="mcp",
+                    description="MCP knowledge search",
+                    mcpConfig=McpConfigModel(
+                        endpoint_url="https://example.com/mcp",
+                        client_id="client-1",
+                        secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/test-user/test-bot",
+                        client_secret="s3cr3t",
+                    ),
+                )
+            ]
+        )
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(tools, [])
+
+
 if __name__ == "__main__":
     unittest.main()

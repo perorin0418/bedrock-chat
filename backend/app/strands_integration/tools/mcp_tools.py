@@ -3,12 +3,20 @@ MCP server integration - token acquisition/caching and tool scoping.
 """
 
 import logging
+import os
 import time
+from contextlib import contextmanager
 
 import requests
+from app.repositories.models.custom_bot import BotModel
+from mcp.client.streamable_http import streamablehttp_client
+from strands.tools.mcp import MCPClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
+COGNITO_MCP_AUTH_DOMAIN = f"knowledge-mcp-auth.auth.{BEDROCK_REGION}.amazoncognito.com"
 
 # Lambda container in-memory cache: cache_key -> (access_token, expires_at)
 _token_cache: dict[str, tuple[str, float]] = {}
@@ -47,3 +55,47 @@ def get_mcp_bearer_token(
     _token_cache[cache_key] = (body["access_token"], expires_at)
 
     return body["access_token"]
+
+
+def _get_mcp_tool_config(bot: BotModel | None):
+    """Extract MCP tool configuration from bot."""
+    if not bot or not bot.agent or not bot.agent.tools:
+        return None
+
+    for tool_config in bot.agent.tools:
+        if tool_config.tool_type == "mcp" and tool_config.mcpConfig:
+            return tool_config.mcpConfig
+
+    return None
+
+
+@contextmanager
+def mcp_tools_scope(bot: BotModel | None):
+    """Open an MCP connection scoped to a single chat turn and yield its tools.
+
+    Yields an empty list when the bot has no MCP tool configured, or when
+    the connection/token fetch fails (degrade gracefully, keep the chat working).
+    """
+    config = _get_mcp_tool_config(bot)
+    if not config:
+        yield []
+        return
+
+    try:
+        token = get_mcp_bearer_token(
+            config.client_id,
+            config.client_secret,
+            COGNITO_MCP_AUTH_DOMAIN,
+            config.secret_arn,
+        )
+        client = MCPClient(
+            lambda: streamablehttp_client(
+                config.endpoint_url,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        )
+        with client:
+            yield client.list_tools_sync()
+    except Exception as e:
+        logger.error(f"MCP connection failed, falling back without MCP tools: {e}")
+        yield []
