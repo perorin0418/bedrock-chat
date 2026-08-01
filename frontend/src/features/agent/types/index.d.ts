@@ -21,6 +21,7 @@ export type BedrockAgentConfig = {
 };
 
 export type McpConfig = {
+  label: string;
   endpointUrl: string;
   clientId: string;
   clientSecret: string;
@@ -51,7 +52,7 @@ export type McpAgentTool = {
   toolType: 'mcp';
   name: string;
   description: string;
-  mcpConfig?: McpConfig;
+  mcpServers: McpConfig[];
 };
 
 export type AgentTool =
