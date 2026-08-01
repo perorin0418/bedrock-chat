@@ -216,6 +216,30 @@ const translation = {
             placeholder: 'Digite o ID do Alias',
           },
         },
+        mcp: {
+          name: 'Servidor MCP',
+          description: 'Conecte-se ao servidor MCP configurado para usar suas ferramentas.',
+          addServer: 'Adicionar Servidor',
+          removeServer: 'Remover',
+        },
+        mcpConfig: {
+          label: {
+            label: 'Rótulo do Servidor',
+            placeholder: 'Apenas letras, números e sublinhado (ex: powersort)',
+          },
+          endpointUrl: {
+            label: 'URL do Endpoint',
+            placeholder: 'Digite a URL do endpoint do servidor MCP',
+          },
+          clientId: {
+            label: 'Client ID',
+            placeholder: 'Digite o Client ID',
+          },
+          clientSecret: {
+            label: 'Client Secret',
+            placeholder: 'Digite o Client Secret',
+          },
+        },
       },
     },
     bot: {

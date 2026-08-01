@@ -254,6 +254,30 @@ const translation: typeof en = {
             placeholder: 'Alias IDを入力',
           },
         },
+        mcp: {
+          name: 'MCPサーバー',
+          description: '設定されたMCPサーバーに接続してツールを利用します。',
+          addServer: 'サーバーを追加',
+          removeServer: '削除',
+        },
+        mcpConfig: {
+          label: {
+            label: 'サーバーラベル',
+            placeholder: '英数字とアンダースコアのみ(例: powersort)',
+          },
+          endpointUrl: {
+            label: 'エンドポイントURL',
+            placeholder: 'MCPサーバーのエンドポイントURLを入力',
+          },
+          clientId: {
+            label: 'Client ID',
+            placeholder: 'Client IDを入力',
+          },
+          clientSecret: {
+            label: 'Client Secret',
+            placeholder: 'Client Secretを入力',
+          },
+        },
       },
     },
     bot: {

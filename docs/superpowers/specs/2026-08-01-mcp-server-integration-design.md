@@ -7,7 +7,7 @@ acrocity-rag-system側にKB(ナレッジベース)ごとのMCPサーバーが構
 利用イメージ:
 - 管理者がbot作成時に、接続したいKBのMCPエンドポイント・認証情報を入力して設定する
 - 一般利用者は、管理者が用意した既存botをそのまま使うだけで、裏側でMCP連携ツールが動く
-- bot 1つにつき MCP接続は1つ（1 bot = 1 KB）。複数KB同時接続は本設計のスコープ外
+- **[更新] bot 1つにつき MCP接続は0〜n個（1 bot = n KB）。1つのbotから複数KBのMCPサーバーへ同時接続できる**(初版では1 bot = 1 KBだったが、実運用要望により複数接続対応に変更)
 
 ## 認証方式（前提）
 
@@ -26,11 +26,13 @@ acrocity-rag-system側の指示書（`bedrock-chat-mcp-auth.md`）に基づく:
 
 チャット1ターン(`converse_with_strands`の1回の呼び出し)につき、以下の流れでMCP接続を行う:
 
-1. botの設定にMCPツールが有効になっていれば、Cognitoからアクセストークンを取得(Lambdaコンテナ内メモリキャッシュ、有効期限90秒前に再取得)
-2. `MCPClient` を該当エンドポイント・Bearerトークンでopen
-3. `list_tools_sync()` でMCPサーバーが提供するツール一覧を取得し、Strands Agentのツールリストに追加
-4. Agentを実行(`agent(strands_messages)`)
-5. ターン終了時に `MCPClient` をclose
+1. botの設定にMCPツールが有効になっていれば、設定されている**各MCPサーバーごとに**Cognitoからアクセストークンを取得(Lambdaコンテナ内メモリキャッシュ、有効期限90秒前に再取得)
+2. サーバーごとに `MCPClient` を該当エンドポイント・Bearerトークンでopen
+3. サーバーごとに `list_tools_sync()` でツール一覧を取得し、ツール名にサーバーの `label` をprefixとして付与して一意化した上で結合する
+4. 結合したツールリストをStrands Agentに渡してAgentを実行(`agent(strands_messages)`)
+5. ターン終了時に、開いた `MCPClient` を全てclose
+
+**サーバーごとに独立して縮退運転する**: 1つのMCPサーバーへの接続・トークン取得が失敗しても、そのサーバーのツールだけ利用不可になり、他のサーバーのツール・チャット自体は継続する。
 
 MCP接続はチャット1ターンの間だけ開き、常時接続は行わない(Lambda実行モデルと自然に合致するため)。
 
@@ -40,27 +42,29 @@ MCP接続はチャット1ターンの間だけ開き、常時接続は行わな�
 
 ```python
 class McpConfigModel(BaseModel):
+    label: str                   # サーバー識別用ラベル。ツール名prefixにも使う(英数字+アンダースコアのみ)
     endpoint_url: str
     client_id: str
-    secret_arn: str              # Secrets Manager上のARN
-    client_secret: SecureString  # 保存時はSecrets Managerに格納、取得時はARNから復元
+    client_secret: SecureString  # 保存時はSecrets Managerに格納、取得時は復元
 
 class McpToolModel(BaseModel):
     tool_type: Literal["mcp"] = "mcp"
     name: str
     description: str
-    mcpConfig: Optional[McpConfigModel] = None
+    mcpServers: list[McpConfigModel] = []
+    secret_arn: str | None = None  # bot全体で1つ。JSON({label: client_secret, ...})を保存
 ```
 
 - `ToolModel`(discriminated union: `PlainToolModel | InternetToolModel | BedrockAgentToolModel`)に `McpToolModel` を追加する
-- `client_secret` の保存・復元は既存の `FirecrawlConfigModel`(`store_api_key_to_secret_manager` / `get_api_key_from_secret_manager` / `load_secret_from_arn` validator)と全く同じパターンを踏襲する
+- シークレット保存は既存の `store_api_key_to_secret_manager`/`get_api_key_from_secret_manager`(Firecrawlと同じ汎用関数)を再利用しつつ、値は「サーバーlabel → client_secret」のJSONを1つのシークレットにまとめて保存する(bot全体で1つのシークレット)。これにより bot削除時のクリーンアップは既存の1回呼び出し(`delete_api_key_from_secret_manager(user_id, bot_id, "mcp")`)のまま変更不要
+- ルートスキーマ側 `McpConfig` に `label: str` を追加し、`McpTool.mcpServers: list[McpConfig]` にラベル重複チェックのバリデーションを追加する
 
 ## トークン取得・キャッシュ（backend新規）
 
 `backend/app/strands_integration/tools/mcp_tools.py` に実装。
 
 ```python
-_token_cache: dict[str, tuple[str, float]] = {}  # key: secret_arn
+_token_cache: dict[str, tuple[str, float]] = {}  # key: f"{secret_arn}:{label}"
 
 def get_mcp_bearer_token(client_id: str, client_secret: str, cognito_domain: str, cache_key: str) -> str:
     cached = _token_cache.get(cache_key)
@@ -71,6 +75,7 @@ def get_mcp_bearer_token(client_id: str, client_secret: str, cognito_domain: str
         f"https://{cognito_domain}/oauth2/token",
         auth=(client_id, client_secret),
         data={"grant_type": "client_credentials", "scope": "knowledge-mcp/invoke"},
+        timeout=10,
     )
     resp.raise_for_status()
     body = resp.json()
@@ -80,91 +85,43 @@ def get_mcp_bearer_token(client_id: str, client_secret: str, cognito_domain: str
 ```
 
 - キャッシュはLambdaコンテナ内メモリ(グローバル辞書)。コンテナ間共有はしない(コールドスタート時は再取得されるだけで許容範囲)
-- `cache_key` は bot の `secret_arn`(KBごとに異なるためKB単位でキャッシュが分離される)
+- `cache_key` は `f"{secret_arn}:{label}"`(1 bot内の複数サーバーがシークレットを共有するため、`label` も含めてサーバー単位にキャッシュを分離する)
 - Cognitoドメイン・scopeは固定値としてコード内にハードコードする
 
-## Strands統合（MCPClientのライフサイクル）
+## Strands統合（複数MCPClientのライフサイクル・ツール名の一意化）
 
-`mcp_tools.py`:
+`mcp_tools.py`(方針。詳細実装は実装計画で詰める):
 
-```python
-@contextmanager
-def mcp_tools_scope(bot: BotModel | None):
-    """botにMCP設定があれば接続してtools一覧をyield、なければ空リストをyield。
-    接続失敗時はログのみ出力し空リストにフォールバックする(縮退運転)。"""
-    config = _get_mcp_tool_config(bot)
-    if not config:
-        yield []
-        return
+- `mcp_tools_scope(bot)` は bot の `mcpServers` を1件ずつ処理し、`contextlib.ExitStack` で複数の `MCPClient` 接続をまとめて管理する
+- サーバーごとに: トークン取得 → `MCPClient` を該当エンドポイントでopen → `list_tools_sync()` → 取得したツール名の先頭に `{label}_` を付与 → 結合リストに追加
+- 1サーバーの処理で例外が起きても `except Exception` でその1件だけログ出力してスキップし、他サーバーの処理は継続する
+- ツール名の書き換え方法(strands SDKの `MCPAgentTool` が名前変更可能な構造か、ラッパーが必要か)は実装時にSDKを直接確認して決定する
+- ターン終了時、`ExitStack` が開いた接続を全てclose(close失敗時も既存のtry/exceptガードでチャット継続を保証)
 
-    try:
-        token = get_mcp_bearer_token(
-            config.client_id, config.client_secret, COGNITO_DOMAIN, config.secret_arn
-        )
-        client = MCPClient(lambda: streamablehttp_client(
-            config.endpoint_url,
-            headers={"Authorization": f"Bearer {token}"},
-        ))
-        with client:
-            yield client.list_tools_sync()
-    except Exception as e:
-        logger.error(f"MCP connection failed, falling back without MCP tools: {e}")
-        yield []
-```
-
-`backend/app/strands_integration/chat_strands.py` の `converse_with_strands`:
-
-```python
-with mcp_tools_scope(bot) as mcp_tools:
-    agent = create_strands_agent(..., extra_tools=mcp_tools, ...)
-    agent.callback_handler = create_callback_handler(...)
-    stop_reason, result_message, metrics = run_agent(agent)
-```
-
-`backend/app/strands_integration/agent/factory.py` の `create_strands_agent()`:
-- 新規引数 `extra_tools: list[StrandsAgentTool] | None = None` を追加
-- `tools=get_strands_tools(bot, model_name) + (extra_tools or [])` としてAgentに渡す
+`backend/app/strands_integration/chat_strands.py` の `converse_with_strands`、`agent/factory.py` の `create_strands_agent(extra_tools=...)` への配線は既存(1サーバー版)と同じ形を維持する(`mcp_tools_scope` が返すツールリストが複数サーバー分の結合済みリストになるだけで、呼び出し側のインターフェースは変わらない)。
 
 ## フロントエンド（bot作成/編集画面）
 
-`frontend/src/features/agent/types/index.d.ts`:
-
-```typescript
-export type ToolType = 'internet' | 'plain' | 'bedrock_agent' | 'mcp';
-
-export type McpConfig = {
-  endpointUrl: string;
-  clientId: string;
-  clientSecret: string;  // 保存時のみ送信。取得時は空文字(平文は再表示しない)
-};
-
-export type McpAgentTool = {
-  toolType: 'mcp';
-  name: string;
-  description: string;
-  mcpConfig?: McpConfig;
-};
-
-export type AgentTool = InternetAgentTool | PlainAgentTool | BedrockAgentTool | McpAgentTool;
-```
-
-- 新規 `McpConfig.tsx`(`BedrockAgentConfig.tsx` と同じ構造): `endpointUrl` / `clientId` / `clientSecret` の3つの `InputText`(`clientSecret` はマスク表示)
-- `AvailableTools.tsx` の `handleChangeTool` 等に `bedrock_agent` と同じ分岐を `mcp` 用に追加
+- `McpConfig`(型)に `label: string` を追加、`McpAgentTool.mcpConfig?: McpConfig`(単数)を `McpAgentTool.mcpServers: McpConfig[]`(配列)に変更
+- 新規 `McpServersConfig.tsx`: `McpConfig.tsx`(1件分の入力フォーム、`label`欄を追加)をリスト表示し、各行に削除ボタン、リスト末尾に追加ボタンを持つラッパーコンポーネント
+- 保存前バリデーション(`BotKbEditPage.tsx`)に、配列内の各サーバーの必須項目チェックとラベル重複チェックを追加
 
 ## エラーハンドリング
 
-- MCP接続(トークン取得・`list_tools_sync()`・接続確立)が失敗した場合は、既存のFirecrawl失敗時のフォールバック(DuckDuckGoへ切替)と同じ考え方で **縮退運転** する
-- `mcp_tools_scope` 内で例外を捕捉しログ出力、空リストをyieldしてチャット自体は継続する
+- サーバーごとの独立縮退運転(前述)。1台失敗しても他は継続、全滅時はMCPツール0件で応答継続
+- ラベル重複・必須項目の空値は保存時のバリデーションで弾くため、ランタイムでは発生しない想定
 - UI上にMCP接続失敗を明示する通知は本設計では行わない(既存のtool失敗時と同様、サイレント)
 
 ## テスト方針
 
-- `get_mcp_bearer_token` はHTTPリクエストをモックした単体テストでキャッシュ・再取得ロジックを検証する
-- `mcp_tools_scope` は、bot設定なし/MCP設定なし/接続失敗時にそれぞれ空リストへフォールバックすることを単体テストで検証する
-- 実際のMCPサーバーへの疎通を伴う結合テスト(`test_bedrock_agent.py` と同様の実AWSリソースを使うテスト)は、acrocity-rag-system側の実デプロイ環境が必要なため本設計のスコープでは自動テスト化せず、手動疎通確認とする
+- `get_mcp_bearer_token` はHTTPリクエストをモックした単体テストでキャッシュ・再取得ロジックを検証する(既存)
+- 複数サーバー設定でのシークレット保存/復元(JSON往復)の単体テストを追加
+- `mcp_tools_scope` は、bot設定なし/MCP設定なし/全サーバー接続失敗/一部サーバーのみ失敗(残りのサーバーのツールのみ返る)をそれぞれ単体テストで検証する
+- 実際のMCPサーバーへの疎通を伴う結合テストは、引き続き自動テスト化せず手動疎通確認とする
+- フロントエンドのリストUIはコンポーネント単体テストなし(既存の踏襲)
 
 ## スコープ外
 
-- bot単位で複数KB(複数MCPサーバー)への同時接続
-- 管理者向けのMCPサーバー登録・一覧管理画面
+- 管理者向けのMCPサーバー登録・一覧管理画面(botごとに手入力する形を維持)
 - MCP接続失敗のUI通知
+- サーバー数の上限設定

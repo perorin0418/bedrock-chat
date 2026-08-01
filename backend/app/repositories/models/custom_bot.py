@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Annotated, Any, Dict, List, Literal, Optional, Self, Type, get_args
 
@@ -22,6 +23,8 @@ from app.routes.schemas.bot import (
     GenerationParams,
     InternetTool,
     Knowledge,
+    McpConfig,
+    McpTool,
     PlainTool,
     ReasoningParams,
     Tool,
@@ -252,8 +255,102 @@ class BedrockAgentToolModel(BaseModel):
         )
 
 
+class McpConfigModel(BaseModel):
+    label: str
+    endpoint_url: str
+    client_id: str
+    client_secret: SecureString = Field(..., repr=False)
+
+    @classmethod
+    def from_mcp_config(cls, config: McpConfig) -> Self:
+        """Create a configuration model from the input (secret storage is handled once,
+        for all servers together, at the McpToolModel level)."""
+        return cls(
+            label=config.label,
+            endpoint_url=config.endpoint_url,
+            client_id=config.client_id,
+            client_secret=config.client_secret,
+        )
+
+
+class McpToolModel(BaseModel):
+    tool_type: Literal["mcp"] = Field(
+        "mcp",
+        description="Type of tool. It does need additional settings for the MCP server connection.",
+    )
+    name: str
+    description: str
+    mcpServers: list[McpConfigModel] = []
+    secret_arn: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def load_mcp_secrets(cls, data):
+        """Load per-server client secrets from the shared Secrets Manager entry when empty.
+
+        All of a bot's MCP server secrets are stored together as one JSON blob
+        (`{label: client_secret, ...}`) under a single Secrets Manager entry
+        (`secret_arn`), keyed by each server's `label`.
+        """
+        if isinstance(data, dict) and data.get("mcpServers") and data.get("secret_arn"):
+            servers = data["mcpServers"]
+
+            def _get_secret(s):
+                return (
+                    s.get("client_secret", "")
+                    if isinstance(s, dict)
+                    else s.client_secret
+                )
+
+            def _get_label(s):
+                return s.get("label") if isinstance(s, dict) else s.label
+
+            def _set_secret(s, value):
+                if isinstance(s, dict):
+                    s["client_secret"] = value
+                else:
+                    s.client_secret = value
+
+            needs_load = any(_get_secret(s) == "" for s in servers)
+            if needs_load:
+                try:
+                    secrets_by_label = json.loads(
+                        get_api_key_from_secret_manager(data["secret_arn"])
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to retrieve MCP secrets from ARN: {e}")
+                    raise ValueError(
+                        f"Failed to retrieve MCP secrets from ARN: {data['secret_arn']}"
+                    )
+                for s in servers:
+                    if _get_secret(s) == "":
+                        _set_secret(s, secrets_by_label.get(_get_label(s), ""))
+        return data
+
+    @classmethod
+    def from_tool_input(cls, tool: McpTool, user_id: str, bot_id: str) -> Self:
+        secret_arn = None
+        if tool.mcpServers:
+            secrets_by_label = {
+                server.label: server.client_secret for server in tool.mcpServers
+            }
+            secret_arn = store_api_key_to_secret_manager(
+                user_id, bot_id, "mcp", json.dumps(secrets_by_label)
+            )
+
+        servers = [McpConfigModel.from_mcp_config(server) for server in tool.mcpServers]
+
+        return cls(
+            tool_type="mcp",
+            name=tool.name,
+            description=tool.description,
+            mcpServers=servers,
+            secret_arn=secret_arn,
+        )
+
+
 ToolModel = Annotated[
-    PlainToolModel | InternetToolModel | BedrockAgentToolModel,
+    PlainToolModel | InternetToolModel | BedrockAgentToolModel | McpToolModel,
     Discriminator("tool_type"),
 ]
 
@@ -293,6 +390,8 @@ class AgentModel(BaseModel):
                 )
             elif tool_input.tool_type == "bedrock_agent":
                 tools.append(BedrockAgentToolModel.from_tool_input(tool_input))
+            elif tool_input.tool_type == "mcp":
+                tools.append(McpToolModel.from_tool_input(tool_input, user_id, bot_id))
 
         return cls(tools=tools)
 
@@ -331,6 +430,23 @@ class AgentModel(BaseModel):
                             if tool.bedrockAgentConfig
                             else None
                         ),
+                    )
+                )
+            elif isinstance(tool, McpToolModel):
+                tools.append(
+                    McpTool(
+                        tool_type="mcp",
+                        name=tool.name,
+                        description=tool.description,
+                        mcpServers=[
+                            McpConfig(
+                                label=server.label,
+                                endpoint_url=server.endpoint_url,
+                                client_id=server.client_id,
+                                client_secret=server.client_secret,
+                            )
+                            for server in tool.mcpServers
+                        ],
                     )
                 )
             else:

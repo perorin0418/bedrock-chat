@@ -5,10 +5,12 @@ import {
   BedrockAgentTool,
   FirecrawlConfig,
   InternetAgentTool,
+  McpAgentTool,
+  McpConfig as McpConfigType,
   SearchEngine,
   ToolType,
 } from '../types';
-import { isInternetTool, isBedrockAgentTool } from '../utils/typeGuards';
+import { isInternetTool, isBedrockAgentTool, isMcpTool } from '../utils/typeGuards';
 import Toggle from '../../../components/Toggle';
 import { Dispatch, useCallback, useState, useEffect } from 'react';
 import { formatDescription } from '../functions/formatDescription';
@@ -17,6 +19,7 @@ import Skeleton from '../../../components/Skeleton';
 import { TooltipDirection } from '../../../constants';
 import { FirecrawlConfig as FirecrawlConfigComponent } from './FirecrawlConfig';
 import { BedrockAgentConfig as BedrockAgentConfigComponent } from './BedrockAgentConfig';
+import { McpServersConfig } from './McpServersConfig';
 import ExpandableDrawerGroup from '../../../components/ExpandableDrawerGroup';
 import RadioButton from '../../../components/RadioButton';
 import { DEFAULT_FIRECRAWL_CONFIG } from '../constants';
@@ -76,6 +79,26 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
 
           return newTools;
         });
+      } else if (tool.name === 'mcp') {
+        setTools((preTools) => {
+          const isEnabled = preTools
+            ?.map(({ name }) => name)
+            .includes(tool.name);
+
+          const newTools = isEnabled
+            ? [...preTools.filter(({ name }) => name != tool.name)]
+            : [
+                ...preTools,
+                {
+                  ...tool,
+                  toolType: 'mcp' as ToolType,
+                  name: 'mcp',
+                  mcpServers: [],
+                } as AgentTool,
+              ];
+
+          return newTools;
+        });
       } else {
         setTools((preTools) =>
           preTools?.map(({ name }) => name).includes(tool.name)
@@ -128,6 +151,25 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
     [setTools]
   );
 
+  const handleMcpServersChange = useCallback(
+    (servers: McpConfigType[]) => {
+      setTools((prevTools) =>
+        prevTools.map((tool) => {
+          if (tool.name === 'mcp') {
+            return {
+              ...tool,
+              toolType: 'mcp' as ToolType,
+              name: 'mcp',
+              mcpServers: servers,
+            } as AgentTool;
+          }
+          return tool;
+        })
+      );
+    },
+    [setTools]
+  );
+
   const handleSearchEngineChange = useCallback(
     (value: string) => {
       const newEngine = value as SearchEngine;
@@ -144,7 +186,7 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
 
         const updatedTools = prevTools.map((tool) =>
           tool.name === 'internet_search'
-            ? {
+            ? ({
                 ...tool,
                 toolType: 'internet' as ToolType,
                 name: 'internet_search',
@@ -154,7 +196,7 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
                   newEngine === 'firecrawl' && isInternetTool(tool)
                     ? tool.firecrawlConfig
                     : undefined,
-              }
+              } as AgentTool)
             : tool
         );
         return updatedTools;
@@ -288,6 +330,21 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
                       }
                     }
                     onChange={handleBedrockAgentConfigChange}
+                  />
+                </div>
+              </div>
+            )}
+          {tool.name === 'mcp' &&
+            tools?.map(({ name }) => name).includes('mcp') && (
+              <div className="space-y-4">
+                <div className="ml-6 text-sm">
+                  <McpServersConfig
+                    servers={
+                      tools.find(
+                        (t): t is McpAgentTool => t.name === 'mcp' && isMcpTool(t)
+                      )?.mcpServers || []
+                    }
+                    onChange={handleMcpServersChange}
                   />
                 </div>
               </div>

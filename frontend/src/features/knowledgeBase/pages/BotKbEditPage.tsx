@@ -36,6 +36,7 @@ import { AgentTool } from '../../../features/agent/types';
 import {
   isInternetTool,
   isBedrockAgentTool,
+  isMcpTool,
 } from '../../../features/agent/utils/typeGuards';
 import { AvailableTools } from '../../../features/agent/components/AvailableTools';
 import {
@@ -982,6 +983,63 @@ const BotKbEditPage: React.FC = () => {
           t('input.validationError.required')
         );
         return true;
+      }
+
+      // Mcp tool validation: every configured server must have all fields filled,
+      // and labels must be unique within the bot.
+      if (isMcpTool(tool)) {
+        const labels = tool.mcpServers.map((server) => server.label);
+        const hasDuplicateLabel = labels.some(
+          (label, labelIdx) => label !== '' && labels.indexOf(label) !== labelIdx
+        );
+
+        if (hasDuplicateLabel) {
+          setErrorMessages(
+            `tools-${idx}-mcpServers.label`,
+            t('input.validationError.required')
+          );
+          return true;
+        }
+
+        const hasInvalidServer = tool.mcpServers.some(
+          (server) =>
+            !server.label ||
+            !server.endpointUrl ||
+            !server.clientId ||
+            !server.clientSecret
+        );
+
+        if (hasInvalidServer) {
+          setErrorMessages(
+            `tools-${idx}-mcpServers`,
+            t('input.validationError.required')
+          );
+          return true;
+        }
+
+        const hasInvalidLabelPattern = tool.mcpServers.some(
+          (server) => !/^[a-zA-Z0-9_]+$/.test(server.label)
+        );
+
+        if (hasInvalidLabelPattern) {
+          setErrorMessages(
+            `tools-${idx}-mcpServers.label`,
+            t('input.validationError.required')
+          );
+          return true;
+        }
+
+        const hasTooLongLabel = tool.mcpServers.some(
+          (server) => server.label.length > 20
+        );
+
+        if (hasTooLongLabel) {
+          setErrorMessages(
+            `tools-${idx}-mcpServers.label`,
+            t('input.validationError.required')
+          );
+          return true;
+        }
       }
 
       return false; // Tool is valid
