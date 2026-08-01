@@ -5,12 +5,12 @@ MCP server integration - token acquisition/caching and tool scoping.
 import logging
 import os
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 
 import requests
-from app.repositories.models.custom_bot import BotModel
+from app.repositories.models.custom_bot import BotModel, McpToolModel
 from mcp.client.streamable_http import streamablehttp_client
-from strands.tools.mcp import MCPClient
+from strands.tools.mcp import MCPAgentTool, MCPClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -58,66 +58,78 @@ def get_mcp_bearer_token(
     return body["access_token"]
 
 
-def _get_mcp_tool_config(bot: BotModel | None):
-    """Extract MCP tool configuration from bot."""
+def _get_mcp_tool(bot: BotModel | None) -> McpToolModel | None:
+    """Extract the bot's MCP tool configuration (all configured servers)."""
     if not bot or not bot.agent or not bot.agent.tools:
         return None
 
     for tool_config in bot.agent.tools:
-        if tool_config.tool_type == "mcp" and tool_config.mcpConfig:
-            return tool_config.mcpConfig
+        if tool_config.tool_type == "mcp":
+            return tool_config
 
     return None
 
 
+def _safe_close(client: MCPClient, label: str) -> None:
+    try:
+        client.__exit__(None, None, None)  # type: ignore[arg-type]
+    except Exception as close_error:
+        logger.error(f"Error closing MCP client for server '{label}': {close_error}")
+
+
 @contextmanager
 def mcp_tools_scope(bot: BotModel | None):
-    """Open an MCP connection scoped to a single chat turn and yield its tools.
+    """Open one MCP connection per configured server, scoped to a single chat turn,
+    and yield the combined list of tools with names prefixed by each server's label.
 
-    Yields an empty list when the bot has no MCP tool configured, or when
-    the connection/token fetch fails (degrade gracefully, keep the chat working).
+    Each server is independent: a connection/token/list_tools failure for one
+    server only drops that server's tools (logged), other servers' tools and
+    the chat continue normally.
     """
-    config = _get_mcp_tool_config(bot)
-    if not config:
+    mcp_tool = _get_mcp_tool(bot)
+    if not mcp_tool or not mcp_tool.mcpServers:
         yield []
         return
 
-    try:
-        token = get_mcp_bearer_token(
-            config.client_id,
-            config.client_secret,
-            COGNITO_MCP_AUTH_DOMAIN,
-            config.secret_arn,
-        )
-        client = MCPClient(
-            lambda: streamablehttp_client(
-                config.endpoint_url,
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
-            ),
-            startup_timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
-        )
-        client.__enter__()
-    except Exception as e:
-        logger.error(f"MCP connection failed, falling back without MCP tools: {e}")
-        yield []
-        return
+    combined_tools: list[MCPAgentTool] = []
+    with ExitStack() as stack:
+        for server in mcp_tool.mcpServers:
+            try:
+                token = get_mcp_bearer_token(
+                    server.client_id,
+                    server.client_secret,
+                    COGNITO_MCP_AUTH_DOMAIN,
+                    f"{mcp_tool.secret_arn}:{server.label}",
+                )
+                client = MCPClient(
+                    lambda: streamablehttp_client(
+                        server.endpoint_url,
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
+                    ),
+                    startup_timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
+                )
+                client.__enter__()
+            except Exception as e:
+                logger.error(
+                    f"MCP server '{server.label}' connection failed, "
+                    f"skipping its tools: {e}"
+                )
+                continue
 
-    try:
-        tools = client.list_tools_sync()
-    except Exception as e:
-        logger.error(f"MCP connection failed, falling back without MCP tools: {e}")
-        try:
-            client.__exit__(None, None, None)  # type: ignore[arg-type]
-        except Exception as close_error:
-            logger.error(f"Error closing MCP client: {close_error}")
-        yield []
-        return
+            stack.callback(_safe_close, client, server.label)
 
-    try:
-        yield tools
-    finally:
-        try:
-            client.__exit__(None, None, None)  # type: ignore[arg-type]
-        except Exception as close_error:
-            logger.error(f"Error closing MCP client: {close_error}")
+            try:
+                server_tools = client.list_tools_sync()
+            except Exception as e:
+                logger.error(
+                    f"MCP server '{server.label}' list_tools failed, "
+                    f"skipping its tools: {e}"
+                )
+                continue
+
+            for tool in server_tools:
+                tool.mcp_tool.name = f"{server.label}_{tool.mcp_tool.name}"
+            combined_tools.extend(server_tools)
+
+        yield combined_tools

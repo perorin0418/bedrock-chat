@@ -133,6 +133,32 @@ def _make_bot(tools):
     )
 
 
+def _make_mcp_tool(*servers):
+    return McpToolModel(
+        tool_type="mcp",
+        name="mcp",
+        description="MCP knowledge search",
+        secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/test-user/test-bot",
+        mcpServers=list(servers),
+    )
+
+
+def _make_server(label, endpoint="https://example.com/mcp", client_id="client-1"):
+    return McpConfigModel(
+        label=label,
+        endpoint_url=endpoint,
+        client_id=client_id,
+        client_secret="s3cr3t",
+    )
+
+
+class _FakeMcpTool:
+    """Stand-in for strands.tools.mcp.MCPAgentTool: exposes a mutable `.mcp_tool.name`."""
+
+    def __init__(self, name):
+        self.mcp_tool = type("_Raw", (), {"name": name})()
+
+
 class TestMcpToolsScope(unittest.TestCase):
     def test_yields_empty_list_when_bot_is_none(self):
         with mcp_tools_scope(None) as tools:
@@ -143,27 +169,67 @@ class TestMcpToolsScope(unittest.TestCase):
         with mcp_tools_scope(bot) as tools:
             self.assertEqual(tools, [])
 
+    def test_yields_empty_list_when_mcp_tool_has_no_servers(self):
+        bot = _make_bot([_make_mcp_tool()])
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(tools, [])
+
     @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
     def test_yields_empty_list_on_connection_failure(self, mock_get_token):
         mock_get_token.side_effect = Exception("token fetch failed")
+        bot = _make_bot([_make_mcp_tool(_make_server("powersort"))])
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(tools, [])
+
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_prefixes_tool_names_with_server_label(
+        self, mock_get_token, mock_mcp_client_cls
+    ):
+        mock_get_token.return_value = "token-1"
+        mock_client_instance = MagicMock()
+        mock_client_instance.list_tools_sync.return_value = [_FakeMcpTool("search")]
+        mock_mcp_client_cls.return_value = mock_client_instance
+
+        bot = _make_bot([_make_mcp_tool(_make_server("powersort"))])
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(len(tools), 1)
+            self.assertEqual(tools[0].mcp_tool.name, "powersort_search")
+
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_one_server_failure_does_not_block_the_others(
+        self, mock_get_token, mock_mcp_client_cls
+    ):
+        def token_side_effect(client_id, client_secret, domain, cache_key):
+            if client_id == "bad-client":
+                raise Exception("token fetch failed")
+            return "token-1"
+
+        mock_get_token.side_effect = token_side_effect
+
+        good_client = MagicMock()
+        good_client.list_tools_sync.return_value = [_FakeMcpTool("search")]
+
+        def client_factory(*args, **kwargs):
+            return good_client
+
+        mock_mcp_client_cls.side_effect = client_factory
+
         bot = _make_bot(
             [
-                McpToolModel(
-                    tool_type="mcp",
-                    name="mcp",
-                    description="MCP knowledge search",
-                    mcpConfig=McpConfigModel(
-                        endpoint_url="https://example.com/mcp",
-                        client_id="client-1",
-                        secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/test-user/test-bot",
-                        client_secret="s3cr3t",
-                    ),
+                _make_mcp_tool(
+                    _make_server("badserver", client_id="bad-client"),
+                    _make_server("goodserver", client_id="good-client"),
                 )
             ]
         )
 
         with mcp_tools_scope(bot) as tools:
-            self.assertEqual(tools, [])
+            self.assertEqual(len(tools), 1)
+            self.assertEqual(tools[0].mcp_tool.name, "goodserver_search")
 
     @patch("app.strands_integration.tools.mcp_tools.MCPClient")
     @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
@@ -175,21 +241,7 @@ class TestMcpToolsScope(unittest.TestCase):
         mock_client_instance.list_tools_sync.return_value = []
         mock_mcp_client_cls.return_value = mock_client_instance
 
-        bot = _make_bot(
-            [
-                McpToolModel(
-                    tool_type="mcp",
-                    name="mcp",
-                    description="MCP knowledge search",
-                    mcpConfig=McpConfigModel(
-                        endpoint_url="https://example.com/mcp",
-                        client_id="client-1",
-                        secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/test-user/test-bot",
-                        client_secret="s3cr3t",
-                    ),
-                )
-            ]
-        )
+        bot = _make_bot([_make_mcp_tool(_make_server("powersort"))])
 
         class BodyError(Exception):
             pass
@@ -209,21 +261,7 @@ class TestMcpToolsScope(unittest.TestCase):
         mock_client_instance.__exit__.side_effect = Exception("teardown failed")
         mock_mcp_client_cls.return_value = mock_client_instance
 
-        bot = _make_bot(
-            [
-                McpToolModel(
-                    tool_type="mcp",
-                    name="mcp",
-                    description="MCP knowledge search",
-                    mcpConfig=McpConfigModel(
-                        endpoint_url="https://example.com/mcp",
-                        client_id="client-1",
-                        secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/test-user/test-bot",
-                        client_secret="s3cr3t",
-                    ),
-                )
-            ]
-        )
+        bot = _make_bot([_make_mcp_tool(_make_server("powersort"))])
 
         with mcp_tools_scope(bot) as tools:
             self.assertEqual(tools, [])
