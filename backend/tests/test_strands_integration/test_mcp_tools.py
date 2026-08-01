@@ -252,6 +252,44 @@ class TestMcpToolsScope(unittest.TestCase):
 
     @patch("app.strands_integration.tools.mcp_tools.MCPClient")
     @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_one_server_list_tools_failure_does_not_block_the_others(
+        self, mock_get_token, mock_mcp_client_cls
+    ):
+        mock_get_token.return_value = "token-1"
+
+        bad_client = MagicMock()
+        bad_client.list_tools_sync.side_effect = Exception("list_tools failed")
+
+        good_client = MagicMock()
+        good_client.list_tools_sync.return_value = [_FakeMcpTool("search")]
+
+        clients = []
+
+        def client_factory(*args, **kwargs):
+            if len(clients) == 0:
+                clients.append(bad_client)
+                return bad_client
+            else:
+                clients.append(good_client)
+                return good_client
+
+        mock_mcp_client_cls.side_effect = client_factory
+
+        bot = _make_bot(
+            [
+                _make_mcp_tool(
+                    _make_server("badserver", client_id="bad-client"),
+                    _make_server("goodserver", client_id="good-client"),
+                )
+            ]
+        )
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(len(tools), 1)
+            self.assertEqual(tools[0].mcp_tool.name, "goodserver_search")
+
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
     def test_teardown_failure_does_not_propagate(
         self, mock_get_token, mock_mcp_client_cls
     ):
