@@ -19,7 +19,7 @@ import Skeleton from '../../../components/Skeleton';
 import { TooltipDirection } from '../../../constants';
 import { FirecrawlConfig as FirecrawlConfigComponent } from './FirecrawlConfig';
 import { BedrockAgentConfig as BedrockAgentConfigComponent } from './BedrockAgentConfig';
-import { McpConfig as McpConfigComponent } from './McpConfig';
+import { McpServersConfig } from './McpServersConfig';
 import ExpandableDrawerGroup from '../../../components/ExpandableDrawerGroup';
 import RadioButton from '../../../components/RadioButton';
 import { DEFAULT_FIRECRAWL_CONFIG } from '../constants';
@@ -93,11 +93,7 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
                   ...tool,
                   toolType: 'mcp' as ToolType,
                   name: 'mcp',
-                  mcpConfig: {
-                    endpointUrl: '',
-                    clientId: '',
-                    clientSecret: '',
-                  },
+                  mcpServers: [],
                 } as AgentTool,
               ];
 
@@ -155,8 +151,8 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
     [setTools]
   );
 
-  const handleMcpConfigChange = useCallback(
-    (config: McpConfigType) => {
+  const handleMcpServersChange = useCallback(
+    (servers: McpConfigType[]) => {
       setTools((prevTools) =>
         prevTools.map((tool) => {
           if (tool.name === 'mcp') {
@@ -164,7 +160,7 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
               ...tool,
               toolType: 'mcp' as ToolType,
               name: 'mcp',
-              mcpConfig: config,
+              mcpServers: servers,
             } as AgentTool;
           }
           return tool;
@@ -342,17 +338,13 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
             tools?.map(({ name }) => name).includes('mcp') && (
               <div className="space-y-4">
                 <div className="ml-6 text-sm">
-                  <McpConfigComponent
-                    config={
+                  <McpServersConfig
+                    servers={
                       tools.find(
                         (t): t is McpAgentTool => t.name === 'mcp' && isMcpTool(t)
-                      )?.mcpConfig || {
-                        endpointUrl: '',
-                        clientId: '',
-                        clientSecret: '',
-                      }
+                      )?.mcpServers || []
                     }
-                    onChange={handleMcpConfigChange}
+                    onChange={handleMcpServersChange}
                   />
                 </div>
               </div>
