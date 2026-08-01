@@ -108,7 +108,7 @@ def mcp_tools_scope(bot: BotModel | None):
     except Exception as e:
         logger.error(f"MCP connection failed, falling back without MCP tools: {e}")
         try:
-            client.__exit__(None, None, None)
+            client.__exit__(None, None, None)  # type: ignore[arg-type]
         except Exception as close_error:
             logger.error(f"Error closing MCP client: {close_error}")
         yield []
@@ -118,6 +118,6 @@ def mcp_tools_scope(bot: BotModel | None):
         yield tools
     finally:
         try:
-            client.__exit__(None, None, None)
+            client.__exit__(None, None, None)  # type: ignore[arg-type]
         except Exception as close_error:
             logger.error(f"Error closing MCP client: {close_error}")
