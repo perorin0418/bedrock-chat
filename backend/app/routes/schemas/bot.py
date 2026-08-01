@@ -145,12 +145,20 @@ class McpConfig(BaseSchema):
     def validate_endpoint_url(cls, v):
         if v == "":
             raise ValueError("MCP endpoint URL is empty")
+        if not v.startswith("https://"):
+            raise ValueError("MCP endpoint URL must use https://")
         return v
 
     @field_validator("client_id")
     def validate_client_id(cls, v):
         if v == "":
             raise ValueError("MCP client ID is empty")
+        return v
+
+    @field_validator("client_secret")
+    def validate_client_secret(cls, v):
+        if v == "":
+            raise ValueError("MCP client secret is empty")
         return v
 
 

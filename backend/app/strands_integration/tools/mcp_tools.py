@@ -22,6 +22,7 @@ COGNITO_MCP_AUTH_DOMAIN = f"knowledge-mcp-auth.auth.{BEDROCK_REGION}.amazoncogni
 _token_cache: dict[str, tuple[str, float]] = {}
 
 TOKEN_REFRESH_MARGIN_SECONDS = 90
+MCP_CONNECTION_TIMEOUT_SECONDS = 10
 
 
 def get_mcp_bearer_token(
@@ -92,6 +93,7 @@ def mcp_tools_scope(bot: BotModel | None):
             lambda: streamablehttp_client(
                 config.endpoint_url,
                 headers={"Authorization": f"Bearer {token}"},
+                timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
             )
         )
         client.__enter__()
@@ -104,11 +106,17 @@ def mcp_tools_scope(bot: BotModel | None):
         tools = client.list_tools_sync()
     except Exception as e:
         logger.error(f"MCP connection failed, falling back without MCP tools: {e}")
-        client.__exit__(None, None, None)
+        try:
+            client.__exit__(None, None, None)
+        except Exception as close_error:
+            logger.error(f"Error closing MCP client: {close_error}")
         yield []
         return
 
     try:
         yield tools
     finally:
-        client.__exit__(None, None, None)
+        try:
+            client.__exit__(None, None, None)
+        except Exception as close_error:
+            logger.error(f"Error closing MCP client: {close_error}")

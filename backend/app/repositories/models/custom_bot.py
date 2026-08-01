@@ -258,7 +258,7 @@ class McpConfigModel(BaseModel):
     endpoint_url: str
     client_id: str
     secret_arn: str
-    client_secret: SecureString
+    client_secret: SecureString = Field(..., repr=False)
 
     @classmethod
     def from_mcp_config(cls, config: McpConfig, user_id: str, bot_id: str) -> Self:
@@ -373,9 +373,7 @@ class AgentModel(BaseModel):
             elif tool_input.tool_type == "bedrock_agent":
                 tools.append(BedrockAgentToolModel.from_tool_input(tool_input))
             elif tool_input.tool_type == "mcp":
-                tools.append(
-                    McpToolModel.from_tool_input(tool_input, user_id, bot_id)
-                )
+                tools.append(McpToolModel.from_tool_input(tool_input, user_id, bot_id))
 
         return cls(tools=tools)
 

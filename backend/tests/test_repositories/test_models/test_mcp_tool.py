@@ -11,7 +11,9 @@ from app.routes.schemas.bot import AgentInput, McpConfig, McpTool
 class TestMcpToolModel(unittest.TestCase):
     @patch("app.repositories.models.custom_bot.store_api_key_to_secret_manager")
     def test_from_agent_input_stores_secret(self, mock_store):
-        mock_store.return_value = "arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/user1/bot1"
+        mock_store.return_value = (
+            "arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/user1/bot1"
+        )
 
         agent_input = AgentInput(
             tools=[
@@ -69,6 +71,17 @@ class TestMcpToolModel(unittest.TestCase):
         self.assertEqual(tool.tool_type, "mcp")
         self.assertEqual(tool.mcpConfig.endpoint_url, "https://example.com/mcp")
         self.assertEqual(tool.mcpConfig.client_secret, "s3cr3t")
+
+    def test_repr_does_not_leak_client_secret(self):
+        model = McpConfigModel(
+            endpoint_url="https://example.com/mcp",
+            client_id="client-1",
+            secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/user1/bot1",
+            client_secret="do-not-leak-this-secret",
+        )
+
+        self.assertNotIn("do-not-leak-this-secret", repr(model))
+        self.assertNotIn("do-not-leak-this-secret", f"{model}")
 
 
 if __name__ == "__main__":

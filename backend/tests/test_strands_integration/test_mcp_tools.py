@@ -21,7 +21,12 @@ class TestGetMcpBearerToken(unittest.TestCase):
         }
         mock_post.return_value = mock_response
 
-        token = get_mcp_bearer_token("client-1", "secret-1", "example.auth.region.amazoncognito.com", "cache-key-1")
+        token = get_mcp_bearer_token(
+            "client-1",
+            "secret-1",
+            "example.auth.region.amazoncognito.com",
+            "cache-key-1",
+        )
 
         self.assertEqual(token, "token-1")
         mock_post.assert_called_once()
@@ -41,7 +46,12 @@ class TestGetMcpBearerToken(unittest.TestCase):
     def test_returns_cached_token_without_refetch(self, mock_post):
         _token_cache["cache-key-2"] = ("cached-token", time.time() + 3600)
 
-        token = get_mcp_bearer_token("client-1", "secret-1", "example.auth.region.amazoncognito.com", "cache-key-2")
+        token = get_mcp_bearer_token(
+            "client-1",
+            "secret-1",
+            "example.auth.region.amazoncognito.com",
+            "cache-key-2",
+        )
 
         self.assertEqual(token, "cached-token")
         mock_post.assert_not_called()
@@ -56,7 +66,12 @@ class TestGetMcpBearerToken(unittest.TestCase):
         }
         mock_post.return_value = mock_response
 
-        token = get_mcp_bearer_token("client-1", "secret-1", "example.auth.region.amazoncognito.com", "cache-key-3")
+        token = get_mcp_bearer_token(
+            "client-1",
+            "secret-1",
+            "example.auth.region.amazoncognito.com",
+            "cache-key-3",
+        )
 
         self.assertEqual(token, "fresh-token")
         mock_post.assert_called_once()
@@ -152,7 +167,9 @@ class TestMcpToolsScope(unittest.TestCase):
 
     @patch("app.strands_integration.tools.mcp_tools.MCPClient")
     @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
-    def test_body_exception_propagates_unchanged(self, mock_get_token, mock_mcp_client_cls):
+    def test_body_exception_propagates_unchanged(
+        self, mock_get_token, mock_mcp_client_cls
+    ):
         mock_get_token.return_value = "token-1"
         mock_client_instance = MagicMock()
         mock_client_instance.list_tools_sync.return_value = []
@@ -180,6 +197,36 @@ class TestMcpToolsScope(unittest.TestCase):
         with self.assertRaises(BodyError):
             with mcp_tools_scope(bot) as tools:
                 raise BodyError("boom")
+
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_teardown_failure_does_not_propagate(
+        self, mock_get_token, mock_mcp_client_cls
+    ):
+        mock_get_token.return_value = "token-1"
+        mock_client_instance = MagicMock()
+        mock_client_instance.list_tools_sync.return_value = []
+        mock_client_instance.__exit__.side_effect = Exception("teardown failed")
+        mock_mcp_client_cls.return_value = mock_client_instance
+
+        bot = _make_bot(
+            [
+                McpToolModel(
+                    tool_type="mcp",
+                    name="mcp",
+                    description="MCP knowledge search",
+                    mcpConfig=McpConfigModel(
+                        endpoint_url="https://example.com/mcp",
+                        client_id="client-1",
+                        secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/test-user/test-bot",
+                        client_secret="s3cr3t",
+                    ),
+                )
+            ]
+        )
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(tools, [])
 
 
 if __name__ == "__main__":
