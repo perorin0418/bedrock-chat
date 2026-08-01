@@ -1016,6 +1016,18 @@ const BotKbEditPage: React.FC = () => {
           );
           return true;
         }
+
+        const hasInvalidLabelPattern = tool.mcpServers.some(
+          (server) => !/^[a-zA-Z0-9_]+$/.test(server.label)
+        );
+
+        if (hasInvalidLabelPattern) {
+          setErrorMessages(
+            `tools-${idx}-mcpServers.label`,
+            t('input.validationError.required')
+          );
+          return true;
+        }
       }
 
       return false; // Tool is valid

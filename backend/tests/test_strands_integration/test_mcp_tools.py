@@ -1,11 +1,19 @@
+import asyncio
 import sys
 
 sys.path.append(".")
 import time
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.strands_integration.tools.mcp_tools import _token_cache, get_mcp_bearer_token
+from mcp.types import Tool as MCPTool
+from strands.tools.mcp import MCPAgentTool
+
+from app.strands_integration.tools.mcp_tools import (
+    _LabelStrippingMcpClient,
+    _token_cache,
+    get_mcp_bearer_token,
+)
 
 
 class TestGetMcpBearerToken(unittest.TestCase):
@@ -157,6 +165,7 @@ class _FakeMcpTool:
 
     def __init__(self, name):
         self.mcp_tool = type("_Raw", (), {"name": name})()
+        self.mcp_client = MagicMock()
 
 
 class TestMcpToolsScope(unittest.TestCase):
@@ -303,6 +312,83 @@ class TestMcpToolsScope(unittest.TestCase):
 
         with mcp_tools_scope(bot) as tools:
             self.assertEqual(tools, [])
+
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_colliding_prefixed_tool_name_is_skipped_not_raised(
+        self, mock_get_token, mock_mcp_client_cls
+    ):
+        """Two servers whose renamed tools collide on the final prefixed name
+        must not raise: the later duplicate is silently dropped and the first
+        one wins, so the chat turn keeps working instead of crashing."""
+        mock_get_token.return_value = "token-1"
+
+        client_one = MagicMock()
+        client_one.list_tools_sync.return_value = [_FakeMcpTool("bar_search")]
+
+        client_two = MagicMock()
+        client_two.list_tools_sync.return_value = [_FakeMcpTool("search")]
+
+        clients = [client_one, client_two]
+
+        def client_factory(*args, **kwargs):
+            return clients.pop(0)
+
+        mock_mcp_client_cls.side_effect = client_factory
+
+        # "foo" + "bar_search" and "foo_bar" + "search" both produce
+        # "foo_bar_search" after prefixing.
+        bot = _make_bot(
+            [
+                _make_mcp_tool(
+                    _make_server("foo", client_id="client-1"),
+                    _make_server("foo_bar", client_id="client-2"),
+                )
+            ]
+        )
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(len(tools), 1)
+            self.assertEqual(tools[0].mcp_tool.name, "foo_bar_search")
+
+
+class TestLabelStrippingMcpClient(unittest.TestCase):
+    """Verifies the fix for the tool-name-prefixing bug: the model-facing
+    tool name stays prefixed, but the name actually sent to the MCP server
+    over the wire must be the original, unprefixed name. Uses a real
+    MCPAgentTool (not the _FakeMcpTool stand-in) so that MCPAgentTool.stream()
+    -> mcp_client.call_tool_async() is actually exercised end to end."""
+
+    def test_prefixed_tool_invokes_server_with_original_name(self):
+        raw_tool = MCPTool(
+            name="search", description="d", inputSchema={"type": "object"}
+        )
+        fake_client = MagicMock()
+        fake_client.call_tool_async = AsyncMock(return_value="fake-result")
+        agent_tool = MCPAgentTool(raw_tool, fake_client)
+
+        # apply the same renaming/wrapping the production code does
+        prefix = "powersort_"
+        agent_tool.mcp_tool.name = f"{prefix}{agent_tool.mcp_tool.name}"
+        agent_tool.mcp_client = _LabelStrippingMcpClient(agent_tool.mcp_client, prefix)
+
+        self.assertEqual(agent_tool.tool_name, "powersort_search")
+        self.assertEqual(agent_tool.tool_spec["name"], "powersort_search")
+
+        async def run():
+            events = []
+            async for event in agent_tool.stream({"toolUseId": "t1", "input": {}}, {}):
+                events.append(event)
+            return events
+
+        asyncio.run(run())
+
+        fake_client.call_tool_async.assert_called_once()
+        call_kwargs = fake_client.call_tool_async.call_args.kwargs
+        # the name reaching the underlying (unwrapped) client must be the
+        # original "search", not the model-facing "powersort_search"
+        self.assertEqual(call_kwargs["name"], "search")
+        self.assertEqual(call_kwargs["tool_use_id"], "t1")
 
 
 if __name__ == "__main__":

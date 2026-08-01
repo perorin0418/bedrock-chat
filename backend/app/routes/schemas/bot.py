@@ -147,7 +147,9 @@ class McpConfig(BaseSchema):
     def validate_label(cls, v):
         if v == "":
             raise ValueError("MCP server label is empty")
-        if not re.match(r"^[a-zA-Z0-9_]+$", v):
+        if len(v) > 20:
+            raise ValueError("MCP server label must be 20 characters or fewer")
+        if not re.fullmatch(r"[a-zA-Z0-9_]+", v):
             raise ValueError(
                 "MCP server label must contain only letters, digits, and underscores"
             )

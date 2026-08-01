@@ -77,6 +77,41 @@ def _safe_close(client: MCPClient, label: str) -> None:
         logger.error(f"Error closing MCP client for server '{label}': {close_error}")
 
 
+class _LabelStrippingMcpClient:
+    """Wraps an MCPClient so tool invocation uses the server's original
+    (un-prefixed) tool name, while the AgentTool's exposed name/spec stays
+    prefixed with the server's label for model-facing disambiguation.
+
+    `MCPAgentTool.stream()` sends `self.tool_name` (which reads the mutated,
+    prefixed `mcp_tool.name`) as the wire-level tool name via
+    `self.mcp_client.call_tool_async(tool_use_id=..., name=self.tool_name,
+    arguments=...)`. The remote MCP server only knows tools by their
+    original, unprefixed name, so we strip the prefix back off here before
+    forwarding the call.
+    """
+
+    def __init__(self, client: MCPClient, prefix: str) -> None:
+        self._client = client
+        self._prefix = prefix
+
+    async def call_tool_async(
+        self,
+        tool_use_id: str,
+        name: str,
+        arguments: dict | None = None,
+        read_timeout_seconds=None,
+    ):
+        original_name = (
+            name[len(self._prefix) :] if name.startswith(self._prefix) else name
+        )
+        return await self._client.call_tool_async(
+            tool_use_id=tool_use_id,
+            name=original_name,
+            arguments=arguments,
+            read_timeout_seconds=read_timeout_seconds,
+        )
+
+
 @contextmanager
 def mcp_tools_scope(bot: BotModel | None):
     """Open one MCP connection per configured server, scoped to a single chat turn,
@@ -92,6 +127,7 @@ def mcp_tools_scope(bot: BotModel | None):
         return
 
     combined_tools: list[MCPAgentTool] = []
+    combined_tool_names: set[str] = set()
     with ExitStack() as stack:
         for server in mcp_tool.mcpServers:
             try:
@@ -128,8 +164,18 @@ def mcp_tools_scope(bot: BotModel | None):
                 )
                 continue
 
+            prefix = f"{server.label}_"
             for tool in server_tools:
-                tool.mcp_tool.name = f"{server.label}_{tool.mcp_tool.name}"
-            combined_tools.extend(server_tools)
+                tool.mcp_tool.name = f"{prefix}{tool.mcp_tool.name}"
+                tool.mcp_client = _LabelStrippingMcpClient(tool.mcp_client, prefix)
+                if tool.mcp_tool.name in combined_tool_names:
+                    logger.warning(
+                        f"Tool '{tool.mcp_tool.name}' from MCP server "
+                        f"'{server.label}' collides with an already-added tool "
+                        "name, skipping it"
+                    )
+                    continue
+                combined_tool_names.add(tool.mcp_tool.name)
+                combined_tools.append(tool)
 
         yield combined_tools
