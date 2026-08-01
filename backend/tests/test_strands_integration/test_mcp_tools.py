@@ -35,6 +35,7 @@ class TestGetMcpBearerToken(unittest.TestCase):
             kwargs["data"],
             {"grant_type": "client_credentials", "scope": "knowledge-mcp/invoke"},
         )
+        self.assertEqual(kwargs["timeout"], 10)
 
     @patch("app.strands_integration.tools.mcp_tools.requests.post")
     def test_returns_cached_token_without_refetch(self, mock_post):

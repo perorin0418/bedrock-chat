@@ -38,6 +38,7 @@ def get_mcp_bearer_token(
         f"https://{cognito_domain}/oauth2/token",
         auth=(client_id, client_secret),
         data={"grant_type": "client_credentials", "scope": "knowledge-mcp/invoke"},
+        timeout=10,
     )
     response.raise_for_status()
     body = response.json()
