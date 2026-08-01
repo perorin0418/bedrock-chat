@@ -36,6 +36,7 @@ import { AgentTool } from '../../../features/agent/types';
 import {
   isInternetTool,
   isBedrockAgentTool,
+  isMcpTool,
 } from '../../../features/agent/utils/typeGuards';
 import { AvailableTools } from '../../../features/agent/components/AvailableTools';
 import {
@@ -979,6 +980,31 @@ const BotKbEditPage: React.FC = () => {
       ) {
         setErrorMessages(
           `tools-${idx}-firecrawlConfig.apiKey`,
+          t('input.validationError.required')
+        );
+        return true;
+      }
+
+      // Mcp tool validation
+      if (isMcpTool(tool) && !tool.mcpConfig?.endpointUrl) {
+        setErrorMessages(
+          `tools-${idx}-mcpConfig.endpoint_url`,
+          t('input.validationError.required')
+        );
+        return true;
+      }
+
+      if (isMcpTool(tool) && !tool.mcpConfig?.clientId) {
+        setErrorMessages(
+          `tools-${idx}-mcpConfig.client_id`,
+          t('input.validationError.required')
+        );
+        return true;
+      }
+
+      if (isMcpTool(tool) && !tool.mcpConfig?.clientSecret) {
+        setErrorMessages(
+          `tools-${idx}-mcpConfig.client_secret`,
           t('input.validationError.required')
         );
         return true;
