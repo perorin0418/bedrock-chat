@@ -197,6 +197,9 @@ class MessageOutput(BaseSchema):
     used_chunks: list[Chunk] | None
     parent: str | None
     thinking_log: list[SimpleMessage] | None
+    price: float | None = Field(
+        default=None, description="Cost of generating this message, in USD."
+    )
 
 
 class ChatInput(BaseSchema):
@@ -253,6 +256,9 @@ class Conversation(BaseSchema):
     last_message_id: str
     bot_id: str | None
     should_continue: bool
+    total_price: float = Field(
+        default=0.0, description="Total cost of this conversation so far, in USD."
+    )
 
 
 class NewTitleInput(BaseSchema):

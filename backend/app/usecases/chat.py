@@ -630,6 +630,7 @@ def chat_output_from_message(
                 if message.thinking_log
                 else None
             ),
+            price=message.price,
         ),
         bot_id=conversation.bot_id,
     )
@@ -734,6 +735,7 @@ def fetch_conversation(user_id: str, conversation_id: str) -> Conversation:
                 if message.thinking_log
                 else None
             ),
+            price=message.price,
         )
         for message_id, message in conversation.message_map.items()
     }
@@ -753,6 +755,7 @@ def fetch_conversation(user_id: str, conversation_id: str) -> Conversation:
         message_map=message_map,
         bot_id=conversation.bot_id,
         should_continue=conversation.should_continue,
+        total_price=conversation.total_price,
     )
     return output
 
