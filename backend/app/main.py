@@ -5,6 +5,7 @@ from typing import Callable
 
 from app.dependencies import get_current_user
 from app.repositories.common import (
+    RateLimitExceededError,
     RecordAccessNotAllowedError,
     RecordNotFoundError,
     ResourceConflictError,
@@ -97,6 +98,7 @@ app.add_exception_handler(AssertionError, error_handler_factory(400))
 app.add_exception_handler(PermissionError, error_handler_factory(403))
 app.add_exception_handler(ValidationError, error_handler_factory(422))
 app.add_exception_handler(ResourceConflictError, error_handler_factory(409))
+app.add_exception_handler(RateLimitExceededError, error_handler_factory(429))
 app.add_exception_handler(Exception, error_handler_factory(500))
 
 
