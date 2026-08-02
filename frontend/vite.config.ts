@@ -38,8 +38,8 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       manifest: {
-        name: 'Bedrock Chat',
-        short_name: 'Bedrock Chat',
+        name: 'Acrocity Chat',
+        short_name: 'Acrocity Chat',
         description: 'AWS-native chatbot using Bedrock',
         start_url: '/index.html',
         display: 'standalone',

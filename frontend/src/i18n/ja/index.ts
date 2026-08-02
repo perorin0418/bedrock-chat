@@ -9,7 +9,7 @@ const translation: typeof en = {
       },
     },
     app: {
-      name: 'Bedrock Chat',
+      name: 'Acrocity Chat',
       inputMessage: 'お手伝いできることはありますか？',
       myBots: 'マイボット',
       discoverBots: 'ボットを探す',

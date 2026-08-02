@@ -4,7 +4,7 @@
 const translation = {
   translation: {
     app: {
-      name: 'Bedrock Chat',
+      name: 'Acrocity Chat',
       inputMessage: '请输入',
       pinnedBots: '置顶 Bots',
       starredBots: '我的 Bots 收藏',
