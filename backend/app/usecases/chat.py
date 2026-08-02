@@ -34,6 +34,7 @@ from app.repositories.models.custom_bot import (
     BotModel,
     GenerationParamsModel,
 )
+from app.repositories.usage_limit import record_usage
 from app.routes.schemas.conversation import (
     ChatInput,
     ChatOutput,
@@ -529,6 +530,7 @@ def post_process_result(
 
     message.price = result["price"]
     conversation.total_price += result["price"]
+    record_usage(user.id, result["price"])
     conversation.should_continue = stop_reason == "max_tokens" and is_prefill_supported(
         chat_input.message.model
     )
