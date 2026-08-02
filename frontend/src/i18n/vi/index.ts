@@ -56,6 +56,21 @@ const translation = {
         description:
           'Mô hình Opus hiệu suất cao được xây dựng cho việc lập trình, quy trình doanh nghiệp và các tác vụ agent dài hạn.',
       },
+      'claude-v5-opus': {
+        label: 'Claude 5 (Opus)',
+        description:
+          'Mô hình Opus tiên tiến nhất, hỗ trợ các agent hoạt động dài hạn với cải tiến lớn về lý luận sâu, lập trình agent và công việc doanh nghiệp, với cửa sổ ngữ cảnh 1M token.',
+      },
+      'claude-v5-sonnet': {
+        label: 'Claude 5 (Sonnet)',
+        description:
+          'Mô hình Sonnet mạnh nhất, mang trí tuệ gần bằng Opus trong khi vẫn giữ sự cân bằng giữa hiệu suất, chi phí và tốc độ.',
+      },
+      'claude-v5-fable': {
+        label: 'Claude 5 (Fable)',
+        description:
+          'Mô hình được phát hành rộng rãi mạnh nhất của Anthropic, cung cấp trí tuệ cao nhất cho các tác vụ agent dài hạn khắt khe nhất.',
+      },
       'claude-v3-opus': {
         label: 'Claude 3 (Opus)',
         description: 'Mô hình mạnh mẽ cho các tác vụ cực kỳ phức tạp.',

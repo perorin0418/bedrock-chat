@@ -48,6 +48,11 @@ const translation: typeof en = {
         description:
           'コーディング、エンタープライズワークフロー、長時間のエージェントタスク向けに構築された高性能Opusモデル。',
       },
+      'claude-v5-opus': {
+        label: 'Claude 5 (Opus)',
+        description:
+          '長時間動作するエージェントを支える最高性能のOpusモデル。深い推論、エージェント型コーディング、エンタープライズ業務で大幅に向上（1Mトークンコンテキストウィンドウ）。',
+      },
       'claude-v4-sonnet': {
         label: 'Claude 4 (Sonnet)',
         description:
@@ -62,6 +67,16 @@ const translation: typeof en = {
         label: 'Claude 4.6 (Sonnet)',
         description:
           'コーディング、コンピュータ使用、長文コンテキスト推論、エージェント計画が改善されたミッドティアモデルの完全アップグレード（1Mトークンコンテキストウィンドウ）。',
+      },
+      'claude-v5-sonnet': {
+        label: 'Claude 5 (Sonnet)',
+        description:
+          '最高性能のSonnetモデル。Sonnetならではの性能・コスト・速度のバランスを保ちながら、Opusに迫る知性でコーディングとエージェント業務に対応。',
+      },
+      'claude-v5-fable': {
+        label: 'Claude 5 (Fable)',
+        description:
+          '広く提供されているモデルの中で最高性能。最も要求の厳しい長時間エージェントタスク向けに、最高レベルの知性を提供。',
       },
       'claude-v4.5-haiku': {
         label: 'Claude 4.5 (Haiku)',

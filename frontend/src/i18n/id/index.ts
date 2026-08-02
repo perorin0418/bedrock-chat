@@ -56,6 +56,21 @@ const translation = {
         description:
           'Model Opus berkemampuan tinggi yang dibuat untuk coding, alur kerja perusahaan, dan tugas agen jangka panjang.',
       },
+      'claude-v5-opus': {
+        label: 'Claude 5 (Opus)',
+        description:
+          'Model Opus paling canggih, mendukung agen jangka panjang dengan peningkatan besar dalam penalaran mendalam, coding agen, dan pekerjaan perusahaan, dengan jendela konteks 1M token.',
+      },
+      'claude-v5-sonnet': {
+        label: 'Claude 5 (Sonnet)',
+        description:
+          'Model Sonnet paling mampu, menghadirkan kecerdasan yang mendekati Opus sambil mempertahankan keseimbangan kemampuan, biaya, dan kecepatan.',
+      },
+      'claude-v5-fable': {
+        label: 'Claude 5 (Fable)',
+        description:
+          'Model Anthropic paling mampu yang tersedia secara luas, menawarkan kecerdasan tertinggi untuk tugas agen jangka panjang yang paling menuntut.',
+      },
       'claude-v3-opus': {
         label: 'Claude 3 (Opus)',
         description: 'Model yang kuat untuk tugas-tugas yang sangat kompleks.',
