@@ -74,7 +74,7 @@ APIキー単位で区別するには、AWS Lambda Web Adapter経由でAPI Gatewa
 - `RateLimitExceededError` を `backend/app/repositories/common.py` の既存例外群(`RecordNotFoundError` 等)に倣って追加。
 - REST: `backend/app/main.py` に既存パターンと同様 `app.add_exception_handler(RateLimitExceededError, error_handler_factory(429))` を追加するのみ。ルート側(`routes/conversation.py`)は他のエラーと同じく素通しでよい。
 - WebSocket: `backend/app/websocket.py` の `process_chat_input()` にある既存の `except RecordNotFoundError:` と同じパターンで `except RateLimitExceededError:` を追加し、`statusCode: 429` のエラーフレーム(`status: "ERROR"`, `reason: <メッセージ>`)を返す。
-- フロントエンド: エラー受信時にユーザーへ分かりやすいメッセージを表示する。直近の `per-chat-cost-display` ブランチのi18n追加パターン(`frontend/src/i18n/en/index.ts` / `ja/index.ts` のみに追加、他言語は `fallbackLng` で英語にフォールバック)を踏襲する。
+- フロントエンド: 変更不要。WebSocket経路は`usePostMessageStreaming.ts`の既存の汎用エラーハンドリング(`PostStreamingStatus.ERROR`受信時に`data.reason`をそのまま`errorDetail`としてstateに格納し、`ChatPage.tsx`で表示)が既にあり、バックエンドの`reason`文字列がそのまま表示される(既存の`bot not found`等のエラーと同じ仕組み)。このエラーメッセージは他のエラー同様に非i18n(英語固定)の生文字列でよい。なお、`USE_STREAMING=false`時のREST経路(`conversationApi.postMessage`)はエラー時に何も表示せずコンソールログのみで握りつぶす実装になっているが、これは本機能と無関係な既存の挙動であり、今回のスコープでは対応しない。
 
 ## スコープ外
 
