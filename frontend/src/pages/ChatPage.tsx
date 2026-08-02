@@ -686,7 +686,7 @@ const ChatPage: React.FC = () => {
         )}
 
         {messages.length > 0 && totalPrice != null && (
-          <div className="mb-1 text-xs text-dark-gray dark:text-light-gray">
+          <div className="mb-6 text-base font-semibold text-dark-gray dark:text-light-gray">
             {t('chat.label.totalCost', { price: formatPrice(totalPrice) })}
           </div>
         )}

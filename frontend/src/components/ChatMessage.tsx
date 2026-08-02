@@ -364,7 +364,7 @@ const ChatMessage: React.FC<Props> = (props) => {
           {chatContent?.role === 'assistant' && (
             <div className="flex items-center">
               {chatContent.price != null && (
-                <span className="mr-1 text-xs text-dark-gray dark:text-light-gray">
+                <span className="mr-1 text-sm font-medium text-dark-gray dark:text-light-gray">
                   {t('chat.label.messageCost', {
                     price: formatPrice(chatContent.price),
                   })}
