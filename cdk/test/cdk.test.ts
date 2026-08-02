@@ -215,6 +215,16 @@ describe("Bedrock Chat Stack Test", () => {
     const template = Template.fromStack(stack);
 
     template.resourceCountIs("AWS::Cognito::UserPoolIdentityProvider", 0);
+
+    template.hasResourceProperties("AWS::DynamoDB::Table", {
+      AttributeDefinitions: Match.arrayWith([
+        Match.objectLike({ AttributeName: "SK", AttributeType: "N" }),
+      ]),
+      TimeToLiveSpecification: {
+        AttributeName: "expire",
+        Enabled: true,
+      },
+    });
   });
 
   test("custom domain configuration", () => {
