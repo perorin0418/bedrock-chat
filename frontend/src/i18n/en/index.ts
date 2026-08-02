@@ -669,6 +669,12 @@ How would you categorize this email?`,
         description: 'Random bot showcase.',
       },
     },
+    chat: {
+      label: {
+        messageCost: 'Cost: {{price}}',
+        totalCost: 'Total cost: {{price}}',
+      },
+    },
     conversationHistory: {
       pageTitle: 'Chat History',
       label: {
