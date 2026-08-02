@@ -313,6 +313,7 @@ const translation: typeof en = {
         noBots: 'ボットが登録されていません。',
         noBotsRecentlyUsed: '最近利用した公開ボットはありません。',
         noStarredBots: 'スター付きのボットはありません。',
+        noSharedBots: '共有されているボットはありません。',
         retrievingKnowledge: '[ナレッジを取得中...]',
         referenceLink: '参考ドキュメント',
         dndFileUpload:
@@ -416,6 +417,11 @@ const translation: typeof en = {
       my: {
         label: {
           pageTitle: 'マイボット',
+        },
+      },
+      shared: {
+        label: {
+          pageTitle: '共有されているボット',
         },
       },
       item: {

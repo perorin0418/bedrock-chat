@@ -4,7 +4,6 @@ import { DrawerOptions } from '../@types/common';
 const DEFAULT_OPTIONS: DrawerOptions = {
   show: {
     myBots: true,
-    discoverBots: true,
     pinnedBots: true,
   },
 };

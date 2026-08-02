@@ -159,7 +159,11 @@ const ChatPage: React.FC = () => {
   const navigate = useNavigate();
   const { open: openSnackbar } = useSnackbar();
   const { errorDetail } = usePostMessageStreaming();
-  const { isAdmin } = useLoginUser();
+  const {
+    isAdmin,
+    isAllowCreatingBot,
+    isLoading: isLoadingLoginUser,
+  } = useLoginUser();
   const { pinBot, unpinBot } = useBotPinning();
 
   const {
@@ -208,6 +212,23 @@ const ChatPage: React.FC = () => {
 
   const { conversationId: paramConversationId, botId: paramBotId } =
     useParams();
+
+  // ボット作成権限がないユーザーは、ボットに紐づかない素のチャット画面ではなく
+  // 共有されているボット一覧を初期表示にする(権限確認が終わるまでは判定しない)
+  useEffect(() => {
+    if (isLoadingLoginUser) {
+      return;
+    }
+    if (!paramBotId && !paramConversationId && !isAllowCreatingBot) {
+      navigate('/bot/shared', { replace: true });
+    }
+  }, [
+    paramBotId,
+    paramConversationId,
+    isAllowCreatingBot,
+    isLoadingLoginUser,
+    navigate,
+  ]);
 
   const botId = useMemo(() => {
     return paramBotId ?? getBotId(conversationId);

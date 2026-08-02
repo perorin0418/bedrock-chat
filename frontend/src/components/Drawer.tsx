@@ -11,10 +11,10 @@ import ButtonIcon from './ButtonIcon';
 import {
   PiChartLine,
   PiChatCenteredDotsDuotone,
-  PiCompass,
   PiListBullets,
   PiPlugs,
   PiPresentationChart,
+  PiShareNetwork,
   PiX,
 } from 'react-icons/pi';
 import { ConversationMeta } from '../@types/conversation';
@@ -142,15 +142,13 @@ const Drawer: React.FC<Props> = (props) => {
                   onClick={closeSmallDrawer}
                 />
               )}
-              {drawerOptions.show.discoverBots && (
-                <DrawerItem
-                  isActive={false}
-                  icon={<PiCompass />}
-                  to="/bot/discover"
-                  labelComponent={getPageLabel('/bot/discover')}
-                  onClick={closeSmallDrawer}
-                />
-              )}
+              <DrawerItem
+                isActive={false}
+                icon={<PiShareNetwork />}
+                to="/bot/shared"
+                labelComponent={getPageLabel('/bot/shared')}
+                onClick={closeSmallDrawer}
+              />
 
               {drawerOptions.show.pinnedBots &&
                 pinnedBots?.filter((bot) => bot.available).length ? (

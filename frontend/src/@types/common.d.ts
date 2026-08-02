@@ -5,7 +5,6 @@ export type BaseProps = {
 export type DrawerOptions = {
   show: {
     myBots: boolean;
-    discoverBots: boolean;
     pinnedBots: boolean;
   };
 };

@@ -18,6 +18,7 @@ import { useMemo } from 'react';
 import BotDiscoverPage from './features/discover/pages/BotDiscoverPage.tsx';
 import BotRecentlyUsedPage from './pages/BotRecentlyUsedPage.tsx';
 import BotStarredPage from './pages/BotStarredPage.tsx';
+import BotSharedPage from './pages/BotSharedPage.tsx';
 import ConversationHistoryPage from './pages/ConversationHistoryPage.tsx';
 
 const rootChildren = [
@@ -40,6 +41,10 @@ const rootChildren = [
   {
     path: '/bot/discover',
     element: <BotDiscoverPage />,
+  },
+  {
+    path: '/bot/shared',
+    element: <BotSharedPage />,
   },
   {
     path: '/bot/new',
@@ -103,6 +108,7 @@ export const usePageLabel = () => {
   const pageLabel: { path: (typeof allPaths)[number]; label: string }[] = [
     { path: '/bot/my', label: t('bot.my.label.pageTitle') },
     { path: '/bot/discover', label: t('discover.pageTitle') },
+    { path: '/bot/shared', label: t('bot.shared.label.pageTitle') },
     {
       path: '/admin/shared-bot-analytics',
       label: t('admin.botAnalytics.label.pageTitle'),

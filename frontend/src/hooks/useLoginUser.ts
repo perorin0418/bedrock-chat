@@ -50,6 +50,7 @@ const useLoginUser = () => {
     isAllowApiSettings,
     isAllowCreatingBot,
     isAdmin,
+    isLoading: session === undefined,
     userGroups: Array.isArray(groups)
       ? groups.map((group) => group?.toString() ?? '')
       : [],

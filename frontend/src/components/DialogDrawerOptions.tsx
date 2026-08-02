@@ -16,13 +16,11 @@ const DialogDrawerOptions: React.FC<Props> = (props) => {
   const { t } = useTranslation();
 
   const [showMyBots, setShowMyBots] = useState(true);
-  const [showDiscoverBots, setShowDiscoverBots] = useState(true);
   const [showPinnedBots, setShowPinnedBots] = useState(true);
 
   useEffect(() => {
     if (props.isOpen) {
       setShowMyBots(props.drawerOptions.show.myBots);
-      setShowDiscoverBots(props.drawerOptions.show.discoverBots);
       setShowPinnedBots(props.drawerOptions.show.pinnedBots);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -42,11 +40,6 @@ const DialogDrawerOptions: React.FC<Props> = (props) => {
               onChange={setShowMyBots}
             />
             <Toggle
-              label={t('app.discoverBots')}
-              value={showDiscoverBots}
-              onChange={setShowDiscoverBots}
-            />
-            <Toggle
               label={t('app.pinnedBots')}
               value={showPinnedBots}
               onChange={setShowPinnedBots}
@@ -64,7 +57,6 @@ const DialogDrawerOptions: React.FC<Props> = (props) => {
             props.onChangeDrawerOptions({
               show: {
                 myBots: showMyBots,
-                discoverBots: showDiscoverBots,
                 pinnedBots: showPinnedBots,
               },
             });
