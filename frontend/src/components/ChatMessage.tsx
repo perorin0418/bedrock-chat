@@ -29,6 +29,7 @@ import AgentToolList from '../features/agent/components/AgentToolList';
 import { AgentToolsProps } from '../features/agent/types';
 import { convertThinkingLogToAgentToolProps } from '../features/agent/utils/AgentUtils';
 import { convertUsedChunkToRelatedDocument } from '../utils/MessageUtils';
+import { formatPrice } from '../utils/PriceUtils';
 import ReasoningCard from '../features/reasoning/components/ReasoningCard';
 
 type Props = BaseProps & {
@@ -361,7 +362,14 @@ const ChatMessage: React.FC<Props> = (props) => {
             </ButtonIcon>
           )}
           {chatContent?.role === 'assistant' && (
-            <div className="flex">
+            <div className="flex items-center">
+              {chatContent.price != null && (
+                <span className="mr-1 text-sm font-medium text-dark-gray dark:text-light-gray">
+                  {t('chat.label.messageCost', {
+                    price: formatPrice(chatContent.price),
+                  })}
+                </span>
+              )}
               <ButtonIcon
                 className="text-dark-gray dark:text-light-gray"
                 onClick={() => setIsFeedbackOpen(true)}>

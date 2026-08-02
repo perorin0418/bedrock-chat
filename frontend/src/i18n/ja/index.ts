@@ -690,6 +690,12 @@ const translation: typeof en = {
         description: 'ランダムにピックアップしたボットが表示されます。',
       },
     },
+    chat: {
+      label: {
+        messageCost: 'コスト: {{price}}',
+        totalCost: '合計コスト（再生成分を含む）: {{price}}',
+      },
+    },
     conversationHistory: {
       pageTitle: 'チャット履歴',
       label: {

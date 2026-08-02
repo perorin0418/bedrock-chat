@@ -527,6 +527,7 @@ def post_process_result(
     message = result["message"]
     stop_reason = result["stop_reason"]
 
+    message.price = result["price"]
     conversation.total_price += result["price"]
     conversation.should_continue = stop_reason == "max_tokens" and is_prefill_supported(
         chat_input.message.model
@@ -629,6 +630,7 @@ def chat_output_from_message(
                 if message.thinking_log
                 else None
             ),
+            price=message.price,
         ),
         bot_id=conversation.bot_id,
     )
@@ -733,6 +735,7 @@ def fetch_conversation(user_id: str, conversation_id: str) -> Conversation:
                 if message.thinking_log
                 else None
             ),
+            price=message.price,
         )
         for message_id, message in conversation.message_map.items()
     }
@@ -752,6 +755,7 @@ def fetch_conversation(user_id: str, conversation_id: str) -> Conversation:
         message_map=message_map,
         bot_id=conversation.bot_id,
         should_continue=conversation.should_continue,
+        total_price=conversation.total_price,
     )
     return output
 

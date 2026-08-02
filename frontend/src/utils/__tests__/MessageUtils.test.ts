@@ -3,6 +3,49 @@ import { convertMessageMapToArray } from '../MessageUtils';
 import { DisplayMessageContent, MessageMap } from '../../@types/conversation';
 
 describe('convertMessageMapToArray', () => {
+  it('price を転記する', () => {
+    const data: MessageMap = {
+      '1': {
+        role: 'assistant',
+        model: 'claude-v3-haiku',
+        content: [
+          {
+            contentType: 'text',
+            body: 'message-1',
+          },
+        ],
+        parent: null,
+        children: [],
+        feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
+        price: 0.0042,
+      },
+    };
+    const expected: DisplayMessageContent[] = [
+      {
+        id: '1',
+        role: 'assistant',
+        model: 'claude-v3-haiku',
+        content: [
+          {
+            body: 'message-1',
+            contentType: 'text',
+          },
+        ],
+        parent: null,
+        children: [],
+        sibling: ['1'],
+        feedback: null,
+        usedChunks: null,
+        thinkingLog: null,
+        price: 0.0042,
+      },
+    ];
+    const actual = convertMessageMapToArray(data, '1');
+    expect(actual).toEqual(expected);
+  });
+
   it('1件のみ', () => {
     const data: MessageMap = {
       '1': {

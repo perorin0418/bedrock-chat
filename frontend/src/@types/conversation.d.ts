@@ -94,6 +94,7 @@ export type MessageContent = {
   feedback: null | Feedback;
   usedChunks: null | UsedChunk[];
   thinkingLog: null | SimpleMessage[];
+  price?: number | null;
 };
 
 export type RelatedDocument = {
@@ -160,6 +161,7 @@ export type MessageMap = {
 export type Conversation = ConversationMeta & {
   messageMap: MessageMap;
   shouldContinue: boolean;
+  totalPrice: number;
 };
 
 export type PutFeedbackRequest = {

@@ -28,6 +28,7 @@ import IconPinnedBot from '../components/IconPinnedBot.tsx';
 
 import { copyBotUrl, isPinnedBot, canBePinned } from '../utils/BotUtils';
 import { toCamelCase } from '../utils/StringUtils';
+import { formatPrice } from '../utils/PriceUtils';
 import { produce } from 'immer';
 import StatusSyncBot from '../components/StatusSyncBot';
 import Alert from '../components/Alert';
@@ -183,6 +184,7 @@ const ChatPage: React.FC = () => {
     reasoningEnabled,
     setReasoningEnabled,
     supportReasoning,
+    totalPrice,
   } = useChat();
 
   // Error Handling
@@ -683,6 +685,11 @@ const ChatPage: React.FC = () => {
           </div>
         )}
 
+        {messages.length > 0 && totalPrice != null && (
+          <div className="mb-6 text-base font-semibold text-dark-gray dark:text-light-gray">
+            {t('chat.label.totalCost', { price: formatPrice(totalPrice) })}
+          </div>
+        )}
         <InputChatContent
           className="mb-7 w-11/12 md:w-10/12 lg:w-4/6 xl:w-3/6"
           dndMode={dndMode}

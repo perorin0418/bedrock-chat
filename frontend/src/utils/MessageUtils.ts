@@ -50,6 +50,7 @@ export const convertMessageMapToArray = (
         feedback: messageContent.feedback,
         usedChunks: messageContent.usedChunks,
         thinkingLog: messageContent.thinkingLog,
+        price: messageContent.price,
       });
 
       key = messageContent.parent;
@@ -92,6 +93,7 @@ export const convertMessageMapToArray = (
         feedback: messageContent.feedback,
         usedChunks: messageContent.usedChunks,
         thinkingLog: messageContent.thinkingLog,
+        price: messageContent.price,
       });
       key = messageContent.children[0];
     }
