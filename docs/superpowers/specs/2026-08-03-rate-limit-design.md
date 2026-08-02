@@ -85,6 +85,6 @@ APIキー単位で区別するには、AWS Lambda Web Adapter経由でAPI Gatewa
 
 ## テスト方針
 
-- `backend/app/repositories/usage_limit.py`: moto使用のDynamoDB単体テスト。`record_usage` の書き込み内容、`get_usage_since` の時間窓境界値(窓のちょうど境界、境界の前後)を検証する。
+- `backend/app/repositories/usage_limit.py`: 既存の`test_repositories/test_conversation.py`と同じ方式(`unittest.TestCase` + `patch("boto3.resource")` + `MagicMock`、moto不使用)で単体テスト。`record_usage`の書き込み内容、`get_usage_since`の時間窓境界値(窓のちょうど境界、境界の前後)を検証する。
 - レートリミット判定ロジック: 閾値ちょうど・閾値超過・閾値未満の3パターンで `RateLimitExceededError` が送出される/されないことを検証する(`>` であって `>=` でないことを明示的にテストする)。
 - 既存の `test_chat.py` 等が、新規の記録処理追加によって壊れないことを確認する。
