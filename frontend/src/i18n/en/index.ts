@@ -45,6 +45,11 @@ const translation = {
         description:
           'High-capability Opus model built for coding, enterprise workflows, and long-running agentic tasks.',
       },
+      'claude-v5-opus': {
+        label: 'Claude 5 (Opus)',
+        description:
+          'Most advanced Opus model, powering long-running agents with major gains in deep reasoning, agentic coding, and enterprise work, backed by a 1M token context window.',
+      },
       'claude-v4-sonnet': {
         label: 'Claude 4 (Sonnet)',
         description:
@@ -59,6 +64,16 @@ const translation = {
         label: 'Claude 4.6 (Sonnet)',
         description:
           'Full upgrade of the mid-tier model with improved coding, computer use, long-context reasoning, and agent planning with 1M token context window.',
+      },
+      'claude-v5-sonnet': {
+        label: 'Claude 5 (Sonnet)',
+        description:
+          'Most capable Sonnet model, bringing near-Opus intelligence to coding and agentic work at the balance of capability, cost, and speed teams rely on Sonnet for.',
+      },
+      'claude-v5-fable': {
+        label: 'Claude 5 (Fable)',
+        description:
+          'Anthropic\'s most capable widely released model, offering the highest available intelligence for the most demanding long-running agentic tasks.',
       },
       'claude-v4.5-haiku': {
         label: 'Claude 4.5 (Haiku)',

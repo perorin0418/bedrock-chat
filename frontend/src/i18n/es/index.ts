@@ -56,6 +56,21 @@ const translation = {
         description:
           'Modelo Opus de alta capacidad diseñado para codificación, flujos de trabajo empresariales y tareas de agente de larga duración.',
       },
+      'claude-v5-opus': {
+        label: 'Claude 5 (Opus)',
+        description:
+          'El modelo Opus más avanzado, con grandes mejoras en razonamiento profundo, codificación de agentes y trabajo empresarial, con ventana de contexto de 1M de tokens.',
+      },
+      'claude-v5-sonnet': {
+        label: 'Claude 5 (Sonnet)',
+        description:
+          'El modelo Sonnet más capaz, con inteligencia cercana a Opus manteniendo el equilibrio entre capacidad, costo y velocidad.',
+      },
+      'claude-v5-fable': {
+        label: 'Claude 5 (Fable)',
+        description:
+          'El modelo de disponibilidad general más capaz de Anthropic, con la mayor inteligencia disponible para las tareas de agente de mayor duración.',
+      },
       'claude-v3-opus': {
         label: 'Claude 3 (Opus)',
         description: 'Modelo potente para tareas altamente complejas.',
