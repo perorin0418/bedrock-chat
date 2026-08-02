@@ -672,7 +672,7 @@ How would you categorize this email?`,
     chat: {
       label: {
         messageCost: 'Cost: {{price}}',
-        totalCost: 'Total cost: {{price}}',
+        totalCost: 'Total cost (includes regenerations): {{price}}',
       },
     },
     conversationHistory: {

@@ -689,7 +689,7 @@ const useChat = () => {
     reasoningEnabled,
     setReasoningEnabled,
     supportReasoning,
-    totalPrice: data?.totalPrice ?? null,
+    totalPrice: data?.id === conversationId ? data.totalPrice : null,
     // エラーのリトライ
     retryPostChat: (params: {
       enableReasoning: boolean;

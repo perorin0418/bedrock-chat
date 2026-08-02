@@ -678,7 +678,7 @@ const translation: typeof en = {
     chat: {
       label: {
         messageCost: 'コスト: {{price}}',
-        totalCost: '合計コスト: {{price}}',
+        totalCost: '合計コスト（再生成分を含む）: {{price}}',
       },
     },
     conversationHistory: {
