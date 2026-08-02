@@ -8,7 +8,7 @@
 - 過去7日間の累計コストが $336 を超えたらチャットをブロックする
 - 上記2つの閾値($10 / $336)はコード変更・再デプロイなしで変更できるようにする
 
-対象は通常のチャットUI経由の利用(WebSocketストリーミング / REST の `POST /conversation`)に加え、公開bot API(`published_api.py`)経由の利用も対象とする。管理者(Admin)グループのユーザーも例外とせず、全ユーザーに適用する。
+対象は通常のチャットUI経由の利用(WebSocketストリーミング / REST の `POST /conversation`)のみ。公開bot API(`published_api.py` / `sqs_consumer.py` 経由)は対象外とする(理由は下記「公開bot APIを対象外とする理由」を参照)。管理者(Admin)グループのユーザーも例外とせず、全ユーザーに適用する。
 
 ## 前提・既存実装の確認結果
 
@@ -16,9 +16,15 @@
 - `conversationTable` の1アイテムは1会話全体であり、`CreateTime` は会話作成時刻のみを持つ。会話が長期間続く場合、`TotalPrice` を `CreateTime` で時間窓に按分することはできない(不正確になる)。**ユーザー単位で「直近N時間の利用額」を安価に集計できる仕組みは現状存在しない**。
 - 既存の `usage_analysis.py`(Athena経由のユーザー別コスト集計)は、DynamoDB→S3のエクスポートが5分間隔のバッチ処理であり、リアルタイムのブロック判定用途には遅延が大きく不向き。管理画面用の集計機能であり、本機能とは別物として扱う。
 - 設定値(閾値)は、このリポジトリではこれまで全てCDKデプロイ時に環境変数へ焼き込む方式で管理されており、SSM Parameter Storeの利用例は存在しない。今回は「再デプロイ不要で変更したい」という要件があるため、新規にSSM Parameter Storeを導入する。
-- 通常UI経路(`websocket.py`, `routes/conversation.py`)と公開API経路(`published_api.py`, `sqs_consumer.py`)は共通の `chat()`(`backend/app/usecases/chat.py`)を呼び出す。公開API側の `user_id` は `User.from_published_api_id()` により `PUBLISHED_API#{bot_id}` という別名前空間になっており、通常ユーザーのIDとは衝突しない(= 公開bot単位でレートリミットが独立して集計される)。
-- 公開API経由のチャットは同期処理ではない。`published_api.py` の `POST /conversation` はメッセージをSQSに積んで即座に `MessageRequestedResponse` を返し、実際の `chat()` 呼び出しは非同期の `sqs_consumer.py` が後から行う。呼び出し元に同期的にエラーを返せるのはSQS投入前のタイミングのみで、`sqs_consumer.py`(非同期処理側)でブロックしても呼び出し元は既にリクエスト成功の応答を受け取った後であり、エラーを伝える手段がない。
-- 公開APIスタックの `main.py`(`is_published_api=True` 分岐)は通常UI用の `HandlerV2` とは別スタック・別Lambdaだが、同一コードベースの同一FastAPIアプリであり、`main.py` に登録する例外ハンドラ(`add_exception_handler`)は分岐の外側で登録されているため、公開APIスタック側にも自動的に適用される。
+- 通常UI経路(`websocket.py`, `routes/conversation.py`)と公開API経路(`published_api.py`, `sqs_consumer.py`)は共通の `chat()`(`backend/app/usecases/chat.py`)を呼び出す。公開API側の `user_id` は `User.from_published_api_id()` により `PUBLISHED_API#{bot_id}` という別名前空間になっており、通常ユーザーのIDとは衝突しない。
+
+### 公開bot APIを対象外とする理由
+
+公開bot APIには「実際に呼び出してきた外部の相手」を区別する仕組みが今のところない。`main.py` の `is_published_api=True` 分岐では、`current_user.id` は環境変数 `PUBLISHED_API_ID`(=bot ID)から固定的に作られる(`PUBLISHED_API#{bot_id}`)。つまり「ユーザー」= そのbot自体であり、そのbotの公開APIを使う外部利用者全員(APIキーが異なっても)が同じ1バケットに集計される。
+
+外部呼び出し元はAPI GatewayのAPIキーで認証されており(`cdk/lib/api-publishment-stack.ts`)、1つのbotに対して複数のAPIキーを発行できる作り(`create_new_api_key`)になっているため、bot単位で集計すると「ある1社の使いすぎで別の取引先までブロックされる」ことが起こり得る。
+
+APIキー単位で区別するには、AWS Lambda Web Adapter経由でAPI GatewayのAPIキーIDをアプリまで伝搬させる仕組み(未検証)に加え、`ChatInput`・SQSメッセージ本体への項目追加など複数ファイルにまたがる変更が必要になり、今回のスコープに対して不釣り合いに大きい。そのため**今回は公開bot APIへの適用を見送り、将来課題とする**。
 
 ## アーキテクチャ
 
@@ -36,7 +42,7 @@
 ### 使用量の記録タイミング
 
 - `post_process_result()`(`backend/app/usecases/chat.py`)内、`conversation.total_price += result["price"]` の直後に1回、新規リポジトリ関数を呼び出しレコードを書き込む。
-- `chat()` は通常UI・公開API・SQS経由のいずれからも共通で呼ばれる関数だが、公開API分の記録は前述の通り別名前空間(`PUBLISHED_API#{bot_id}`)に入るため、書き込み処理自体を経路によって分岐させる必要はない(分岐させない方がシンプル)。
+- `chat()` は通常UI・公開API・SQS経由のいずれからも共通で呼ばれる関数だが、公開API分の記録は前述の通り別名前空間(`PUBLISHED_API#{bot_id}`)に入るため、書き込み処理自体を経路によって分岐させる必要はない(分岐させない方がシンプル)。公開API側にも記録は残るが、判定(ブロック)には使われないため実害はない。
 
 ### 新規リポジトリ `backend/app/repositories/usage_limit.py`
 
@@ -49,7 +55,7 @@
   - `/{envPrefix}/rate-limit/five-hour-usd-limit`(デフォルト `"10"`)
   - `/{envPrefix}/rate-limit/seven-day-usd-limit`(デフォルト `"336"`)
 - 運用者は `aws ssm put-parameter --overwrite` で再デプロイ不要に値を変更できる。Lambda側はパラメータ名を環境変数(`RATE_LIMIT_FIVE_HOUR_PARAM_NAME` / `RATE_LIMIT_SEVEN_DAY_PARAM_NAME`)経由で受け取り、値を `float()` に変換して使用する。
-- レートリミット判定を行う3つのLambda全て(REST用 `HandlerV2`、WebSocket用ハンドラ、公開APIスタックの `main.py` を動かすLambda)の実行ロールに対象パラメータへの `ssm:GetParameter` を付与する。`sqs_consumer.py` を動かすLambdaは判定を行わないため付与不要(使用量の書き込みのみ行うため、`UsageLedgerTable` への書き込み権限のみ必要)。
+- レートリミット判定を行うLambda(REST用 `HandlerV2`、WebSocket用ハンドラ)の実行ロールに対象パラメータへの `ssm:GetParameter` を付与する。公開APIスタックのLambda群は判定を行わないため付与不要。
 - Lambda側では取得値をプロセス内メモリに60秒程度キャッシュし、チャット毎のSSM呼び出しコスト・レイテンシ・スロットリングリスクを抑える(値変更が反映されるまで最大60秒程度のタイムラグは許容する)。
 
 ### 判定ロジック `check_rate_limit(user: User) -> None`
@@ -58,22 +64,21 @@
 - `five_hour_sum = get_usage_since(user.id, now - 5*3600)`
 - `seven_day_sum = get_usage_since(user.id, now - 7*24*3600)`
 - `five_hour_sum > five_hour_limit または seven_day_sum > seven_day_limit` の場合(超過、`>=` ではなく `>`)、`RateLimitExceededError` を送出する。
-- 呼び出し箇所は次の3箇所、いずれも実際の処理(Bedrock呼び出し、またはSQSへの投入)の**直前**(無駄な課金・無駄なジョブ投入を避ける):
-  - `backend/app/routes/conversation.py` の `post_message()`(`chat()` 呼び出し直前)
-  - `backend/app/websocket.py` の `process_chat_input()`(`chat()` 呼び出し直前)
-  - `backend/app/routes/published_api.py` の `post_message()`(`sqs_client.send_message()` 呼び出し直前)
-- `chat()` 本体・`sqs_consumer.py` には変更を加えない。`sqs_consumer.py`側で改めてチェックしない理由は前述の通り、非同期処理側でブロックしてもエラーを呼び出し元に伝えられないため。SQS投入時点のチェックをすり抜けて後から積み上がるケース(投入直後の短時間バーストなど)は、通常UI経路と同様にベストエフォートの許容範囲として扱う。
+- 呼び出し箇所は次の2箇所のみ、いずれも `chat()` 呼び出しの**直前**(Bedrock呼び出し前にブロックし、無駄な課金を発生させない):
+  - `backend/app/routes/conversation.py` の `post_message()`
+  - `backend/app/websocket.py` の `process_chat_input()`
+- `chat()` 本体・`published_api.py` ・`sqs_consumer.py` には変更を加えない(公開APIは対象外のため。理由は前述の「公開bot APIを対象外とする理由」を参照)。
 
 ### エラーハンドリング
 
 - `RateLimitExceededError` を `backend/app/repositories/common.py` の既存例外群(`RecordNotFoundError` 等)に倣って追加。
-- REST: `backend/app/main.py` に既存パターンと同様 `app.add_exception_handler(RateLimitExceededError, error_handler_factory(429))` を追加するのみ。この登録は `is_published_api` の分岐の外側にあるため、通常UI用スタック・公開APIスタックのどちらのFastAPIアプリにも適用される。ルート側(`routes/conversation.py`, `routes/published_api.py`)は他のエラーと同じく素通しでよい。
+- REST: `backend/app/main.py` に既存パターンと同様 `app.add_exception_handler(RateLimitExceededError, error_handler_factory(429))` を追加するのみ。ルート側(`routes/conversation.py`)は他のエラーと同じく素通しでよい。
 - WebSocket: `backend/app/websocket.py` の `process_chat_input()` にある既存の `except RecordNotFoundError:` と同じパターンで `except RateLimitExceededError:` を追加し、`statusCode: 429` のエラーフレーム(`status: "ERROR"`, `reason: <メッセージ>`)を返す。
-- フロントエンド(通常UIのみ): エラー受信時にユーザーへ分かりやすいメッセージを表示する。直近の `per-chat-cost-display` ブランチのi18n追加パターン(`frontend/src/i18n/en/index.ts` / `ja/index.ts` のみに追加、他言語は `fallbackLng` で英語にフォールバック)を踏襲する。公開APIは外部呼び出し用のためHTTP 429レスポンスのみで、UI側の表示対応は不要。
+- フロントエンド: エラー受信時にユーザーへ分かりやすいメッセージを表示する。直近の `per-chat-cost-display` ブランチのi18n追加パターン(`frontend/src/i18n/en/index.ts` / `ja/index.ts` のみに追加、他言語は `fallbackLng` で英語にフォールバック)を踏襲する。
 
 ## スコープ外
 
-- `sqs_consumer.py`(非同期処理側)での重ねてのチェック(SQS投入時点でのチェックのみ行う)
+- 公開bot API(`published_api.py` / `sqs_consumer.py`)経由の利用へのレートリミット適用(理由は前述。将来課題とし、対応する場合はAPIキー単位での集計を検討する)
 - 閾値超過が近づいていることを事前に警告するUI(閾値到達時にブロックするのみ)
 - ストリーミング中の応答生成コストを、生成途中でリアルタイムに打ち切る仕組み(コストはBedrock呼び出し完了後にしか確定しないため、次回以降のリクエストをブロックする形になる。これは本設計の構造上の制約であり、対応しない)
 - 同時多発リクエストに対する強整合性のロック(check-then-actのため、ごく短時間・僅かな超過を許容するベストエフォート方式とする)
@@ -82,5 +87,4 @@
 
 - `backend/app/repositories/usage_limit.py`: moto使用のDynamoDB単体テスト。`record_usage` の書き込み内容、`get_usage_since` の時間窓境界値(窓のちょうど境界、境界の前後)を検証する。
 - レートリミット判定ロジック: 閾値ちょうど・閾値超過・閾値未満の3パターンで `RateLimitExceededError` が送出される/されないことを検証する(`>` であって `>=` でないことを明示的にテストする)。
-- `published_api.py` の `post_message()`: 閾値超過時に `sqs_client.send_message()` が呼ばれず429が返ることを検証する(SQSクライアントをモックし、送信されないことを確認する)。
 - 既存の `test_chat.py` 等が、新規の記録処理追加によって壊れないことを確認する。
