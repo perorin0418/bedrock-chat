@@ -10,6 +10,7 @@ from app.repositories.custom_bot import (
     delete_alias_by_id,
     delete_bot_by_id,
     find_alias_by_bot_id,
+    find_all_shared_bots,
     find_bot_by_id,
     find_owned_bots_by_user_id,
     find_pinned_public_bots,
@@ -422,6 +423,15 @@ def fetch_all_bots(
 def fetch_all_pinned_bots(user: User) -> list[BotMetaOutput]:
     """Fetch all pinned bots. Currently, only public pinned bots are supported."""
     bots = find_pinned_public_bots()
+    bot_metas = []
+    for bot in bots:
+        bot_metas.append(bot.to_output())
+    return bot_metas
+
+
+def fetch_shared_bots(user: User) -> list[BotMetaOutput]:
+    """Fetch all bots shared with the user by other users."""
+    bots = find_all_shared_bots(user)
     bot_metas = []
     for bot in bots:
         bot_metas.append(bot.to_output())

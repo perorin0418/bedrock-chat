@@ -312,6 +312,7 @@ const translation = {
         noBots: 'No Bots.',
         noBotsRecentlyUsed: 'No Recently Used Bots.',
         noStarredBots: 'No Starred Bots.',
+        noSharedBots: 'No bots have been shared with you.',
         retrievingKnowledge: '[Retrieving Knowledge...]',
         dndFileUpload:
           'You can upload files by drag and drop.\nSupported files: {{fileExtensions}}',
@@ -415,6 +416,11 @@ How would you categorize this email?`,
       my: {
         label: {
           pageTitle: 'My Bots',
+        },
+      },
+      shared: {
+        label: {
+          pageTitle: 'Shared Bots',
         },
       },
       item: {

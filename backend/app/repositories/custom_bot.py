@@ -25,6 +25,7 @@ from app.repositories.models.custom_bot import (
 from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
 from app.repositories.models.custom_bot_kb import BedrockKnowledgeBaseModel
 from app.routes.schemas.bot import type_shared_scope, type_sync_status
+from app.user import User
 from app.utils import get_current_time
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
@@ -742,6 +743,47 @@ def find_pinned_public_bots() -> list[BotMeta]:
     ]
 
     logger.info(f"Found all pinned {len(bots)} bots.")
+    return bots
+
+
+def find_all_shared_bots(user: User) -> list[BotMeta]:
+    """Find all bots shared with the given user, i.e. bots owned by other users
+    with `SharedScope = "all"`, or `SharedScope = "partial"` bots the user is
+    allowed to access. This queries DynamoDB directly (via `SharedScopeIndex`)
+    rather than the OpenSearch bot-store index, so it is not affected by
+    search-index replication lag/failures.
+    """
+    table = get_bot_table_client()
+    logger.info(f"Finding all bots shared with user: {user.id}")
+
+    bots: list[BotMeta] = []
+
+    public_response = table.query(
+        IndexName="SharedScopeIndex",
+        KeyConditionExpression=Key("SharedScope").eq("all"),
+    )
+    for item in public_response["Items"]:
+        if item["PK"] == user.id:
+            continue
+        bots.append(BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True))
+
+    partial_response = table.query(
+        IndexName="SharedScopeIndex",
+        KeyConditionExpression=Key("SharedScope").eq("partial"),
+    )
+    for item in partial_response["Items"]:
+        if item["PK"] == user.id:
+            continue
+        allowed_users = item.get("AllowedCognitoUsers", [])
+        allowed_groups = item.get("AllowedCognitoGroups", [])
+        if (
+            user.is_admin()
+            or user.id in allowed_users
+            or any(group in allowed_groups for group in user.groups)
+        ):
+            bots.append(BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True))
+
+    logger.info(f"Found {len(bots)} bots shared with user: {user.id}")
     return bots
 
 

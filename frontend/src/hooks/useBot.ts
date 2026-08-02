@@ -37,6 +37,12 @@ const useBot = (shouldAutoRefreshMyBots?: boolean) => {
   } = api.getPinnedBots();
 
   const {
+    data: sharedBots,
+    mutate: mutateSharedBots,
+    isLoading: isLoadingSharedBots,
+  } = api.getSharedBots();
+
+  const {
     data: recentlyUsedBots,
     mutate: mutateRecentlyUsedBots,
     isLoading: isLoadingRecentlyUsedBots,
@@ -51,6 +57,9 @@ const useBot = (shouldAutoRefreshMyBots?: boolean) => {
     isLoadingMyBots,
     pinnedBots: pinnedBots?.filter((bot) => bot.available),
     mutatePinnedBots,
+    sharedBots: sharedBots?.filter((bot) => bot.available),
+    mutateSharedBots,
+    isLoadingSharedBots,
     starredBots: starredBots?.filter((bot) => bot.available),
     mutateStarredBots,
     recentlyUsedBots,
