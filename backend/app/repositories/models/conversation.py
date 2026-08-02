@@ -717,6 +717,9 @@ class MessageModel(BaseModel):
     thinking_log: list[SimpleMessageModel] | None = Field(
         default=None, description="Only available for agent."
     )
+    price: float | None = Field(
+        default=None, description="Cost of generating this message, in USD."
+    )
 
     @field_validator("thinking_log", mode="before")
     @classmethod

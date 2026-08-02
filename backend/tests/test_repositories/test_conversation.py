@@ -111,6 +111,7 @@ class TestConversationRepository(unittest.TestCase):
                             ],
                         )
                     ],
+                    price=0.0123,
                 )
             },
             last_message_id="x",
@@ -211,6 +212,7 @@ class TestConversationRepository(unittest.TestCase):
         self.assertEqual(message_map["a"].parent, "z")
         self.assertEqual(message_map["a"].create_time, 1627984879.9)
         self.assertEqual(len(message_map["a"].used_chunks), 1)  # type: ignore
+        self.assertEqual(message_map["a"].price, 0.0123)
         self.assertEqual(found_conversation.last_message_id, "x")
         self.assertEqual(found_conversation.total_price, 100)
         self.assertEqual(found_conversation.bot_id, None)
