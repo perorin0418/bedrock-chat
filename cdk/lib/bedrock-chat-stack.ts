@@ -321,6 +321,8 @@ export class BedrockChatStack extends cdk.Stack {
     const websocket = new WebSocket(this, "WebSocket", {
       accessLogBucket,
       database,
+      rateLimitFiveHourParam,
+      rateLimitSevenDayParam,
       auth,
       bedrockRegion: props.bedrockRegion,
       largeMessageBucket,
