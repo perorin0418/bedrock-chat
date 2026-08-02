@@ -28,6 +28,7 @@ import { BedrockCustomBotCodebuild } from "./constructs/bedrock-custom-bot-codeb
 import { BedrockSharedKnowledgeBasesCodebuild } from "./constructs/bedrock-shared-knowledge-bases-codebuild";
 import { BotStore, Language } from "./constructs/bot-store";
 import { Duration } from "aws-cdk-lib";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 
 export interface BedrockChatStackProps extends StackProps {
   readonly envName: string;
@@ -206,6 +207,28 @@ export class BedrockChatStack extends cdk.Stack {
       pointInTimeRecovery: true,
     });
 
+    const rateLimitParamPrefix = props.envPrefix ? `/${props.envPrefix}` : "";
+    const rateLimitFiveHourParam = new ssm.StringParameter(
+      this,
+      "RateLimitFiveHourUsdLimitParam",
+      {
+        parameterName: `${rateLimitParamPrefix}/rate-limit/five-hour-usd-limit`,
+        stringValue: "10",
+        description:
+          "USD cost limit per user over the trailing 5 hours before chat is blocked.",
+      }
+    );
+    const rateLimitSevenDayParam = new ssm.StringParameter(
+      this,
+      "RateLimitSevenDayUsdLimitParam",
+      {
+        parameterName: `${rateLimitParamPrefix}/rate-limit/seven-day-usd-limit`,
+        stringValue: "336",
+        description:
+          "USD cost limit per user over the trailing 7 days before chat is blocked.",
+      }
+    );
+
     // Custom Bot Store
     let botStore = undefined;
     if (props.enableBotStore) {
@@ -237,6 +260,8 @@ export class BedrockChatStack extends cdk.Stack {
       envName: props.envName,
       envPrefix: props.envPrefix,
       database,
+      rateLimitFiveHourParam,
+      rateLimitSevenDayParam,
       auth,
       bedrockRegion: props.bedrockRegion,
       documentBucket: props.documentBucket,
