@@ -16,8 +16,9 @@ from app.routes.schemas.admin import (
 )
 from app.routes.schemas.bot import Knowledge
 from app.usecases.bot import modify_pinning_status
-from app.user import User
-from fastapi import APIRouter, Depends, Request
+from app.usecases.user import approve_pending_user, list_users_pending_approval
+from app.user import User, UserWithoutGroups
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 router = APIRouter(tags=["admin"])
 
@@ -146,3 +147,23 @@ def pin_bot(
 ):
     """Push / Un-push the bot."""
     modify_pinning_status(bot_id, push_input)
+
+
+@router.get("/admin/users/pending", response_model=list[UserWithoutGroups])
+def get_pending_users(
+    limit: int = 60,
+    admin_check=Depends(check_admin),
+):
+    """Get users who signed up but are still pending admin approval."""
+    return list_users_pending_approval(limit=limit)
+
+
+@router.patch("/admin/users/{user_id}/approve")
+def approve_user(
+    user_id: str,
+    admin_check=Depends(check_admin),
+):
+    """Approve a pending user, allowing them to sign in."""
+    approved = approve_pending_user(user_id)
+    if not approved:
+        raise HTTPException(status_code=404, detail="User Not Found.")

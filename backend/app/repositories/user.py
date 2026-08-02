@@ -92,6 +92,60 @@ def find_group_by_name_prefix(prefix: str) -> list[UserGroup]:
 
 
 @retry(TooManyRequestsError, tries=3, delay=1)
+def find_users_pending_approval(limit: int = 60) -> list[UserWithoutGroups]:
+    """Find self-signed-up users who are confirmed but still disabled, pending admin approval."""
+    try:
+        pending_users: list[UserWithoutGroups] = []
+        pagination_token = None
+        MAX_ATTEMPTS = 5
+
+        for _ in range(MAX_ATTEMPTS):
+            params = {
+                "UserPoolId": USER_POOL_ID,
+                "Filter": 'cognito:user_status = "CONFIRMED"',
+            }
+            if pagination_token:
+                params["PaginationToken"] = pagination_token
+
+            response = client.list_users(**params)
+            pending_users.extend(
+                UserWithoutGroups.from_cognito_idp_response(user)
+                for user in response.get("Users", [])
+                if not user.get("Enabled", True)
+            )
+
+            pagination_token = response.get("PaginationToken")
+            if not pagination_token or len(pending_users) >= limit:
+                break
+
+        return pending_users[:limit]
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "TooManyRequestsException":
+            logger.warning(f"Rate limit exceeded. Retrying... Error: {e}")
+            raise TooManyRequestsError()
+        else:
+            raise
+
+
+@retry(TooManyRequestsError, tries=3, delay=1)
+def approve_user(id: str) -> bool:
+    """Enable a user pending approval. Returns False if the user does not exist."""
+    try:
+        logger.info(f"Approving user: {id}")
+        client.admin_enable_user(UserPoolId=USER_POOL_ID, Username=id)
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "TooManyRequestsException":
+            logger.warning(f"Rate limit exceeded. Retrying... Error: {e}")
+            raise TooManyRequestsError()
+        elif e.response["Error"]["Code"] == "UserNotFoundException":
+            logger.warning(f"User Not Found: {e}")
+            return False
+        else:
+            raise
+
+
+@retry(TooManyRequestsError, tries=3, delay=1)
 def find_user_by_id(id: str) -> UserWithoutGroups | None:
     try:
         logger.debug(f"get user with id: {id}")

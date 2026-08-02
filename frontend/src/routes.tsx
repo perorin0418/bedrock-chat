@@ -7,6 +7,7 @@ import BotApiSettingsPage from './pages/BotApiSettingsPage.tsx';
 import AdminSharedBotAnalyticsPage from './pages/AdminSharedBotAnalyticsPage.tsx';
 import AdminApiManagementPage from './pages/AdminApiManagementPage.tsx';
 import AdminBotManagementPage from './pages/AdminBotManagementPage.tsx';
+import AdminUserApprovalPage from './pages/AdminUserApprovalPage.tsx';
 import { useTranslation } from 'react-i18next';
 import {
   createBrowserRouter,
@@ -79,6 +80,10 @@ const rootChildren = [
     element: <AdminBotManagementPage />,
   },
   {
+    path: '/admin/user-approval',
+    element: <AdminUserApprovalPage />,
+  },
+  {
     path: '/:conversationId',
     element: <ChatPage />,
   },
@@ -116,6 +121,10 @@ export const usePageLabel = () => {
     {
       path: '/admin/api-management',
       label: t('admin.apiManagement.label.pageTitle'),
+    },
+    {
+      path: '/admin/user-approval',
+      label: t('admin.userApproval.label.pageTitle'),
     },
   ];
 

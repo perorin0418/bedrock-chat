@@ -5,6 +5,7 @@ import {
   ListPublicBotsResponse,
 } from '../@types/api-publication';
 import { GetPublicBotResponse, UpdateBotPushedRequest } from '../@types/bot';
+import { ListPendingUsersResponse } from '../@types/user';
 import useHttp from './useHttp';
 
 const useAdminApi = () => {
@@ -24,6 +25,12 @@ const useAdminApi = () => {
     },
     updatePinnedBot: (botId: string, params: UpdateBotPushedRequest) => {
       return http.patch<null>(`/admin/bot/${botId}/pushed`, params);
+    },
+    listPendingUsers: () => {
+      return http.get<ListPendingUsersResponse>('/admin/users/pending');
+    },
+    approveUser: (userId: string) => {
+      return http.patch<null>(`/admin/users/${userId}/approve`, {});
     },
   };
 };

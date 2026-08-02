@@ -4,6 +4,10 @@ const translation = {
       button: {
         login: 'Login',
       },
+      error: {
+        userDisabled:
+          'Your account is pending admin approval. Please wait until an administrator approves your account.',
+      },
     },
     app: {
       name: 'Acrocity Chat',
@@ -651,6 +655,22 @@ How would you categorize this email?`,
         },
         button: {
           deleteApi: 'Delete API',
+        },
+      },
+      userApproval: {
+        label: {
+          pageTitle: 'User Approval',
+          noPendingUsers: 'No users are pending approval.',
+        },
+        help: {
+          overview:
+            'Approve newly signed-up users before they can sign in.',
+        },
+        button: {
+          approve: 'Approve',
+        },
+        error: {
+          failApprove: 'Failed to approve the user.',
         },
       },
       validationError: {
