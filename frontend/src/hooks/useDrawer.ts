@@ -2,19 +2,10 @@ import { create } from 'zustand';
 import { DrawerOptions } from '../@types/common';
 
 const DEFAULT_OPTIONS: DrawerOptions = {
-  displayCount: {
-    starredBots: 15,
-    recentlyUsedBots: 15,
-    conversationHistory: 5,
-  },
   show: {
-    newChat: true,
     myBots: true,
     discoverBots: true,
     pinnedBots: true,
-    starredBots: true,
-    recentlyUsedBots: true,
-    conversationHistory: true,
   },
 };
 
@@ -32,10 +23,6 @@ const useDrawerStore = create<{
       const parsed = JSON.parse(savedOptions);
       // Merge with defaults to handle migration from old structure
       initialOptions = {
-        displayCount: {
-          ...DEFAULT_OPTIONS.displayCount,
-          ...(parsed.displayCount || {}),
-        },
         show: {
           ...DEFAULT_OPTIONS.show,
           ...(parsed.show || {}),
