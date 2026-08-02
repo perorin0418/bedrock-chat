@@ -87,6 +87,18 @@ BEDROCK_PRICING = {
             "cache_write_input": 0.00625,
             "cache_read_input": 0.0005,
         },
+        "claude-v5-opus": {
+            "input": 0.005,
+            "output": 0.025,
+            "cache_write_input": 0.00625,
+            "cache_read_input": 0.0005,
+        },
+        "claude-v5-fable": {
+            "input": 0.010,
+            "output": 0.050,
+            "cache_write_input": 0.0125,
+            "cache_read_input": 0.001,
+        },
         "claude-v4-sonnet": {
             "input": 0.003,
             "output": 0.015,
@@ -100,6 +112,12 @@ BEDROCK_PRICING = {
             "cache_read_input": 0.0003,
         },
         "claude-v4.6-sonnet": {
+            "input": 0.003,
+            "output": 0.015,
+            "cache_write_input": 0.00375,
+            "cache_read_input": 0.0003,
+        },
+        "claude-v5-sonnet": {
             "input": 0.003,
             "output": 0.015,
             "cache_write_input": 0.00375,
@@ -190,6 +208,18 @@ BEDROCK_PRICING = {
             "cache_write_input": 0.00625,
             "cache_read_input": 0.0005,
         },
+        "claude-v5-opus": {
+            "input": 0.005,
+            "output": 0.025,
+            "cache_write_input": 0.00625,
+            "cache_read_input": 0.0005,
+        },
+        "claude-v5-fable": {
+            "input": 0.010,
+            "output": 0.050,
+            "cache_write_input": 0.0125,
+            "cache_read_input": 0.001,
+        },
         "claude-v4-sonnet": {
             "input": 0.003,
             "output": 0.015,
@@ -203,6 +233,12 @@ BEDROCK_PRICING = {
             "cache_read_input": 0.0003,
         },
         "claude-v4.6-sonnet": {
+            "input": 0.003,
+            "output": 0.015,
+            "cache_write_input": 0.00375,
+            "cache_read_input": 0.0003,
+        },
+        "claude-v5-sonnet": {
             "input": 0.003,
             "output": 0.015,
             "cache_write_input": 0.00375,
@@ -286,6 +322,18 @@ BEDROCK_PRICING = {
             "cache_write_input": 0.00625,
             "cache_read_input": 0.0005,
         },
+        "claude-v5-opus": {
+            "input": 0.005,
+            "output": 0.025,
+            "cache_write_input": 0.00625,
+            "cache_read_input": 0.0005,
+        },
+        "claude-v5-fable": {
+            "input": 0.010,
+            "output": 0.050,
+            "cache_write_input": 0.0125,
+            "cache_read_input": 0.001,
+        },
         "claude-v4-sonnet": {
             "input": 0.003,
             "output": 0.015,
@@ -299,6 +347,12 @@ BEDROCK_PRICING = {
             "cache_read_input": 0.0003,
         },
         "claude-v4.6-sonnet": {
+            "input": 0.003,
+            "output": 0.015,
+            "cache_write_input": 0.00375,
+            "cache_read_input": 0.0003,
+        },
+        "claude-v5-sonnet": {
             "input": 0.003,
             "output": 0.015,
             "cache_write_input": 0.00375,
