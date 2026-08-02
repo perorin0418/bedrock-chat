@@ -7,6 +7,10 @@ const translation: typeof en = {
       button: {
         login: 'ログイン',
       },
+      error: {
+        userDisabled:
+          'アカウントは管理者の承認待ちです。管理者が承認するまでお待ちください。',
+      },
     },
     app: {
       name: 'Acrocity Chat',
@@ -657,6 +661,21 @@ const translation: typeof en = {
         },
         button: {
           deleteApi: 'API削除',
+        },
+      },
+      userApproval: {
+        label: {
+          pageTitle: 'ユーザー承認',
+          noPendingUsers: '承認待ちのユーザーはいません。',
+        },
+        help: {
+          overview: '新規登録されたユーザーがログインできるよう承認します。',
+        },
+        button: {
+          approve: '承認',
+        },
+        error: {
+          failApprove: 'ユーザーの承認に失敗しました。',
         },
       },
       validationError: {

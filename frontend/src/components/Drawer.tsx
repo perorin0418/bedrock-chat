@@ -15,6 +15,7 @@ import {
   PiPlugs,
   PiPresentationChart,
   PiShareNetwork,
+  PiUserCheck,
   PiX,
 } from 'react-icons/pi';
 import { ConversationMeta } from '../@types/conversation';
@@ -189,6 +190,14 @@ const Drawer: React.FC<Props> = (props) => {
                 icon={<PiPlugs />}
                 to="/admin/api-management"
                 labelComponent={getPageLabel('/admin/api-management')}
+                onClick={closeSmallDrawer}
+              />
+              <DrawerItem
+                className="w-60"
+                isActive={location.pathname === '/admin/user-approval'}
+                icon={<PiUserCheck />}
+                to="/admin/user-approval"
+                labelComponent={getPageLabel('/admin/user-approval')}
                 onClick={closeSmallDrawer}
               />
             </>

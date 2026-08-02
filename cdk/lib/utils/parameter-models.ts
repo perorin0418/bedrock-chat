@@ -94,6 +94,7 @@ const BedrockChatParametersSchema = BaseParametersSchema.extend({
   allowedSignUpEmailDomains: z.array(z.string()).default([]),
   autoJoinUserGroups: z.array(z.string()).default(["CreatingBotAllowed"]),
   selfSignUpEnabled: z.boolean().default(true),
+  requireAdminApproval: z.boolean().default(true),
 
   // Performance and availability
   enableRagReplicas: z.boolean().default(true),
@@ -256,6 +257,7 @@ export function resolveBedrockChatParameters(
     ),
     autoJoinUserGroups: app.node.tryGetContext("autoJoinUserGroups"),
     selfSignUpEnabled: app.node.tryGetContext("selfSignUpEnabled"),
+    requireAdminApproval: app.node.tryGetContext("requireAdminApproval"),
     publishedApiAllowedIpV4AddressRanges: app.node.tryGetContext(
       "publishedApiAllowedIpV4AddressRanges"
     ),

@@ -46,6 +46,14 @@ const App: React.FC = () => {
   });
 
   I18n.putVocabularies(translations);
+  I18n.putVocabularies({
+    en: {
+      'User is disabled.': i18n.getFixedT('en')('signIn.error.userDisabled'),
+    },
+    ja: {
+      'User is disabled.': i18n.getFixedT('ja')('signIn.error.userDisabled'),
+    },
+  });
   I18n.setLanguage(i18n.language);
 
   return (
