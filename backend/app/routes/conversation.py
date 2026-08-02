@@ -27,6 +27,7 @@ from app.usecases.chat import (
     propose_conversation_title,
     search_conversations as search_conversations_usecase,
 )
+from app.usecases.rate_limit import check_rate_limit
 from app.user import User
 from fastapi import APIRouter, Request
 
@@ -44,6 +45,7 @@ def post_message(request: Request, chat_input: ChatInput):
     """Send chat message"""
     current_user: User = request.state.current_user
 
+    check_rate_limit(current_user)
     conversation, message = chat(user=current_user, chat_input=chat_input)
     output = chat_output_from_message(conversation=conversation, message=message)
     return output
