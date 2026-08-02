@@ -527,6 +527,7 @@ def post_process_result(
     message = result["message"]
     stop_reason = result["stop_reason"]
 
+    message.price = result["price"]
     conversation.total_price += result["price"]
     conversation.should_continue = stop_reason == "max_tokens" and is_prefill_supported(
         chat_input.message.model
