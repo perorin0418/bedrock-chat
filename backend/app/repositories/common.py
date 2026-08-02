@@ -9,6 +9,7 @@ from requests_aws4auth import AWS4Auth
 DDB_ENDPOINT_URL = os.environ.get("DDB_ENDPOINT_URL")
 CONVERSATION_TABLE_NAME = os.environ.get("CONVERSATION_TABLE_NAME", "")
 BOT_TABLE_NAME = os.environ.get("BOT_TABLE_NAME", "")
+USAGE_LEDGER_TABLE_NAME = os.environ.get("USAGE_LEDGER_TABLE_NAME", "")
 ACCOUNT = os.environ.get("ACCOUNT", "")
 REGION = os.environ.get("REGION", "ap-northeast-1")
 TABLE_ACCESS_ROLE_ARN = os.environ.get("TABLE_ACCESS_ROLE_ARN", "")
@@ -22,8 +23,12 @@ OPENSEARCH_DOMAIN_ENDPOINT = os.environ.get(
 TRANSACTION_BATCH_WRITE_SIZE = 25
 TRANSACTION_BATCH_READ_SIZE = 100
 
-type_table = Literal["conversation", "bot"]
-_table_name_map = {"conversation": CONVERSATION_TABLE_NAME, "bot": BOT_TABLE_NAME}
+type_table = Literal["conversation", "bot", "usage_ledger"]
+_table_name_map = {
+    "conversation": CONVERSATION_TABLE_NAME,
+    "bot": BOT_TABLE_NAME,
+    "usage_ledger": USAGE_LEDGER_TABLE_NAME,
+}
 
 
 class RecordNotFoundError(Exception):
@@ -35,6 +40,10 @@ class RecordAccessNotAllowedError(Exception):
 
 
 class ResourceConflictError(Exception):
+    pass
+
+
+class RateLimitExceededError(Exception):
     pass
 
 
@@ -171,6 +180,13 @@ def get_bot_table_client():
     return _get_aws_resource("dynamodb", table_name=BOT_TABLE_NAME).Table(
         BOT_TABLE_NAME
     )
+
+
+def get_usage_ledger_table_client(user_id: str):
+    """Get a DynamoDB table client for usage ledger table."""
+    return _get_aws_resource(
+        "dynamodb", user_id=user_id, table_name=USAGE_LEDGER_TABLE_NAME
+    ).Table(USAGE_LEDGER_TABLE_NAME)
 
 
 def get_opensearch_client(collection_type: str = "bot") -> OpenSearch:
