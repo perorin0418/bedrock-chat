@@ -676,6 +676,7 @@ export class Embedding extends Construct {
         BEDROCK_REGION: props.bedrockRegion,
         CONVERSATION_TABLE_NAME: props.database.conversationTable.tableName,
         BOT_TABLE_NAME: props.database.botTable.tableName,
+        API_KEY_OWNER_TABLE_NAME: props.database.apiKeyOwnerTable.tableName,
         TABLE_ACCESS_ROLE_ARN: props.database.tableAccessRole.roleArn,
         DOCUMENT_BUCKET: props.documentBucket.bucketName,
       },

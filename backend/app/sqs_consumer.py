@@ -15,7 +15,9 @@ def handler(event, context):
 
         assert chat_input.bot_id is not None, "bot_id is required for published api"
 
-        user = User.from_published_api_id(chat_input.bot_id)
+        user = User.from_published_api_id(
+            chat_input.bot_id, billing_user_id=chat_input.rate_limit_user_id
+        )
 
         conversation, message = chat(user=user, chat_input=chat_input)
         chat_result = chat_output_from_message(

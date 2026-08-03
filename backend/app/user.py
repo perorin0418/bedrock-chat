@@ -24,6 +24,14 @@ class UserWithoutGroups(BaseModel):
 
 class User(UserWithoutGroups):
     groups: list[str]
+    billing_user_id: str | None = None
+
+    @property
+    def rate_limit_id(self) -> str:
+        """The user_id whose rate-limit ledger this user's usage should be
+        recorded against. Equal to `id` except for published-API requests
+        made with a key bound to a different user."""
+        return self.billing_user_id or self.id
 
     def is_admin(self) -> bool:
         return "Admin" in self.groups
@@ -44,7 +52,9 @@ class User(UserWithoutGroups):
         )
 
     @classmethod
-    def from_published_api_id(cls, bot_id: str) -> Self:
+    def from_published_api_id(
+        cls, bot_id: str, billing_user_id: str | None = None
+    ) -> Self:
         api_bot_id = f"PUBLISHED_API#{bot_id}"
         return cls(
             id=api_bot_id,
@@ -53,6 +63,7 @@ class User(UserWithoutGroups):
             # Note: Publish API is allowed to access all bot resources.
             # It should be refactored to have a more fine-grained permission.
             groups=["Admin"],
+            billing_user_id=billing_user_id,
         )
 
 

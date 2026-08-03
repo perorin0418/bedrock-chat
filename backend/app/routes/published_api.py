@@ -1,8 +1,10 @@
 import json
+import logging
 import os
 from time import sleep
 
 import boto3
+from app.repositories.api_key_owner import find_api_key_owner
 from app.routes.schemas.conversation import ChatInput, Conversation, MessageInput
 from app.routes.schemas.published_api import (
     ChatInputWithoutBotId,
@@ -10,14 +12,44 @@ from app.routes.schemas.published_api import (
     MessageRequestedResponse,
 )
 from app.usecases.chat import chat, fetch_conversation
+from app.usecases.rate_limit import check_rate_limit
 from app.user import User
 from fastapi import APIRouter, HTTPException, Request
 from ulid import ULID
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["published_api"])
 
 sqs_client = boto3.client("sqs")
 QUEUE_URL = os.environ.get("QUEUE_URL", "")
+
+
+def _get_request_api_key_id(request: Request) -> str | None:
+    """Extract the API Gateway API key id used for this request.
+
+    Populated by the Lambda Web Adapter, which forwards the original Lambda
+    event's `requestContext` as this header. Returns None if the header is
+    absent or unparseable (e.g. local development), in which case the caller
+    should skip rate-limit attribution rather than fail the request.
+
+    Security note: the Lambda Web Adapter (v0.7.0) forwards the client's
+    original request headers unchanged and then appends its own real
+    `x-amzn-request-context` value, rather than replacing any client-supplied
+    one. If a caller sends their own `x-amzn-request-context` header, it
+    would survive as an earlier value in the list. We therefore take the
+    LAST value via `getlist`, never `.get()` (which returns the first) — the
+    adapter's real value is always appended last, so this is safe regardless
+    of what a client sends.
+    """
+    values = request.headers.getlist("x-amzn-request-context")
+    if not values:
+        return None
+    try:
+        api_key_id = json.loads(values[-1]).get("identity", {}).get("apiKeyId")
+    except (json.JSONDecodeError, AttributeError):
+        return None
+    return api_key_id if isinstance(api_key_id, str) else None
 
 
 @router.get("/health")
@@ -36,6 +68,16 @@ def post_message(request: Request, message_input: ChatInputWithoutBotId):
     bot_id = (
         current_user.id.split("#")[1] if "#" in current_user.id else current_user.id
     )
+
+    api_key_id = _get_request_api_key_id(request)
+    rate_limit_user_id = find_api_key_owner(api_key_id) if api_key_id else None
+    if rate_limit_user_id is not None:
+        check_rate_limit(rate_limit_user_id)
+    else:
+        logger.warning(
+            f"Published API key {api_key_id} has no bound owner; skipping "
+            "rate-limit check for this request."
+        )
 
     # Generate conversation id if not provided
     conversation_id = (
@@ -58,6 +100,7 @@ def post_message(request: Request, message_input: ChatInputWithoutBotId):
         bot_id=bot_id,
         continue_generate=message_input.continue_generate,
         enable_reasoning=message_input.enable_reasoning,
+        rate_limit_user_id=rate_limit_user_id,
     )
 
     try:

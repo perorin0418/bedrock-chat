@@ -211,6 +211,10 @@ class ChatInput(BaseSchema):
     bot_id: str | None = Field(None)
     continue_generate: bool = Field(False)
     enable_reasoning: bool = Field(False)
+    # Internal only: set server-side by `routes/published_api.py` after
+    # resolving the API key's bound owner, then read by `sqs_consumer.py`.
+    # Normal chat routes never set or read this field.
+    rate_limit_user_id: str | None = Field(None)
 
 
 class ChatOutput(BaseSchema):

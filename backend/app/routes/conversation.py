@@ -45,7 +45,7 @@ def post_message(request: Request, chat_input: ChatInput):
     """Send chat message"""
     current_user: User = request.state.current_user
 
-    check_rate_limit(current_user)
+    check_rate_limit(current_user.id)
     conversation, message = chat(user=current_user, chat_input=chat_input)
     output = chat_output_from_message(conversation=conversation, message=message)
     return output

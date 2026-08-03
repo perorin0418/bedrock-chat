@@ -17,6 +17,7 @@ import * as cdk from "aws-cdk-lib";
 import { Embedding } from "./constructs/embedding";
 import { UsageAnalysis } from "./constructs/usage-analysis";
 import { TIdentityProvider, identityProvider } from "./utils/identity-provider";
+import { rateLimitParamName } from "./utils/parameter-models";
 import { ApiPublishCodebuild } from "./constructs/api-publish-codebuild";
 import { WebAclForCognito } from "./constructs/webacl-for-cognito";
 import { WebAclForPublishedApi } from "./constructs/webacl-for-published-api";
@@ -209,12 +210,11 @@ export class BedrockChatStack extends cdk.Stack {
       pointInTimeRecovery: true,
     });
 
-    const rateLimitParamPrefix = props.envPrefix ? `/${props.envPrefix}` : "";
     const rateLimitFiveHourParam = new ssm.StringParameter(
       this,
       "RateLimitFiveHourUsdLimitParam",
       {
-        parameterName: `${rateLimitParamPrefix}/rate-limit/five-hour-usd-limit`,
+        parameterName: rateLimitParamName(props.envPrefix, "five-hour"),
         stringValue: "10",
         description:
           "USD cost limit per user over the trailing 5 hours before chat is blocked.",
@@ -224,7 +224,7 @@ export class BedrockChatStack extends cdk.Stack {
       this,
       "RateLimitSevenDayUsdLimitParam",
       {
-        parameterName: `${rateLimitParamPrefix}/rate-limit/seven-day-usd-limit`,
+        parameterName: rateLimitParamName(props.envPrefix, "seven-day"),
         stringValue: "336",
         description:
           "USD cost limit per user over the trailing 7 days before chat is blocked.",
@@ -397,6 +397,14 @@ export class BedrockChatStack extends cdk.Stack {
     new CfnOutput(this, "LargeMessageBucketName", {
       value: largeMessageBucket.bucketName,
       exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatLargeMessageBucketName`,
+    });
+    new CfnOutput(this, "UsageLedgerTableNameExport", {
+      value: database.usageLedgerTable.tableName,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatUsageLedgerTableName`,
+    });
+    new CfnOutput(this, "ApiKeyOwnerTableNameExport", {
+      value: database.apiKeyOwnerTable.tableName,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatApiKeyOwnerTableName`,
     });
     new CfnOutput(this, 'EmbeddingStateMachineArn', {
       value: embedding.stateMachine.stateMachineArn,

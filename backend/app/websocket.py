@@ -200,7 +200,7 @@ def process_chat_input(
     logger.info(f"Received chat input: {chat_input}")
 
     try:
-        check_rate_limit(user)
+        check_rate_limit(user.id)
 
         chat(
             user=user,

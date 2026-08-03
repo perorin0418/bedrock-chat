@@ -405,3 +405,17 @@ export function resolveBedrockSharedKnowledgeBasesParameters(): BedrockSharedKno
 
   return BedrockSharedKnowledgeBasesParametersSchema.parse(envVars);
 }
+
+/**
+ * Build the SSM parameter name for a rate-limit threshold. Shared between
+ * the main stack (where the parameter is created) and the API-publishment
+ * stack (where it's read, in a separate CDK app/deploy), since the name is
+ * fully deterministic from `envPrefix`.
+ */
+export function rateLimitParamName(
+  envPrefix: string,
+  window: "five-hour" | "seven-day"
+): string {
+  const prefix = envPrefix ? `/${envPrefix}` : "";
+  return `${prefix}/rate-limit/${window}-usd-limit`;
+}
