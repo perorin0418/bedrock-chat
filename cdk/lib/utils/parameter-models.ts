@@ -109,6 +109,13 @@ const BedrockChatParametersSchema = BaseParametersSchema.extend({
   enableBotStoreReplicas: z.boolean().default(false),
   botStoreLanguage: BotStoreLanguageSchema.default("en"),
 
+  // Claude Code (direct Bedrock access) per-employee IAM provisioning.
+  enableClaudeCodeProvisioning: z.boolean().default(true),
+  // Optional email subscribed to the Claude Code notification SNS topic
+  // (IAM provisioning failures; also used by ClaudeCodeCostSyncStack for
+  // cost-sync failures and new Deny events).
+  claudeCodeNotificationEmail: z.string().optional(),
+
   // ID token refresh interval
   tokenValidMinutes: z.number().default(30),
 
@@ -151,6 +158,15 @@ const ApiPublishParametersSchema = BaseParametersSchema.extend({
   publishedApiDeploymentStage: z.string().default("api"),
   publishedApiId: z.string().optional(),
   publishedApiAllowedOrigins: z.string().default('["*"]'),
+});
+
+/**
+ * Parameters schema for the Claude Code cost-sync stack (independent CDK
+ * app, deployed alongside the main stack. See cdk/bin/claude-code-cost-sync.ts).
+ */
+const ClaudeCodeCostSyncParametersSchema = BaseParametersSchema.extend({
+  // Optional email subscribed to the Deny/failure notification SNS topic.
+  claudeCodeCostSyncNotificationEmail: z.string().optional(),
 });
 
 /**
@@ -207,6 +223,12 @@ export type BedrockSharedKnowledgeBasesarametersInput = z.input<
 export type BaseParameters = z.infer<typeof BaseParametersSchema>;
 export type BedrockChatParameters = z.infer<typeof BedrockChatParametersSchema>;
 export type ApiPublishParameters = z.infer<typeof ApiPublishParametersSchema>;
+export type ClaudeCodeCostSyncParametersInput = z.input<
+  typeof ClaudeCodeCostSyncParametersSchema
+>;
+export type ClaudeCodeCostSyncParameters = z.infer<
+  typeof ClaudeCodeCostSyncParametersSchema
+>;
 export type BedrockCustomBotParameters = z.infer<
   typeof BedrockCustomBotParametersSchema
 >;
@@ -276,6 +298,12 @@ export function resolveBedrockChatParameters(
     hostedZoneId: app.node.tryGetContext("hostedZoneId"),
     enableBotStore: app.node.tryGetContext("enableBotStore"),
     enableBotStoreReplicas: app.node.tryGetContext("enableBotStoreReplicas"),
+    enableClaudeCodeProvisioning: app.node.tryGetContext(
+      "enableClaudeCodeProvisioning"
+    ),
+    claudeCodeNotificationEmail: app.node.tryGetContext(
+      "claudeCodeNotificationEmail"
+    ),
     botStoreLanguage: app.node.tryGetContext("botStoreLanguage"),
     globalAvailableModels: app.node.tryGetContext("globalAvailableModels"),
     defaultModel: app.node.tryGetContext("defaultModel"),
@@ -362,6 +390,33 @@ export function resolveApiPublishParameters(): ApiPublishParameters {
   };
 
   return ApiPublishParametersSchema.parse(envVars);
+}
+
+/**
+ * Parse and validate parameters for the Claude Code cost-sync stack.
+ * Uses cdk.json context, matching the main stack (resolveBedrockChatParameters)
+ * rather than the CodeBuild-style env vars used by resolveApiPublishParameters,
+ * since this stack is deployed the same way as the main stack (`cdk deploy`),
+ * not dynamically per-bot via CodeBuild.
+ * @param app CDK App instance
+ * @returns Validated parameters object
+ */
+export function resolveClaudeCodeCostSyncParameters(
+  app: App
+): ClaudeCodeCostSyncParameters {
+  const envName = app.node.tryGetContext("envName") || "default";
+  const envPrefix = envName === "default" ? "" : envName;
+
+  const contextParams = {
+    envName,
+    envPrefix,
+    bedrockRegion: app.node.tryGetContext("bedrockRegion"),
+    claudeCodeCostSyncNotificationEmail: app.node.tryGetContext(
+      "claudeCodeCostSyncNotificationEmail"
+    ),
+  };
+
+  return ClaudeCodeCostSyncParametersSchema.parse(contextParams);
 }
 
 /**

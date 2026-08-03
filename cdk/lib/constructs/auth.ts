@@ -17,6 +17,9 @@ import {
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
+import { Table } from "aws-cdk-lib/aws-dynamodb";
 import { Runtime, Code, SingletonFunction } from "aws-cdk-lib/aws-lambda";
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
 import { Construct } from "constructs";
@@ -36,13 +39,33 @@ export interface AuthProps {
   readonly requireAdminApproval: boolean;
   readonly tokenValidity: Duration;
   readonly webAclArn?: string;
+  readonly enableClaudeCodeProvisioning: boolean;
+  readonly claudeCodeIamUserTable: Table;
+  readonly claudeCodeNotificationEmail?: string;
 }
 
 export class Auth extends Construct {
   readonly userPool: UserPool;
+  readonly claudeCodeNotificationTopic: sns.Topic;
   readonly client: UserPoolClient;
   constructor(scope: Construct, id: string, props: AuthProps) {
     super(scope, id);
+
+    // Notifications for Claude Code IAM provisioning failures (this
+    // construct) and cost-sync/Deny events (ClaudeCodeCostSyncStack, which
+    // imports this topic's ARN). Always created (an idle SNS topic costs
+    // nothing) so the cross-stack export is unconditional.
+    const claudeCodeNotificationTopic = new sns.Topic(
+      this,
+      "ClaudeCodeNotificationTopic",
+      { displayName: "Claude Code cost-sync notifications" }
+    );
+    if (props.claudeCodeNotificationEmail) {
+      claudeCodeNotificationTopic.addSubscription(
+        new subscriptions.EmailSubscription(props.claudeCodeNotificationEmail)
+      );
+    }
+
     const userPool = new UserPool(this, "UserPool", {
       passwordPolicy: {
         requireUppercase: true,
@@ -209,7 +232,11 @@ export class Auth extends Construct {
       }
     );
 
-    if (props.autoJoinUserGroups.length >= 1 || props.requireAdminApproval) {
+    if (
+      props.autoJoinUserGroups.length >= 1 ||
+      props.requireAdminApproval ||
+      props.enableClaudeCodeProvisioning
+    ) {
       /**
        * Create a Cognito trigger to add a new user to the group specified with `autoJoinUserGroups`,
        * and (if `requireAdminApproval` is enabled) disable newly self-signed-up users until an
@@ -220,6 +247,29 @@ export class Auth extends Construct {
        * Additionally, CloudFormation does not provide the functionality to add triggers to existing user pools.
        * Therefore, use a custom resource implementing that functionality.
        */
+
+      // Attached to each employee's Claude Code IAM user so they can call
+      // Bedrock directly. Scope matches the existing broad "*" resource
+      // precedent used for Bedrock actions elsewhere in this app (e.g. the
+      // published-API stack's handler role).
+      const claudeCodeBedrockAccessPolicy = new iam.ManagedPolicy(
+        this,
+        "ClaudeCodeBedrockAccessPolicy",
+        {
+          statements: [
+            new iam.PolicyStatement({
+              actions: [
+                "bedrock:InvokeModel",
+                "bedrock:InvokeModelWithResponseStream",
+                "bedrock:Converse",
+                "bedrock:ConverseStream",
+              ],
+              resources: ["*"],
+            }),
+          ],
+        }
+      );
+
       const addUserToGroupsFunction = new PythonFunction(
         this,
         "AddUserToGroups",
@@ -237,10 +287,20 @@ export class Auth extends Construct {
             REQUIRE_ADMIN_APPROVAL: props.requireAdminApproval
               ? "true"
               : "false",
+            ENABLE_CLAUDE_CODE_PROVISIONING: props.enableClaudeCodeProvisioning
+              ? "true"
+              : "false",
+            CLAUDE_CODE_IAM_USER_TABLE_NAME:
+              props.claudeCodeIamUserTable.tableName,
+            CLAUDE_CODE_BEDROCK_POLICY_ARN:
+              claudeCodeBedrockAccessPolicy.managedPolicyArn,
+            CLAUDE_CODE_NOTIFICATION_TOPIC_ARN:
+              claudeCodeNotificationTopic.topicArn,
           },
           logRetention: logs.RetentionDays.THREE_MONTHS,
         }
       );
+      claudeCodeNotificationTopic.grantPublish(addUserToGroupsFunction);
       addUserToGroupsFunction.addPermission("CognitoTrigger", {
         principal: new iam.ServicePrincipal("cognito-idp.amazonaws.com"),
         sourceArn: userPool.userPoolArn,
@@ -250,6 +310,55 @@ export class Auth extends Construct {
         addUserToGroupsFunction,
         "cognito-idp:AdminAddUserToGroup",
         "cognito-idp:AdminDisableUser"
+      );
+
+      // IAM user/access-key lifecycle for Claude Code provisioning, scoped to
+      // the "claude-code-*" naming convention so this Lambda cannot touch
+      // any other IAM identity.
+      addUserToGroupsFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "iam:CreateUser",
+            "iam:GetUser",
+            "iam:ListAccessKeys",
+            "iam:CreateAccessKey",
+            "iam:DeleteAccessKey",
+          ],
+          resources: [
+            `arn:aws:iam::${Stack.of(this).account}:user/claude-code-*`,
+          ],
+        })
+      );
+      addUserToGroupsFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ["iam:AttachUserPolicy"],
+          resources: [
+            `arn:aws:iam::${Stack.of(this).account}:user/claude-code-*`,
+          ],
+          conditions: {
+            ArnEquals: {
+              "iam:PolicyARN": claudeCodeBedrockAccessPolicy.managedPolicyArn,
+            },
+          },
+        })
+      );
+      addUserToGroupsFunction.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "secretsmanager:CreateSecret",
+            "secretsmanager:UpdateSecret",
+            "secretsmanager:DescribeSecret",
+            "secretsmanager:TagResource",
+          ],
+          resources: [
+            `arn:aws:secretsmanager:${Stack.of(this).region}:${
+              Stack.of(this).account
+            }:secret:claude-code/*`,
+          ],
+        })
+      );
+      props.claudeCodeIamUserTable.grantReadWriteData(
+        addUserToGroupsFunction
       );
 
       const cognitoTriggerRegistrationFunction = new SingletonFunction(
@@ -310,6 +419,7 @@ export class Auth extends Construct {
     
     this.client = client;
     this.userPool = userPool;
+    this.claudeCodeNotificationTopic = claudeCodeNotificationTopic;
 
     new CfnOutput(this, "UserPoolId", { value: userPool.userPoolId });
     new CfnOutput(this, "UserPoolClientId", { value: client.userPoolClientId });
