@@ -235,6 +235,13 @@ describe("Bedrock Chat Stack Test", () => {
       ]),
     });
 
+    template.hasOutput("UsageLedgerTableNameExport", {
+      Export: { Name: "test--BedrockClaudeChatUsageLedgerTableName" },
+    });
+    template.hasOutput("ApiKeyOwnerTableNameExport", {
+      Export: { Name: "test--BedrockClaudeChatApiKeyOwnerTableName" },
+    });
+
     template.hasResourceProperties("AWS::SSM::Parameter", {
       Name: "/test-/rate-limit/five-hour-usd-limit",
       Value: "10",

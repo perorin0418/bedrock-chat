@@ -32,14 +32,24 @@ def _get_request_api_key_id(request: Request) -> str | None:
     event's `requestContext` as this header. Returns None if the header is
     absent or unparseable (e.g. local development), in which case the caller
     should skip rate-limit attribution rather than fail the request.
+
+    Security note: the Lambda Web Adapter (v0.7.0) forwards the client's
+    original request headers unchanged and then appends its own real
+    `x-amzn-request-context` value, rather than replacing any client-supplied
+    one. If a caller sends their own `x-amzn-request-context` header, it
+    would survive as an earlier value in the list. We therefore take the
+    LAST value via `getlist`, never `.get()` (which returns the first) — the
+    adapter's real value is always appended last, so this is safe regardless
+    of what a client sends.
     """
-    raw_context = request.headers.get("x-amzn-request-context")
-    if not raw_context:
+    values = request.headers.getlist("x-amzn-request-context")
+    if not values:
         return None
     try:
-        return json.loads(raw_context).get("identity", {}).get("apiKeyId")
+        api_key_id = json.loads(values[-1]).get("identity", {}).get("apiKeyId")
     except (json.JSONDecodeError, AttributeError):
         return None
+    return api_key_id if isinstance(api_key_id, str) else None
 
 
 @router.get("/health")

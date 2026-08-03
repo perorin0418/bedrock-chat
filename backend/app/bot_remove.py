@@ -2,6 +2,7 @@ import os
 from typing import Any
 
 import boto3
+from app.repositories.api_key_owner import delete_api_key_owner
 from app.repositories.api_publication import (
     delete_api_key,
     delete_stack_by_bot_id,
@@ -91,6 +92,7 @@ def handler(event: dict, context: Any) -> None:
         usage_plan = find_usage_plan_by_id(stack.api_usage_plan_id)
         for key_id in usage_plan.key_ids:
             delete_api_key(key_id)
+            delete_api_key_owner(key_id)
 
     # Delete `ApiPublishmentStack` by CloudFormation
     delete_stack_by_bot_id(bot_id)
