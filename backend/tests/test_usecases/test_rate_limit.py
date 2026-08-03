@@ -88,6 +88,31 @@ class TestCheckRateLimit(unittest.TestCase):
             self.assertEqual(second, 20.0)
             self.assertEqual(mock_ssm.get_parameter.call_count, 2)
 
+    def test_get_limit_falls_back_to_stale_cache_on_ssm_error(self):
+        with patch.object(rate_limit, "ssm_client") as mock_ssm, patch(
+            "time.time", side_effect=[100.0, 161.0]
+        ):
+            mock_ssm.get_parameter.side_effect = [
+                {"Parameter": {"Value": "10"}},
+                Exception("boom"),
+            ]
+
+            first = rate_limit._get_limit("/test/param")
+            second = rate_limit._get_limit("/test/param")
+
+            self.assertEqual(first, 10.0)
+            self.assertEqual(second, 10.0)
+            self.assertEqual(mock_ssm.get_parameter.call_count, 2)
+
+    def test_get_limit_raises_on_ssm_error_with_no_cache(self):
+        with patch.object(rate_limit, "ssm_client") as mock_ssm, patch(
+            "time.time", side_effect=[100.0]
+        ):
+            mock_ssm.get_parameter.side_effect = Exception("boom")
+
+            with self.assertRaises(Exception):
+                rate_limit._get_limit("/test/param")
+
 
 if __name__ == "__main__":
     unittest.main()

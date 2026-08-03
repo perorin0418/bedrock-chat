@@ -30,10 +30,18 @@ def _get_limit(param_name: str) -> float:
     if cached is not None and now - cached[1] < CACHE_TTL_SECONDS:
         return cached[0]
 
-    response = ssm_client.get_parameter(Name=param_name)
-    value = float(response["Parameter"]["Value"])
-    _limit_cache[param_name] = (value, now)
-    return value
+    try:
+        response = ssm_client.get_parameter(Name=param_name)
+        value = float(response["Parameter"]["Value"])
+        _limit_cache[param_name] = (value, now)
+        return value
+    except Exception:
+        if cached is not None:
+            logger.warning(
+                f"Failed to refresh SSM parameter {param_name}; using stale cached value."
+            )
+            return cached[0]
+        raise
 
 
 def check_rate_limit(user: User) -> None:
