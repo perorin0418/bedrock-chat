@@ -19,6 +19,7 @@ export class Database extends Construct {
   readonly tableAccessRole: Role;
   readonly websocketSessionTable: Table;
   readonly usageLedgerTable: Table;
+  readonly apiKeyOwnerTable: Table;
 
   constructor(scope: Construct, id: string, props?: DatabaseProps) {
     super(scope, id);
@@ -100,12 +101,23 @@ export class Database extends Construct {
       encryption: TableEncryption.AWS_MANAGED,
     });
 
+    // Binds a published-API key to the user who created it, for rate-limit
+    // attribution. PK: ApiKeyId. No TTL — rows are deleted explicitly when
+    // the key (or its bot's publication) is deleted.
+    const apiKeyOwnerTable = new Table(this, "ApiKeyOwnerTable", {
+      partitionKey: { name: "ApiKeyId", type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      encryption: TableEncryption.AWS_MANAGED,
+    });
+
     const tableAccessRole = new Role(this, "TableAccessRole", {
       assumedBy: new AccountPrincipal(Stack.of(this).account),
     });
     conversationTable.grantReadWriteData(tableAccessRole);
     botTable.grantReadWriteData(tableAccessRole);
     usageLedgerTable.grantReadWriteData(tableAccessRole);
+    apiKeyOwnerTable.grantReadWriteData(tableAccessRole);
 
     // Websocket session table.
     // This table is used to concatenate user input exceeding 32KB which is the limit of API Gateway.
@@ -122,6 +134,7 @@ export class Database extends Construct {
     this.tableAccessRole = tableAccessRole;
     this.websocketSessionTable = websocketSessionTable;
     this.usageLedgerTable = usageLedgerTable;
+    this.apiKeyOwnerTable = apiKeyOwnerTable;
 
     new CfnOutput(this, "ConversationTableName", {
       value: conversationTable.tableName,
@@ -131,6 +144,9 @@ export class Database extends Construct {
     });
     new CfnOutput(this, "UsageLedgerTableName", {
       value: usageLedgerTable.tableName,
+    });
+    new CfnOutput(this, "ApiKeyOwnerTableName", {
+      value: apiKeyOwnerTable.tableName,
     });
   }
 }

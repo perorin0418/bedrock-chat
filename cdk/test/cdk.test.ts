@@ -229,6 +229,12 @@ describe("Bedrock Chat Stack Test", () => {
       },
     });
 
+    template.hasResourceProperties("AWS::DynamoDB::Table", {
+      AttributeDefinitions: Match.arrayWith([
+        Match.objectLike({ AttributeName: "ApiKeyId", AttributeType: "S" }),
+      ]),
+    });
+
     template.hasResourceProperties("AWS::SSM::Parameter", {
       Name: "/test-/rate-limit/five-hour-usd-limit",
       Value: "10",
