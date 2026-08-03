@@ -11,10 +11,12 @@ from typing import BinaryIO, Literal, TypedDict
 import boto3
 from app.agents.tools.agent_tool import ToolRunResult
 from app.auth import verify_token
+from app.repositories.common import RateLimitExceededError
 from app.repositories.conversation import RecordNotFoundError
 from app.routes.schemas.conversation import ChatInput
 from app.stream import OnStopInput, OnThinking
 from app.usecases.chat import chat
+from app.usecases.rate_limit import check_rate_limit
 from app.user import User
 from boto3.dynamodb.conditions import Attr, Key
 
@@ -198,6 +200,8 @@ def process_chat_input(
     logger.info(f"Received chat input: {chat_input}")
 
     try:
+        check_rate_limit(user)
+
         chat(
             user=user,
             chat_input=chat_input,
@@ -217,6 +221,17 @@ def process_chat_input(
         )
 
         return {"statusCode": 200, "body": "Message sent."}
+
+    except RateLimitExceededError as e:
+        return {
+            "statusCode": 429,
+            "body": json.dumps(
+                dict(
+                    status="ERROR",
+                    reason=str(e),
+                )
+            ),
+        }
 
     except RecordNotFoundError:
         if chat_input.bot_id:

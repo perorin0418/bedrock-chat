@@ -27,9 +27,12 @@ import { UsageAnalysis } from "./usage-analysis";
 import { excludeDockerImage } from "../constants/docker";
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
 import { Database } from "./database";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 
 export interface ApiProps {
   readonly database: Database;
+  readonly rateLimitFiveHourParam: ssm.IStringParameter;
+  readonly rateLimitSevenDayParam: ssm.IStringParameter;
   readonly envName: string;
   readonly envPrefix: string;
   readonly corsAllowOrigins?: string[];
@@ -238,6 +241,8 @@ export class Api extends Construct {
     props.usageAnalysis?.resultOutputBucket.grantReadWrite(handlerRole);
     props.usageAnalysis?.ddbBucket.grantRead(handlerRole);
     props.largeMessageBucket.grantReadWrite(handlerRole);
+    props.rateLimitFiveHourParam.grantRead(handlerRole);
+    props.rateLimitSevenDayParam.grantRead(handlerRole);
 
     const handler = new PythonFunction(this, "HandlerV2", {
       entry: path.join(__dirname, "../../../backend"),
@@ -264,6 +269,9 @@ export class Api extends Construct {
         TABLE_ACCESS_ROLE_ARN: tableAccessRole.roleArn,
         DOCUMENT_BUCKET: props.documentBucket.bucketName,
         LARGE_MESSAGE_BUCKET: props.largeMessageBucket.bucketName,
+        USAGE_LEDGER_TABLE_NAME: database.usageLedgerTable.tableName,
+        RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
+        RATE_LIMIT_SEVEN_DAY_PARAM_NAME: props.rateLimitSevenDayParam.parameterName,
         PUBLISH_API_CODEBUILD_PROJECT_NAME: props.apiPublishProject.projectName,
         EMBEDDING_STATE_MACHINE_ARN: props.embeddingStateMachine.stateMachineArn,
         USAGE_ANALYSIS_DATABASE:

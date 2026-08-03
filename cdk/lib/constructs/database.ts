@@ -18,6 +18,7 @@ export class Database extends Construct {
   readonly botTable: Table;
   readonly tableAccessRole: Role;
   readonly websocketSessionTable: Table;
+  readonly usageLedgerTable: Table;
 
   constructor(scope: Construct, id: string, props?: DatabaseProps) {
     super(scope, id);
@@ -88,11 +89,23 @@ export class Database extends Construct {
       },
     });
 
+    // Usage ledger table for cost-based rate limiting.
+    // PK: UserId, SK: Timestamp (epoch milliseconds)
+    const usageLedgerTable = new Table(this, "UsageLedgerTable", {
+      partitionKey: { name: "PK", type: AttributeType.STRING },
+      sortKey: { name: "SK", type: AttributeType.NUMBER },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      timeToLiveAttribute: "expire",
+      encryption: TableEncryption.AWS_MANAGED,
+    });
+
     const tableAccessRole = new Role(this, "TableAccessRole", {
       assumedBy: new AccountPrincipal(Stack.of(this).account),
     });
     conversationTable.grantReadWriteData(tableAccessRole);
     botTable.grantReadWriteData(tableAccessRole);
+    usageLedgerTable.grantReadWriteData(tableAccessRole);
 
     // Websocket session table.
     // This table is used to concatenate user input exceeding 32KB which is the limit of API Gateway.
@@ -108,12 +121,16 @@ export class Database extends Construct {
     this.botTable = botTable;
     this.tableAccessRole = tableAccessRole;
     this.websocketSessionTable = websocketSessionTable;
+    this.usageLedgerTable = usageLedgerTable;
 
     new CfnOutput(this, "ConversationTableName", {
       value: conversationTable.tableName,
     });
     new CfnOutput(this, "BotTableName", {
       value: botTable.tableName,
+    });
+    new CfnOutput(this, "UsageLedgerTableName", {
+      value: usageLedgerTable.tableName,
     });
   }
 }

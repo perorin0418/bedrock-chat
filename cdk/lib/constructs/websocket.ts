@@ -11,12 +11,15 @@ import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { CfnRouteResponse } from "aws-cdk-lib/aws-apigatewayv2";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { excludeDockerImage } from "../constants/docker";
 import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
 import { Database } from "./database";
 
 export interface WebSocketProps {
   readonly database: Database;
+  readonly rateLimitFiveHourParam: ssm.IStringParameter;
+  readonly rateLimitSevenDayParam: ssm.IStringParameter;
   readonly auth: Auth;
   readonly bedrockRegion: string;
   readonly documentBucket: s3.IBucket;
@@ -103,6 +106,8 @@ export class WebSocket extends Construct {
     database.websocketSessionTable.grantReadWriteData(handlerRole);
     props.largeMessageBucket.grantReadWrite(handlerRole);
     props.documentBucket.grantRead(handlerRole);
+    props.rateLimitFiveHourParam.grantRead(handlerRole);
+    props.rateLimitSevenDayParam.grantRead(handlerRole);
 
     const handler = new PythonFunction(this, "HandlerV2", {
       entry: path.join(__dirname, "../../../backend"),
@@ -126,6 +131,9 @@ export class WebSocket extends Construct {
         LARGE_MESSAGE_BUCKET: props.largeMessageBucket.bucketName,
         LARGE_PAYLOAD_SUPPORT_BUCKET: largePayloadSupportBucket.bucketName,
         WEBSOCKET_SESSION_TABLE_NAME: database.websocketSessionTable.tableName,
+        USAGE_LEDGER_TABLE_NAME: database.usageLedgerTable.tableName,
+        RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
+        RATE_LIMIT_SEVEN_DAY_PARAM_NAME: props.rateLimitSevenDayParam.parameterName,
         ENABLE_BEDROCK_GLOBAL_INFERENCE:
           props.enableBedrockGlobalInference.toString(),
         ENABLE_BEDROCK_CROSS_REGION_INFERENCE:

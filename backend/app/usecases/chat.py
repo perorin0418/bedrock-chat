@@ -34,6 +34,7 @@ from app.repositories.models.custom_bot import (
     BotModel,
     GenerationParamsModel,
 )
+from app.repositories.usage_limit import record_usage
 from app.routes.schemas.conversation import (
     ChatInput,
     ChatOutput,
@@ -576,6 +577,7 @@ def post_process_result(
 
     # Store conversation before finish streaming so that front-end can avoid 404 issue
     store_conversation(user.id, conversation)
+    record_usage(user.id, result["price"])
     if related_documents:
         store_related_documents(
             user_id=user.id,
