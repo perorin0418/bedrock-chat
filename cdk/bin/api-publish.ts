@@ -35,6 +35,12 @@ const tableAccessRoleArn = cdk.Fn.importValue(
 const largeMessageBucketName = cdk.Fn.importValue(
   `${params.envPrefix}${sepHyphen}BedrockClaudeChatLargeMessageBucketName`
 );
+const usageLedgerTableName = cdk.Fn.importValue(
+  `${params.envPrefix}${sepHyphen}BedrockClaudeChatUsageLedgerTableName`
+);
+const apiKeyOwnerTableName = cdk.Fn.importValue(
+  `${params.envPrefix}${sepHyphen}BedrockClaudeChatApiKeyOwnerTableName`
+);
 
 // NOTE: DO NOT change the stack id naming rule.
 new ApiPublishmentStack(app, `ApiPublishmentStack${params.publishedApiId}`, {
@@ -45,9 +51,12 @@ new ApiPublishmentStack(app, `ApiPublishmentStack${params.publishedApiId}`, {
   enableBedrockCrossRegionInference: params.enableBedrockCrossRegionInference,
   conversationTableName: conversationTableName,
   botTableName: botTableName,
+  usageLedgerTableName: usageLedgerTableName,
+  apiKeyOwnerTableName: apiKeyOwnerTableName,
   tableAccessRoleArn: tableAccessRoleArn,
   webAclArn: webAclArn,
   largeMessageBucketName: largeMessageBucketName,
+  envPrefix: params.envPrefix,
   usagePlan: {
     throttle:
       params.publishedApiThrottleRateLimit !== undefined &&

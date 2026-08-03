@@ -12,18 +12,22 @@ import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { excludeDockerImage } from "./constants/docker";
+import { rateLimitParamName } from "./utils/parameter-models";
 
 interface ApiPublishmentStackProps extends StackProps {
   readonly bedrockRegion: string;
   readonly enableBedrockCrossRegionInference: boolean;
   readonly conversationTableName: string;
   readonly botTableName: string;
+  readonly usageLedgerTableName: string;
+  readonly apiKeyOwnerTableName: string;
   readonly tableAccessRoleArn: string;
   readonly webAclArn: string;
   readonly usagePlan: apigateway.UsagePlanProps;
   readonly deploymentStage?: string;
   readonly largeMessageBucketName: string;
   readonly corsOptions?: apigateway.CorsOptions;
+  readonly envPrefix: string;
 }
 
 export class ApiPublishmentStack extends Stack {
@@ -34,6 +38,23 @@ export class ApiPublishmentStack extends Stack {
     console.log(`usagePlan: ${JSON.stringify(props.usagePlan)}`); // DEBUG
 
     const deploymentStage = props.deploymentStage ?? "dev";
+
+    // SSM parameter names/ARNs are fully deterministic from envPrefix +
+    // account + region, so no cross-stack export/import is needed for them.
+    const rateLimitFiveHourParamName = rateLimitParamName(
+      props.envPrefix,
+      "five-hour"
+    );
+    const rateLimitSevenDayParamName = rateLimitParamName(
+      props.envPrefix,
+      "seven-day"
+    );
+    const rateLimitFiveHourParamArn = `arn:aws:ssm:${Stack.of(this).region}:${
+      Stack.of(this).account
+    }:parameter${rateLimitFiveHourParamName}`;
+    const rateLimitSevenDayParamArn = `arn:aws:ssm:${Stack.of(this).region}:${
+      Stack.of(this).account
+    }:parameter${rateLimitSevenDayParamName}`;
 
     const chatQueueDLQ = new sqs.Queue(this, "ChatQueueDlq", {
       retentionPeriod: cdk.Duration.days(14),
@@ -65,6 +86,12 @@ export class ApiPublishmentStack extends Stack {
       new iam.PolicyStatement({
         actions: ["bedrock:*"],
         resources: ["*"],
+      })
+    );
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["ssm:GetParameter"],
+        resources: [rateLimitFiveHourParamArn, rateLimitSevenDayParamArn],
       })
     );
     const largeMessageBucket = s3.Bucket.fromBucketName(
@@ -99,6 +126,10 @@ export class ApiPublishmentStack extends Stack {
         BEDROCK_REGION: props.bedrockRegion,
         LARGE_MESSAGE_BUCKET: props.largeMessageBucketName,
         TABLE_ACCESS_ROLE_ARN: props.tableAccessRoleArn,
+        USAGE_LEDGER_TABLE_NAME: props.usageLedgerTableName,
+        API_KEY_OWNER_TABLE_NAME: props.apiKeyOwnerTableName,
+        RATE_LIMIT_FIVE_HOUR_PARAM_NAME: rateLimitFiveHourParamName,
+        RATE_LIMIT_SEVEN_DAY_PARAM_NAME: rateLimitSevenDayParamName,
       },
       role: handlerRole,
       logRetention: logs.RetentionDays.THREE_MONTHS,
@@ -133,6 +164,10 @@ export class ApiPublishmentStack extends Stack {
           ENABLE_BEDROCK_CROSS_REGION_INFERENCE: props.enableBedrockCrossRegionInference.toString(),
           BEDROCK_REGION: props.bedrockRegion,
           TABLE_ACCESS_ROLE_ARN: props.tableAccessRoleArn,
+          USAGE_LEDGER_TABLE_NAME: props.usageLedgerTableName,
+          API_KEY_OWNER_TABLE_NAME: props.apiKeyOwnerTableName,
+          RATE_LIMIT_FIVE_HOUR_PARAM_NAME: rateLimitFiveHourParamName,
+          RATE_LIMIT_SEVEN_DAY_PARAM_NAME: rateLimitSevenDayParamName,
         },
         role: handlerRole,
         logRetention: logs.RetentionDays.THREE_MONTHS,
