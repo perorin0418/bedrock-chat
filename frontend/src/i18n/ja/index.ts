@@ -440,12 +440,15 @@ const translation: typeof en = {
           usagePlan: '使用量プラン',
           allowOrigins: '許可するオリジン',
           apiKeys: 'APIキー',
+          pageIndicator: '{{current}} / {{total}} ページ',
           period: {
             day: '1日あたり',
             week: '1週間あたり',
             month: '1ヶ月あたり',
           },
           apiKeyDetail: {
+            description: '説明',
+            status: '状態',
             creationDate: '作成日',
             active: 'アクティブ',
             inactive: '非アクティブ',
