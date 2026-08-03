@@ -18,8 +18,19 @@ class TestUsageLimitRepository(unittest.TestCase):
         os.environ["USAGE_LEDGER_TABLE_NAME"] = "test-usage-ledger-table"
         os.environ["BEDROCK_REGION"] = "us-east-1"
 
+        # `app.repositories.usage_limit.USAGE_LEDGER_TABLE_NAME` is bound at
+        # module-import time (before setUp runs), so setting the env var
+        # above has no effect on it. Patch the already-imported module
+        # attribute directly so it reflects a configured table by default.
+        self.patcher2 = patch(
+            "app.repositories.usage_limit.USAGE_LEDGER_TABLE_NAME",
+            "test-usage-ledger-table",
+        )
+        self.patcher2.start()
+
     def tearDown(self):
         self.patcher1.stop()
+        self.patcher2.stop()
         os.environ.pop("USAGE_LEDGER_TABLE_NAME", None)
         os.environ.pop("BEDROCK_REGION", None)
 
@@ -70,6 +81,17 @@ class TestUsageLimitRepository(unittest.TestCase):
 
         self.assertAlmostEqual(total, 3.0)
         self.assertEqual(self.mock_table.query.call_count, 2)
+
+    @patch("app.repositories.usage_limit.USAGE_LEDGER_TABLE_NAME", "")
+    def test_record_usage_skips_write_when_table_name_is_empty(self):
+        record_usage("user-1", 0.01)
+
+        self.mock_table.put_item.assert_not_called()
+
+    def test_record_usage_swallows_put_item_exception(self):
+        self.mock_table.put_item.side_effect = Exception("boom")
+
+        record_usage("user-1", 0.01)
 
 
 if __name__ == "__main__":
