@@ -9,7 +9,6 @@ sys.path.insert(0, ".")
 
 from app.repositories.common import RateLimitExceededError
 from app.usecases import rate_limit
-from tests.test_usecases.utils.user_factory import create_test_user
 
 
 class TestCheckRateLimit(unittest.TestCase):
@@ -24,7 +23,7 @@ class TestCheckRateLimit(unittest.TestCase):
         ), patch.object(
             rate_limit, "get_usage_since", side_effect=[5.0, 100.0]
         ):
-            rate_limit.check_rate_limit(create_test_user("user-1"))
+            rate_limit.check_rate_limit("user-1")
 
     def test_raises_when_five_hour_sum_exceeds_limit(self):
         with patch.object(
@@ -35,7 +34,7 @@ class TestCheckRateLimit(unittest.TestCase):
             rate_limit, "get_usage_since", side_effect=[10.01, 100.0]
         ):
             with self.assertRaises(RateLimitExceededError):
-                rate_limit.check_rate_limit(create_test_user("user-1"))
+                rate_limit.check_rate_limit("user-1")
 
     def test_does_not_raise_when_five_hour_sum_equals_limit(self):
         # "超過" is strictly `>`, not `>=`
@@ -46,7 +45,7 @@ class TestCheckRateLimit(unittest.TestCase):
         ), patch.object(
             rate_limit, "get_usage_since", side_effect=[10.0, 100.0]
         ):
-            rate_limit.check_rate_limit(create_test_user("user-1"))
+            rate_limit.check_rate_limit("user-1")
 
     def test_raises_when_seven_day_sum_exceeds_limit(self):
         with patch.object(
@@ -57,7 +56,7 @@ class TestCheckRateLimit(unittest.TestCase):
             rate_limit, "get_usage_since", side_effect=[5.0, 336.01]
         ):
             with self.assertRaises(RateLimitExceededError):
-                rate_limit.check_rate_limit(create_test_user("user-1"))
+                rate_limit.check_rate_limit("user-1")
 
     def test_get_limit_caches_within_ttl(self):
         with patch.object(rate_limit, "ssm_client") as mock_ssm, patch(

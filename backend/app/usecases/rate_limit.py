@@ -5,7 +5,6 @@ import time
 import boto3
 from app.repositories.common import RateLimitExceededError
 from app.repositories.usage_limit import get_usage_since
-from app.user import User
 from app.utils import get_current_time
 
 logger = logging.getLogger(__name__)
@@ -44,13 +43,14 @@ def _get_limit(param_name: str) -> float:
         raise
 
 
-def check_rate_limit(user: User) -> None:
-    """Raise `RateLimitExceededError` if `user`'s recorded cost exceeds either
-    the trailing 5-hour or trailing 7-day USD limit (values read from SSM)."""
+def check_rate_limit(user_id: str) -> None:
+    """Raise `RateLimitExceededError` if `user_id`'s recorded cost exceeds
+    either the trailing 5-hour or trailing 7-day USD limit (values read from
+    SSM)."""
     now_ms = get_current_time()
 
     five_hour_limit = _get_limit(FIVE_HOUR_PARAM_NAME)
-    five_hour_sum = get_usage_since(user.id, now_ms - FIVE_HOUR_WINDOW_MS)
+    five_hour_sum = get_usage_since(user_id, now_ms - FIVE_HOUR_WINDOW_MS)
     if five_hour_sum > five_hour_limit:
         raise RateLimitExceededError(
             f"Rate limit exceeded: ${five_hour_sum:.2f} spent in the last 5 hours "
@@ -58,7 +58,7 @@ def check_rate_limit(user: User) -> None:
         )
 
     seven_day_limit = _get_limit(SEVEN_DAY_PARAM_NAME)
-    seven_day_sum = get_usage_since(user.id, now_ms - SEVEN_DAY_WINDOW_MS)
+    seven_day_sum = get_usage_since(user_id, now_ms - SEVEN_DAY_WINDOW_MS)
     if seven_day_sum > seven_day_limit:
         raise RateLimitExceededError(
             f"Rate limit exceeded: ${seven_day_sum:.2f} spent in the last 7 days "
