@@ -1,6 +1,7 @@
 import logging
 import os
 
+from app.repositories.api_key_owner import bind_api_key_owner, delete_api_key_owner
 from app.repositories.api_publication import (
     create_api_key,
     delete_api_key,
@@ -190,10 +191,11 @@ def remove_bot_publication(user: User, bot_id: str):
         delete_bot_publication(bot.owner_user_id, bot_id)
         return
 
-    if stack.stack_status == "CREATE_COMPLETED":
+    if stack.stack_status == "CREATE_COMPLETE":
         usage_plan = find_usage_plan_by_id(stack.api_usage_plan_id)  # type: ignore
         for key_id in usage_plan.key_ids:
             delete_api_key(key_id)
+            delete_api_key_owner(key_id)
 
     # Delete `ApiPublishmentStack` by CloudFormation
     delete_stack_by_bot_id(bot_id)
@@ -240,6 +242,15 @@ def create_new_api_key(
 
     # Create API Key
     key = create_api_key(usage_plan.id, api_key_input.description)
+
+    # Binding to the creating user is mandatory: an API key without an owner
+    # cannot be rate-limited. Roll back key creation if binding fails.
+    try:
+        bind_api_key_owner(key.id, user.id)
+    except Exception:
+        delete_api_key(key.id)
+        raise
+
     return ApiKeyOutput(
         id=key.id,
         value="",
@@ -266,4 +277,5 @@ def remove_api_key(user: User, bot_id: str, api_key_id: str):
 
     # Delete API Key
     delete_api_key(api_key_id)
+    delete_api_key_owner(api_key_id)
     return
