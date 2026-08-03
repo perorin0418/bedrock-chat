@@ -183,6 +183,7 @@ export class Api extends Construct {
         actions: [
           "cognito-idp:AdminGetUser",
           "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:AdminEnableUser",
           "cognito-idp:ListUsers",
           "cognito-idp:ListGroups",
         ],

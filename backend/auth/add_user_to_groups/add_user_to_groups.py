@@ -9,6 +9,9 @@ USER_POOL_ID: str = os.environ["USER_POOL_ID"]
 AUTO_JOIN_USER_GROUPS: list[str] = json.loads(
     os.environ.get("AUTO_JOIN_USER_GROUPS", "[]")
 )
+REQUIRE_ADMIN_APPROVAL: bool = (
+    os.environ.get("REQUIRE_ADMIN_APPROVAL", "false").lower() == "true"
+)
 
 logger = Logger()
 tracer = Tracer()
@@ -25,6 +28,8 @@ def handler(event: dict, context: LambdaContext) -> dict:
     trigger_source: str = event["triggerSource"]
     if trigger_source == "PostConfirmation_ConfirmSignUp":
         add_user_to_groups(USER_POOL_ID, user_name, AUTO_JOIN_USER_GROUPS)
+        if REQUIRE_ADMIN_APPROVAL:
+            disable_user_pending_approval(USER_POOL_ID, user_name)
 
     elif trigger_source == "PostAuthentication_Authentication":
         user_status: str = user_attributes["cognito:user_status"]
@@ -42,3 +47,11 @@ def add_user_to_groups(user_pool_id: str, username: str, groups: list[str]):
             Username=username,
             GroupName=group,
         )
+
+
+def disable_user_pending_approval(user_pool_id: str, username: str):
+    logger.info(f"Disabling user '{username}' pending admin approval")
+    cognito.admin_disable_user(
+        UserPoolId=user_pool_id,
+        Username=username,
+    )

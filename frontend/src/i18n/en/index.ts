@@ -4,9 +4,13 @@ const translation = {
       button: {
         login: 'Login',
       },
+      error: {
+        userDisabled:
+          'Your account is pending admin approval. Please wait until an administrator approves your account.',
+      },
     },
     app: {
-      name: 'Bedrock Chat',
+      name: 'Acrocity Chat',
       inputMessage: 'How can I Help You?',
       myBots: 'My Bots',
       discoverBots: 'Discover Bots',
@@ -312,6 +316,7 @@ const translation = {
         noBots: 'No Bots.',
         noBotsRecentlyUsed: 'No Recently Used Bots.',
         noStarredBots: 'No Starred Bots.',
+        noSharedBots: 'No bots have been shared with you.',
         retrievingKnowledge: '[Retrieving Knowledge...]',
         dndFileUpload:
           'You can upload files by drag and drop.\nSupported files: {{fileExtensions}}',
@@ -417,6 +422,11 @@ How would you categorize this email?`,
           pageTitle: 'My Bots',
         },
       },
+      shared: {
+        label: {
+          pageTitle: 'Shared Bots',
+        },
+      },
       item: {
         title: 'Name',
         description: 'Description',
@@ -429,12 +439,15 @@ How would you categorize this email?`,
           usagePlan: 'Usage Plan',
           allowOrigins: 'Allowed Origins',
           apiKeys: 'API Keys',
+          pageIndicator: 'Page {{current}} of {{total}}',
           period: {
             day: 'Per DAY',
             week: 'Per WEEK',
             month: 'Per MONTH',
           },
           apiKeyDetail: {
+            description: 'Description',
+            status: 'Status',
             creationDate: 'Creation date',
             active: 'Active',
             inactive: 'Inactive',
@@ -645,6 +658,22 @@ How would you categorize this email?`,
         },
         button: {
           deleteApi: 'Delete API',
+        },
+      },
+      userApproval: {
+        label: {
+          pageTitle: 'User Approval',
+          noPendingUsers: 'No users are pending approval.',
+        },
+        help: {
+          overview:
+            'Approve newly signed-up users before they can sign in.',
+        },
+        button: {
+          approve: 'Approve',
+        },
+        error: {
+          failApprove: 'Failed to approve the user.',
         },
       },
       validationError: {

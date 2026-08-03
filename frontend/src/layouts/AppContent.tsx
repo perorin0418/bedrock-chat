@@ -41,7 +41,7 @@ const AppContent: React.FC<Props> = (props) => {
   const { pinnedBots, starredBots, recentlyUsedUnstarredBots } = useBot();
   const { newChat, isGeneratedTitle } = useChat();
   const { isConversationOrNewChat, pathPattern } = usePageTitlePathPattern();
-  const { isAdmin } = useLoginUser();
+  const { isAdmin, isAllowCreatingBot } = useLoginUser();
   const [theme] = useLocalStorage('theme', 'light');
   useEffect(() => {
     document.documentElement.className = theme;
@@ -92,6 +92,7 @@ const AppContent: React.FC<Props> = (props) => {
     <div className="relative flex h-dvh w-screen bg-aws-paper-light dark:bg-aws-paper-dark">
       <Drawer
         isAdmin={isAdmin}
+        isAllowCreatingBot={isAllowCreatingBot}
         pinnedBots={pinnedBots}
         conversations={conversations}
         starredBots={starredBots}

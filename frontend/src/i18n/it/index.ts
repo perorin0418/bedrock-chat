@@ -6,7 +6,7 @@ const translation = {
       },
     },
     app: {
-      name: 'Bedrock Chat',
+      name: 'Acrocity Chat',
       inputMessage: 'Come posso aiutarti?',
       pinnedBots: 'Bot fissati',
       starredBots: 'Bot preferiti',

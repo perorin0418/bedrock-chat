@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import InputText from '../components/InputText';
 import Button from '../components/Button';
 import { useParams } from 'react-router-dom';
-import { PiCaretLeft, PiPlus, PiTrash } from 'react-icons/pi';
+import { PiCaretLeft, PiCaretRight, PiPlus, PiTrash } from 'react-icons/pi';
 import useBotApiSettings from '../hooks/useBotApiSettings';
 import Alert from '../components/Alert';
 import Skeleton from '../components/Skeleton';
@@ -238,6 +238,30 @@ const BotApiSettingsPage: React.FC = () => {
     return isLoading || hasCreated || isDeploying;
   }, [hasCreated, isLoading, isDeploying]);
 
+  const API_KEY_PAGE_SIZE = 10;
+  const [apiKeyPage, setApiKeyPage] = useState(0);
+  const apiKeyIds = useMemo(
+    () => botPublication?.apiKeyIds ?? [],
+    [botPublication?.apiKeyIds]
+  );
+  const apiKeyTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(apiKeyIds.length / API_KEY_PAGE_SIZE)),
+    [apiKeyIds.length]
+  );
+  const pagedApiKeyIds = useMemo(
+    () =>
+      apiKeyIds.slice(
+        apiKeyPage * API_KEY_PAGE_SIZE,
+        (apiKeyPage + 1) * API_KEY_PAGE_SIZE
+      ),
+    [apiKeyIds, apiKeyPage]
+  );
+  useEffect(() => {
+    if (apiKeyPage > apiKeyTotalPages - 1) {
+      setApiKeyPage(apiKeyTotalPages - 1);
+    }
+  }, [apiKeyPage, apiKeyTotalPages]);
+
   const [isOpenAddApiKeyDialog, setIsOpenAddApiKeyDialog] = useState(false);
   const [isAddingApiKey, setIsAddingApiKey] = useState(false);
   const onClickCreateApiKey = useCallback(() => {
@@ -402,15 +426,66 @@ const BotApiSettingsPage: React.FC = () => {
                           {t('bot.apiSettings.help.apiKeys')}
                         </div>
 
-                        <div className="mt-1 flex flex-col gap-1">
-                          {botPublication?.apiKeyIds.map((keyId) => (
-                            <ApiKeyItem
-                              key={keyId}
-                              botId={botId ?? ''}
-                              apiKeyId={keyId}
-                            />
-                          ))}
+                        <div className="mt-1 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-aws-font-color-light/50 text-left dark:border-aws-font-color-dark">
+                                <th className="p-1">
+                                  {t(
+                                    'bot.apiSettings.label.apiKeyDetail.description'
+                                  )}
+                                </th>
+                                <th className="p-1">
+                                  {t(
+                                    'bot.apiSettings.label.apiKeyDetail.status'
+                                  )}
+                                </th>
+                                <th className="p-1">
+                                  {t(
+                                    'bot.apiSettings.label.apiKeyDetail.creationDate'
+                                  )}
+                                </th>
+                                <th className="p-1">
+                                  {t('bot.apiSettings.label.apiKeyDetail.key')}
+                                </th>
+                                <th className="p-1" />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pagedApiKeyIds.map((keyId) => (
+                                <ApiKeyItem
+                                  key={keyId}
+                                  botId={botId ?? ''}
+                                  apiKeyId={keyId}
+                                />
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
+                        {apiKeyTotalPages > 1 && (
+                          <div className="mt-2 flex items-center justify-center gap-3">
+                            <ButtonIcon
+                              disabled={apiKeyPage === 0}
+                              onClick={() => {
+                                setApiKeyPage((page) => page - 1);
+                              }}>
+                              <PiCaretLeft />
+                            </ButtonIcon>
+                            <div className="text-sm">
+                              {t('bot.apiSettings.label.pageIndicator', {
+                                current: apiKeyPage + 1,
+                                total: apiKeyTotalPages,
+                              })}
+                            </div>
+                            <ButtonIcon
+                              disabled={apiKeyPage >= apiKeyTotalPages - 1}
+                              onClick={() => {
+                                setApiKeyPage((page) => page + 1);
+                              }}>
+                              <PiCaretRight />
+                            </ButtonIcon>
+                          </div>
+                        )}
                         <div className="mt-2 flex w-full justify-end">
                           <Button onClick={onClickCreateApiKey}>
                             {t('button.add')}

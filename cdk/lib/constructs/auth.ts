@@ -33,6 +33,7 @@ export interface AuthProps {
   readonly allowedSignUpEmailDomains: string[];
   readonly autoJoinUserGroups: string[];
   readonly selfSignUpEnabled: boolean;
+  readonly requireAdminApproval: boolean;
   readonly tokenValidity: Duration;
   readonly webAclArn?: string;
 }
@@ -208,9 +209,11 @@ export class Auth extends Construct {
       }
     );
 
-    if (props.autoJoinUserGroups.length >= 1) {
+    if (props.autoJoinUserGroups.length >= 1 || props.requireAdminApproval) {
       /**
-       * Create a Cognito trigger to add a new user to the group specified with `autoJoinUserGroups`.
+       * Create a Cognito trigger to add a new user to the group specified with `autoJoinUserGroups`,
+       * and (if `requireAdminApproval` is enabled) disable newly self-signed-up users until an
+       * admin approves them via `AdminEnableUser`.
        *
        * Registering a Lambda function that uses a user pool as a trigger of the user pool itself
        * results circular reference, so CloudFormation cannot do this when creating a user pool.
@@ -231,6 +234,9 @@ export class Auth extends Construct {
           environment: {
             USER_POOL_ID: userPool.userPoolId,
             AUTO_JOIN_USER_GROUPS: JSON.stringify(props.autoJoinUserGroups),
+            REQUIRE_ADMIN_APPROVAL: props.requireAdminApproval
+              ? "true"
+              : "false",
           },
           logRetention: logs.RetentionDays.THREE_MONTHS,
         }
@@ -242,7 +248,8 @@ export class Auth extends Construct {
       });
       userPool.grant(
         addUserToGroupsFunction,
-        "cognito-idp:AdminAddUserToGroup"
+        "cognito-idp:AdminAddUserToGroup",
+        "cognito-idp:AdminDisableUser"
       );
 
       const cognitoTriggerRegistrationFunction = new SingletonFunction(

@@ -92,6 +92,7 @@ const chat = new BedrockChatStack(
     allowedSignUpEmailDomains: params.allowedSignUpEmailDomains,
     autoJoinUserGroups: params.autoJoinUserGroups,
     selfSignUpEnabled: params.selfSignUpEnabled,
+    requireAdminApproval: params.requireAdminApproval,
     documentBucket: bedrockRegionResources.documentBucket,
     enableRagReplicas: params.enableRagReplicas,
     enableBedrockGlobalInference: params.enableBedrockGlobalInference,

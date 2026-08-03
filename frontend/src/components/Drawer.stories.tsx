@@ -64,6 +64,7 @@ export const Admin: Story = () => {
   return (
     <ChatListDrawer
       isAdmin={true}
+      isAllowCreatingBot={true}
       conversations={conversations}
       starredBots={bots.filter((bot) => bot.isStarred)}
       recentlyUsedUnstarredBots={bots.filter((bot) => !bot.isStarred)}
@@ -81,6 +82,7 @@ export const NonAdmin: Story = () => {
   return (
     <ChatListDrawer
       isAdmin={false}
+      isAllowCreatingBot={true}
       conversations={conversations}
       starredBots={bots.filter((bot) => bot.isStarred)}
       recentlyUsedUnstarredBots={bots.filter((bot) => !bot.isStarred)}

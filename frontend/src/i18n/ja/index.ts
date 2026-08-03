@@ -7,9 +7,13 @@ const translation: typeof en = {
       button: {
         login: 'ログイン',
       },
+      error: {
+        userDisabled:
+          'アカウントは管理者の承認待ちです。管理者が承認するまでお待ちください。',
+      },
     },
     app: {
-      name: 'Bedrock Chat',
+      name: 'Acrocity Chat',
       inputMessage: 'お手伝いできることはありますか？',
       myBots: 'マイボット',
       discoverBots: 'ボットを探す',
@@ -313,6 +317,7 @@ const translation: typeof en = {
         noBots: 'ボットが登録されていません。',
         noBotsRecentlyUsed: '最近利用した公開ボットはありません。',
         noStarredBots: 'スター付きのボットはありません。',
+        noSharedBots: '共有されているボットはありません。',
         retrievingKnowledge: '[ナレッジを取得中...]',
         referenceLink: '参考ドキュメント',
         dndFileUpload:
@@ -418,6 +423,11 @@ const translation: typeof en = {
           pageTitle: 'マイボット',
         },
       },
+      shared: {
+        label: {
+          pageTitle: '共有されているボット',
+        },
+      },
       item: {
         title: 'ボット名',
         description: '説明文',
@@ -430,12 +440,15 @@ const translation: typeof en = {
           usagePlan: '使用量プラン',
           allowOrigins: '許可するオリジン',
           apiKeys: 'APIキー',
+          pageIndicator: '{{current}} / {{total}} ページ',
           period: {
             day: '1日あたり',
             week: '1週間あたり',
             month: '1ヶ月あたり',
           },
           apiKeyDetail: {
+            description: '説明',
+            status: '状態',
             creationDate: '作成日',
             active: 'アクティブ',
             inactive: '非アクティブ',
@@ -651,6 +664,21 @@ const translation: typeof en = {
         },
         button: {
           deleteApi: 'API削除',
+        },
+      },
+      userApproval: {
+        label: {
+          pageTitle: 'ユーザー承認',
+          noPendingUsers: '承認待ちのユーザーはいません。',
+        },
+        help: {
+          overview: '新規登録されたユーザーがログインできるよう承認します。',
+        },
+        button: {
+          approve: '承認',
+        },
+        error: {
+          failApprove: 'ユーザーの承認に失敗しました。',
         },
       },
       validationError: {

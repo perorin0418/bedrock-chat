@@ -27,3 +27,5 @@ export type SearchUserGroupsRequest = {
 export type SearchUserGroupsResponse = UseGroup[];
 
 export type GetUserResponse = User;
+
+export type ListPendingUsersResponse = User[];

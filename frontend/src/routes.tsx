@@ -7,6 +7,7 @@ import BotApiSettingsPage from './pages/BotApiSettingsPage.tsx';
 import AdminSharedBotAnalyticsPage from './pages/AdminSharedBotAnalyticsPage.tsx';
 import AdminApiManagementPage from './pages/AdminApiManagementPage.tsx';
 import AdminBotManagementPage from './pages/AdminBotManagementPage.tsx';
+import AdminUserApprovalPage from './pages/AdminUserApprovalPage.tsx';
 import { useTranslation } from 'react-i18next';
 import {
   createBrowserRouter,
@@ -18,6 +19,7 @@ import { useMemo } from 'react';
 import BotDiscoverPage from './features/discover/pages/BotDiscoverPage.tsx';
 import BotRecentlyUsedPage from './pages/BotRecentlyUsedPage.tsx';
 import BotStarredPage from './pages/BotStarredPage.tsx';
+import BotSharedPage from './pages/BotSharedPage.tsx';
 import ConversationHistoryPage from './pages/ConversationHistoryPage.tsx';
 
 const rootChildren = [
@@ -40,6 +42,10 @@ const rootChildren = [
   {
     path: '/bot/discover',
     element: <BotDiscoverPage />,
+  },
+  {
+    path: '/bot/shared',
+    element: <BotSharedPage />,
   },
   {
     path: '/bot/new',
@@ -74,6 +80,10 @@ const rootChildren = [
     element: <AdminBotManagementPage />,
   },
   {
+    path: '/admin/user-approval',
+    element: <AdminUserApprovalPage />,
+  },
+  {
     path: '/:conversationId',
     element: <ChatPage />,
   },
@@ -103,6 +113,7 @@ export const usePageLabel = () => {
   const pageLabel: { path: (typeof allPaths)[number]; label: string }[] = [
     { path: '/bot/my', label: t('bot.my.label.pageTitle') },
     { path: '/bot/discover', label: t('discover.pageTitle') },
+    { path: '/bot/shared', label: t('bot.shared.label.pageTitle') },
     {
       path: '/admin/shared-bot-analytics',
       label: t('admin.botAnalytics.label.pageTitle'),
@@ -110,6 +121,10 @@ export const usePageLabel = () => {
     {
       path: '/admin/api-management',
       label: t('admin.apiManagement.label.pageTitle'),
+    },
+    {
+      path: '/admin/user-approval',
+      label: t('admin.userApproval.label.pageTitle'),
     },
   ];
 

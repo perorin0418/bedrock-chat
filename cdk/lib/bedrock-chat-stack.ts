@@ -44,6 +44,7 @@ export interface BedrockChatStackProps extends StackProps {
   readonly allowedSignUpEmailDomains: string[];
   readonly autoJoinUserGroups: string[];
   readonly selfSignUpEnabled: boolean;
+  readonly requireAdminApproval: boolean;
   readonly enableIpV6: boolean;
   readonly documentBucket: Bucket;
   readonly enableRagReplicas: boolean;
@@ -188,6 +189,7 @@ export class BedrockChatStack extends cdk.Stack {
       allowedSignUpEmailDomains: props.allowedSignUpEmailDomains,
       autoJoinUserGroups: props.autoJoinUserGroups,
       selfSignUpEnabled: props.selfSignUpEnabled,
+      requireAdminApproval: props.requireAdminApproval,
       tokenValidity: Duration.minutes(props.tokenValidMinutes),
       webAclArn: cognitoWebAcl?.webAclArn,
     });

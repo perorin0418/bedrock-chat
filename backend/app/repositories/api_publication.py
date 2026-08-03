@@ -21,7 +21,17 @@ def find_usage_plan_by_id(usage_plan_id: str) -> ApiUsagePlanModel:
     except client.exceptions.NotFoundException:
         raise RecordNotFoundError("The usage plan does not exist.")
 
-    key_response = client.get_usage_plan_keys(usagePlanId=usage_plan_id, limit=100)
+    key_ids: list[str] = []
+    position = None
+    while True:
+        kwargs = {"usagePlanId": usage_plan_id, "limit": 500}
+        if position:
+            kwargs["position"] = position
+        key_response = client.get_usage_plan_keys(**kwargs)
+        key_ids.extend(key["id"] for key in key_response["items"])
+        position = key_response.get("position")
+        if not position:
+            break
 
     return ApiUsagePlanModel(
         id=plan_response["id"],
@@ -35,7 +45,7 @@ def find_usage_plan_by_id(usage_plan_id: str) -> ApiUsagePlanModel:
             rate_limit=plan_response.get("throttle", {}).get("rateLimit"),
             burst_limit=plan_response.get("throttle", {}).get("burstLimit"),
         ),
-        key_ids=[key["id"] for key in key_response["items"]],
+        key_ids=key_ids,
     )
 
 

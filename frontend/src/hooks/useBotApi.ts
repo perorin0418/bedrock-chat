@@ -38,6 +38,9 @@ const useBotApi = () => {
     getPinnedBots: () => {
       return http.get<GetPinnedBotResponse>('bot/pinned');
     },
+    getSharedBots: () => {
+      return http.get<GetPinnedBotResponse>('bot/shared');
+    },
     botSummary: (botId?: string) => {
       return http.get<GetBotSummaryResponse>(
         botId ? `bot/summary/${botId}` : null,

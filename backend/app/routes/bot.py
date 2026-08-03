@@ -21,6 +21,7 @@ from app.usecases.bot import (
     fetch_all_pinned_bots,
     fetch_available_agent_tools,
     fetch_bot_summary,
+    fetch_shared_bots,
     issue_presigned_url,
     modify_bot_visibility,
     modify_owned_bot,
@@ -103,6 +104,15 @@ def get_all_pinned_bots(request: Request):
     current_user: User = request.state.current_user
 
     bots = fetch_all_pinned_bots(current_user)
+    return bots
+
+
+@router.get("/bot/shared", response_model=list[BotMetaOutput])
+def get_shared_bots(request: Request):
+    """Get all bots shared with the current user by other users."""
+    current_user: User = request.state.current_user
+
+    bots = fetch_shared_bots(current_user)
     return bots
 
 
