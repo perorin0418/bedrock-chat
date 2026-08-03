@@ -25,6 +25,7 @@ const translation: typeof en = {
       adminConsoles: '管理者用機能',
       userGroups: 'ユーザーグループ',
       backChat: 'チャットに戻る',
+      userManual: 'ユーザーマニュアル',
     },
     model: {
       'claude-v4-opus': {

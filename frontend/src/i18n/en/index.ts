@@ -22,6 +22,7 @@ const translation = {
       adminConsoles: 'Admin Panel',
       backChat: 'Back to Chat',
       userGroups: 'User Groups',
+      userManual: 'User Manual',
     },
     model: {
       'claude-v4-opus': {
