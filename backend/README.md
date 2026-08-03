@@ -20,6 +20,9 @@ poetry install
 ```sh
 export CONVERSATION_TABLE_NAME=BedrockChatStack-DatabaseConversationTablexxxx
 export BOT_TABLE_NAME=BedrockChatStack-DatabaseBotTablexxxx
+export USAGE_LEDGER_TABLE_NAME=BedrockChatStack-DatabaseUsageLedgerTablexxxx
+export RATE_LIMIT_FIVE_HOUR_PARAM_NAME=/rate-limit/five-hour-usd-limit
+export RATE_LIMIT_SEVEN_DAY_PARAM_NAME=/rate-limit/seven-day-usd-limit
 export ACCOUNT=yyyy
 export REGION=ap-northeast-1
 export BEDROCK_REGION=us-east-1

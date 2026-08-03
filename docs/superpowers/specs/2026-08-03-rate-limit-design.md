@@ -42,7 +42,7 @@ APIキー単位で区別するには、AWS Lambda Web Adapter経由でAPI Gatewa
 ### 使用量の記録タイミング
 
 - `post_process_result()`(`backend/app/usecases/chat.py`)内、`conversation.total_price += result["price"]` の直後に1回、新規リポジトリ関数を呼び出しレコードを書き込む。
-- `chat()` は通常UI・公開API・SQS経由のいずれからも共通で呼ばれる関数だが、公開API分の記録は前述の通り別名前空間(`PUBLISHED_API#{bot_id}`)に入るため、書き込み処理自体を経路によって分岐させる必要はない(分岐させない方がシンプル)。公開API側にも記録は残るが、判定(ブロック)には使われないため実害はない。
+- `chat()` は通常UI・公開API・SQS経由のいずれからも共通で呼ばれる関数だが、公開API分の記録は前述の通り別名前空間(`PUBLISHED_API#{bot_id}`)に入るため、書き込み処理自体を経路によって分岐させる必要はない(分岐させない方がシンプル)。ただし公開API側のLambdaスタック(`api-publishment-stack.ts`)には`USAGE_LEDGER_TABLE_NAME`が設定されていないため、公開API経路では`record_usage`は実際には何も記録せず、警告ログを出してスキップするno-opとなる(判定(ブロック)に使われないことと合わせて実害はない)。`record_usage`はこの理由、および一般的な書き込み失敗への耐性のため、意図的にbest-effort(例外を発生させず、失敗時はログのみ)として実装している。
 
 ### 新規リポジトリ `backend/app/repositories/usage_limit.py`
 
