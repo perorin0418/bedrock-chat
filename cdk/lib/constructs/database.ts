@@ -6,7 +6,7 @@ import {
   TableEncryption,
   StreamViewType,
 } from "aws-cdk-lib/aws-dynamodb";
-import { AccountPrincipal, Role } from "aws-cdk-lib/aws-iam";
+import { AccountPrincipal, PolicyStatement, Role } from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 
 export interface DatabaseProps {
@@ -20,6 +20,8 @@ export class Database extends Construct {
   readonly websocketSessionTable: Table;
   readonly usageLedgerTable: Table;
   readonly apiKeyOwnerTable: Table;
+  readonly claudeCodeIamUserTable: Table;
+  readonly claudeCodeCostSyncRole: Role;
 
   constructor(scope: Construct, id: string, props?: DatabaseProps) {
     super(scope, id);
@@ -111,6 +113,16 @@ export class Database extends Construct {
       encryption: TableEncryption.AWS_MANAGED,
     });
 
+    // Tracks Claude Code (direct Bedrock access) IAM user provisioning state
+    // and Deny-policy status per Bedrock Chat user. PK: UserId. No TTL —
+    // offboarding cleanup is a separate, not-yet-implemented task.
+    const claudeCodeIamUserTable = new Table(this, "ClaudeCodeIamUserTable", {
+      partitionKey: { name: "UserId", type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      encryption: TableEncryption.AWS_MANAGED,
+    });
+
     const tableAccessRole = new Role(this, "TableAccessRole", {
       assumedBy: new AccountPrincipal(Stack.of(this).account),
     });
@@ -118,6 +130,28 @@ export class Database extends Construct {
     botTable.grantReadWriteData(tableAccessRole);
     usageLedgerTable.grantReadWriteData(tableAccessRole);
     apiKeyOwnerTable.grantReadWriteData(tableAccessRole);
+
+    // Assumed once per run by the claude-code-cost-sync Lambda (a trusted
+    // batch job writing many users' rows in one execution), unlike
+    // tableAccessRole's per-user LeadingKeys row-level security which doesn't
+    // fit a batch write pattern.
+    const claudeCodeCostSyncRole = new Role(this, "ClaudeCodeCostSyncRole", {
+      assumedBy: new AccountPrincipal(Stack.of(this).account),
+    });
+    usageLedgerTable.grantWriteData(claudeCodeCostSyncRole);
+    claudeCodeIamUserTable.grantReadWriteData(claudeCodeCostSyncRole);
+    claudeCodeCostSyncRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          "iam:PutUserPolicy",
+          "iam:DeleteUserPolicy",
+          "iam:GetUserPolicy",
+        ],
+        resources: [
+          `arn:aws:iam::${Stack.of(this).account}:user/claude-code-*`,
+        ],
+      })
+    );
 
     // Websocket session table.
     // This table is used to concatenate user input exceeding 32KB which is the limit of API Gateway.
@@ -135,6 +169,8 @@ export class Database extends Construct {
     this.websocketSessionTable = websocketSessionTable;
     this.usageLedgerTable = usageLedgerTable;
     this.apiKeyOwnerTable = apiKeyOwnerTable;
+    this.claudeCodeIamUserTable = claudeCodeIamUserTable;
+    this.claudeCodeCostSyncRole = claudeCodeCostSyncRole;
 
     new CfnOutput(this, "ConversationTableName", {
       value: conversationTable.tableName,
@@ -147,6 +183,9 @@ export class Database extends Construct {
     });
     new CfnOutput(this, "ApiKeyOwnerTableName", {
       value: apiKeyOwnerTable.tableName,
+    });
+    new CfnOutput(this, "ClaudeCodeIamUserTableName", {
+      value: claudeCodeIamUserTable.tableName,
     });
   }
 }

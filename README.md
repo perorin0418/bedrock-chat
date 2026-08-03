@@ -246,6 +246,8 @@ npm ci
   - `enableLambdaSnapStart`: Defaults to true. Set to false if deploying to a [region that doesn't support Lambda SnapStart for Python functions](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html#snapstart-supported-regions).
   - `globalAvailableModels`: Defaults to all. If set (list of model IDs), allows to globally control which models appear in dropdown menus across chats for all users and during bot creation in the Bedrock Chat application.
   - `logoPath`: Relative path under `frontend/public` that points to the image displayed at the top of the application drawer.
+  - `enableClaudeCodeProvisioning`: Defaults to true. Provisions a per-employee IAM user/access key at Cognito sign-up so Claude Code CLI usage against Bedrock counts against the same rate limits as in-app chat. Requires deploying a second, independent CDK app. See [Claude Code Cost Sync](./docs/CLAUDE_CODE_COST_SYNC.md) for deployment steps.
+  - `claudeCodeNotificationEmail`: Optional email subscribed to failure/Deny notifications for the above feature.
     The following model IDs are supported (please make sure that they are also enabled in the Bedrock console under Model access in your deployment region):
 
 - **Claude Models:** `claude-v4-opus`, `claude-v4.1-opus`, `claude-v4.5-opus`, `claude-v4.6-opus`, `claude-v4.7-opus`, `claude-v5-opus`, `claude-v4-sonnet`, `claude-v4.5-sonnet`, `claude-v4.6-sonnet`, `claude-v5-sonnet`, `claude-v5-fable`, `claude-v3.5-sonnet`, `claude-v3.5-sonnet-v2`, `claude-v3.7-sonnet`, `claude-v3.5-haiku`, `claude-v3-haiku`, `claude-v3-opus`

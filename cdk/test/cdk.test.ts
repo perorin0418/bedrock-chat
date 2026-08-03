@@ -241,6 +241,38 @@ describe("Bedrock Chat Stack Test", () => {
     template.hasOutput("ApiKeyOwnerTableNameExport", {
       Export: { Name: "test--BedrockClaudeChatApiKeyOwnerTableName" },
     });
+    template.hasOutput("ClaudeCodeIamUserTableNameExport", {
+      Export: { Name: "test--BedrockClaudeChatClaudeCodeIamUserTableName" },
+    });
+    template.hasOutput("ClaudeCodeCostSyncRoleArnExport", {
+      Export: { Name: "test--BedrockClaudeChatClaudeCodeCostSyncRoleArn" },
+    });
+
+    template.hasResourceProperties("AWS::DynamoDB::Table", {
+      AttributeDefinitions: Match.arrayWith([
+        Match.objectLike({ AttributeName: "UserId", AttributeType: "S" }),
+      ]),
+    });
+
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: [
+              "iam:PutUserPolicy",
+              "iam:DeleteUserPolicy",
+              "iam:GetUserPolicy",
+            ],
+            Effect: "Allow",
+            Resource: Match.objectLike({
+              "Fn::Join": Match.arrayWith([
+                Match.arrayWith([Match.stringLikeRegexp("user/claude-code-\\*")]),
+              ]),
+            }),
+          }),
+        ]),
+      },
+    });
 
     template.hasResourceProperties("AWS::SSM::Parameter", {
       Name: "/test-/rate-limit/five-hour-usd-limit",

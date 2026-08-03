@@ -55,6 +55,8 @@ export interface BedrockChatStackProps extends StackProps {
   readonly enableBotStore: boolean;
   readonly enableBotStoreReplicas: boolean;
   readonly botStoreLanguage: Language;
+  readonly enableClaudeCodeProvisioning?: boolean;
+  readonly claudeCodeNotificationEmail?: string;
   readonly globalAvailableModels?: string[];
   readonly defaultModel?: string;
   readonly titleModel?: string;
@@ -183,6 +185,11 @@ export class BedrockChatStack extends cdk.Stack {
       );
     }
 
+    const database = new Database(this, "Database", {
+      // Enable PITR to export data to s3
+      pointInTimeRecovery: true,
+    });
+
     const auth = new Auth(this, "Auth", {
       origin: frontend.getOrigin(),
       userPoolDomainPrefixKey: props.userPoolDomainPrefix,
@@ -193,6 +200,9 @@ export class BedrockChatStack extends cdk.Stack {
       requireAdminApproval: props.requireAdminApproval,
       tokenValidity: Duration.minutes(props.tokenValidMinutes),
       webAclArn: cognitoWebAcl?.webAclArn,
+      enableClaudeCodeProvisioning: props.enableClaudeCodeProvisioning ?? true,
+      claudeCodeIamUserTable: database.claudeCodeIamUserTable,
+      claudeCodeNotificationEmail: props.claudeCodeNotificationEmail,
     });
     const largeMessageBucket = new Bucket(this, "LargeMessageBucket", {
       encryption: BucketEncryption.S3_MANAGED,
@@ -203,11 +213,6 @@ export class BedrockChatStack extends cdk.Stack {
       autoDeleteObjects: true,
       serverAccessLogsBucket: accessLogBucket,
       serverAccessLogsPrefix: "LargeMessageBucket",
-    });
-
-    const database = new Database(this, "Database", {
-      // Enable PITR to export data to s3
-      pointInTimeRecovery: true,
     });
 
     const rateLimitFiveHourParam = new ssm.StringParameter(
@@ -405,6 +410,18 @@ export class BedrockChatStack extends cdk.Stack {
     new CfnOutput(this, "ApiKeyOwnerTableNameExport", {
       value: database.apiKeyOwnerTable.tableName,
       exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatApiKeyOwnerTableName`,
+    });
+    new CfnOutput(this, "ClaudeCodeIamUserTableNameExport", {
+      value: database.claudeCodeIamUserTable.tableName,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeCodeIamUserTableName`,
+    });
+    new CfnOutput(this, "ClaudeCodeCostSyncRoleArnExport", {
+      value: database.claudeCodeCostSyncRole.roleArn,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeCodeCostSyncRoleArn`,
+    });
+    new CfnOutput(this, "ClaudeCodeNotificationTopicArnExport", {
+      value: auth.claudeCodeNotificationTopic.topicArn,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeCodeNotificationTopicArn`,
     });
     new CfnOutput(this, 'EmbeddingStateMachineArn', {
       value: embedding.stateMachine.stateMachineArn,

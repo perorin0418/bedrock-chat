@@ -78,6 +78,8 @@
     "enableBotStore": false,
     "enableBotStoreReplicas": false,
     "botStoreLanguage": "en",
+    "enableClaudeCodeProvisioning": true,
+    "claudeCodeNotificationEmail": "",
     "globalAvailableModels": [],
     "tokenValidMinutes": 30,
     "alternateDomainName": "",
