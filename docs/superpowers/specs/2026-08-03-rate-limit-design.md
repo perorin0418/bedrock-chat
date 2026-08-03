@@ -41,12 +41,12 @@ APIキー単位で区別するには、AWS Lambda Web Adapter経由でAPI Gatewa
 
 ### 使用量の記録タイミング
 
-- `post_process_result()`(`backend/app/usecases/chat.py`)内、`conversation.total_price += result["price"]` の直後に1回、新規リポジトリ関数を呼び出しレコードを書き込む。
+- `post_process_result()`(`backend/app/usecases/chat.py`)内、`store_conversation(user.id, conversation)` の直後に1回、新規リポジトリ関数を呼び出しレコードを書き込む(会話の永続化より前に置くと、台帳書き込みの失敗が会話の保存自体を妨げてしまうため、永続化の後に置く)。
 - `chat()` は通常UI・公開API・SQS経由のいずれからも共通で呼ばれる関数だが、公開API分の記録は前述の通り別名前空間(`PUBLISHED_API#{bot_id}`)に入るため、書き込み処理自体を経路によって分岐させる必要はない(分岐させない方がシンプル)。ただし公開API側のLambdaスタック(`api-publishment-stack.ts`)には`USAGE_LEDGER_TABLE_NAME`が設定されていないため、公開API経路では`record_usage`は実際には何も記録せず、警告ログを出してスキップするno-opとなる(判定(ブロック)に使われないことと合わせて実害はない)。`record_usage`はこの理由、および一般的な書き込み失敗への耐性のため、意図的にbest-effort(例外を発生させず、失敗時はログのみ)として実装している。
 
 ### 新規リポジトリ `backend/app/repositories/usage_limit.py`
 
-- `record_usage(user_id: str, price: float, now: float) -> None`: `UsageLedgerTable` に1件 `put_item`。
+- `record_usage(user_id: str, price: float) -> None`: `UsageLedgerTable` に1件 `put_item`。現在時刻は内部で`get_current_time()`を呼んで取得する(呼び出し元からは受け取らない)。ベストエフォート(テーブル未設定時・書き込み失敗時のいずれも例外を発生させずログのみ)。
 - `get_usage_since(user_id: str, since: float) -> float`: `Key("PK").eq(user_id) & Key("SK").gte(since_micros)` でQueryし、取得した `Price` をPython側でSUMして返す(DynamoDBはサーバー側SUM集計に対応しないため)。ページネーション(`LastEvaluatedKey`)は既存の `find_conversation_by_user_id` と同様に処理する。
 
 ### 閾値設定: SSM Parameter Store

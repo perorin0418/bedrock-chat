@@ -27,9 +27,9 @@ def record_usage(user_id: str, price: float) -> None:
         )
         return
 
-    now_ms = get_current_time()
-    table = get_usage_ledger_table_client(user_id)
     try:
+        now_ms = get_current_time()
+        table = get_usage_ledger_table_client(user_id)
         table.put_item(
             Item={
                 "PK": user_id,

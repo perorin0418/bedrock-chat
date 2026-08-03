@@ -93,6 +93,8 @@ class TestUsageLimitRepository(unittest.TestCase):
 
         record_usage("user-1", 0.01)
 
+        self.mock_table.put_item.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
