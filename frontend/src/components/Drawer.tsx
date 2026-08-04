@@ -12,6 +12,7 @@ import {
   PiBook,
   PiChartLine,
   PiChatCenteredDotsDuotone,
+  PiClockCounterClockwise,
   PiListBullets,
   PiPlugs,
   PiPresentationChart,
@@ -150,6 +151,13 @@ const Drawer: React.FC<Props> = (props) => {
                 icon={<PiShareNetwork />}
                 to="/bot/shared"
                 labelComponent={getPageLabel('/bot/shared')}
+                onClick={closeSmallDrawer}
+              />
+              <DrawerItem
+                isActive={location.pathname === '/conversations'}
+                icon={<PiClockCounterClockwise />}
+                to="/conversations"
+                labelComponent={getPageLabel('/conversations')}
                 onClick={closeSmallDrawer}
               />
 
