@@ -160,6 +160,7 @@ class TestBotModel(unittest.TestCase):
             active_models=ActiveModelsModel(
                 claude_v3_sonnet_v2=True,
             ),
+            default_model="claude-v3.5-sonnet-v2",
             usage_stats=UsageStatsModel(usage_count=0),
         )
 
@@ -194,6 +195,7 @@ class TestBotModelFromInput(unittest.TestCase):
             description="Test description",
             display_retrieved_chunks=True,
             active_models={field: True for field in DEFAULT_GENERATION_CONFIG},
+            default_model="claude-v4-opus",
             # No generation_params provided initially
             generation_params=None,
             knowledge=Knowledge(
