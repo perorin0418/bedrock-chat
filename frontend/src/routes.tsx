@@ -21,6 +21,7 @@ import BotRecentlyUsedPage from './pages/BotRecentlyUsedPage.tsx';
 import BotStarredPage from './pages/BotStarredPage.tsx';
 import BotSharedPage from './pages/BotSharedPage.tsx';
 import ConversationHistoryPage from './pages/ConversationHistoryPage.tsx';
+import UserManualPage from './pages/UserManualPage.tsx';
 
 const rootChildren = [
   {
@@ -66,6 +67,10 @@ const rootChildren = [
   {
     path: '/conversations',
     element: <ConversationHistoryPage />,
+  },
+  {
+    path: '/manual',
+    element: <UserManualPage />,
   },
   {
     path: '/admin/shared-bot-analytics',
@@ -114,6 +119,7 @@ export const usePageLabel = () => {
     { path: '/bot/my', label: t('bot.my.label.pageTitle') },
     { path: '/bot/discover', label: t('discover.pageTitle') },
     { path: '/bot/shared', label: t('bot.shared.label.pageTitle') },
+    { path: '/manual', label: t('app.userManual') },
     {
       path: '/admin/shared-bot-analytics',
       label: t('admin.botAnalytics.label.pageTitle'),

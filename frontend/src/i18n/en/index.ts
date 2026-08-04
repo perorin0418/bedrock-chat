@@ -22,6 +22,7 @@ const translation = {
       adminConsoles: 'Admin Panel',
       backChat: 'Back to Chat',
       userGroups: 'User Groups',
+      userManual: 'User Manual',
       usageStatus: {
         fiveHour: '5-Hour Limit',
         sevenDay: '7-Day Limit',
