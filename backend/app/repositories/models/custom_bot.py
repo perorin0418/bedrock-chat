@@ -773,9 +773,8 @@ class BotModel(BaseModel):
                 if bot_input.bedrock_guardrails
                 else None
             ),
-            active_models=ActiveModelsModel.model_validate(
-                bot_input.active_models.model_dump()  # type: ignore
-            ),
+            active_models=active_models,
+            default_model=bot_input.default_model,
             usage_stats=UsageStatsModel(usage_count=0),
         )
 

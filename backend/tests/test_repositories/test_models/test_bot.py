@@ -17,6 +17,7 @@ from app.repositories.models.custom_bot import (
     KnowledgeModel,
     PlainToolModel,
     ReasoningParamsModel,
+    resolve_default_model,
     ToolModel,
     UsageStatsModel,
 )
