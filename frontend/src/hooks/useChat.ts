@@ -14,6 +14,7 @@ import {
 } from '../@types/conversation';
 import useConversation from './useConversation';
 import { create } from 'zustand';
+import { useSWRConfig } from 'swr';
 import usePostMessageStreaming from './usePostMessageStreaming';
 import { ulid } from 'ulid';
 import { convertMessageMapToArray } from '../utils/MessageUtils';
@@ -267,6 +268,7 @@ const useChat = () => {
 
   const conversationApi = useConversationApi();
   const feedbackApi = useFeedbackApi();
+  const { mutate: globalMutate } = useSWRConfig();
   const {
     data,
     mutate,
@@ -440,6 +442,10 @@ const useChat = () => {
         .updateTitleWithGeneratedTitle(newConversationId)
         .then(() => {
           setConversationId(newConversationId);
+          // 新規会話は既存会話への追記時と異なりmutate()の対象キーがまだ
+          // 切り替わっていないため、明示的に新しいconversationIdのキーで
+          // 再取得し、料金(price/totalPrice)を含む最新データを反映する
+          globalMutate(`conversation/${newConversationId}`);
         })
         .finally(() => {
           syncConversations().then(() => {
