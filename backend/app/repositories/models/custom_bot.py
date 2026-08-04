@@ -1024,7 +1024,6 @@ class BotAliasModel(BaseModel):
             active_models,
         )
 
-
         return cls(
             original_bot_id=item["OriginalBotId"],
             owner_user_id=item["OwnerUserId"],
@@ -1039,7 +1038,7 @@ class BotAliasModel(BaseModel):
             has_agent=item.get("HasAgent", False),
             conversation_quick_starters=conversation_quick_starters,
             active_models=active_models,
-            default_model=item.get("DefaultModel") or _first_active_model_name(active_models),
+            default_model=default_model,
         )
 
     def to_summary_output(self, bot: BotModel) -> BotSummaryOutput:
