@@ -162,11 +162,14 @@ claude
 const UserManualPage: React.FC = () => {
   return (
     <div className="mb-20 flex justify-center">
-      <div className="w-2/3">
+      <div className="w-11/12">
         <div className="mt-5 w-full">
           <div className="text-xl font-bold">ユーザーマニュアル</div>
           <div className="mt-3">
-            <ChatMessageMarkdown messageId="user-manual" isStreaming={false}>
+            <ChatMessageMarkdown
+              className="max-w-none"
+              messageId="user-manual"
+              isStreaming={false}>
               {MANUAL_MARKDOWN}
             </ChatMessageMarkdown>
           </div>
