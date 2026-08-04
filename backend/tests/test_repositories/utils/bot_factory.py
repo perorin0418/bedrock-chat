@@ -54,6 +54,7 @@ def _create_test_bot_model(
     include_simple_list_tool=False,
     set_dummy_knowledge=False,
     usage_count=0,
+    default_model="claude-v4-opus",
     **kwargs
 ):
     tools: list[ToolModel] = [
@@ -162,6 +163,7 @@ def _create_test_bot_model(
         ),
         bedrock_guardrails=bedrock_guardrails,
         active_models=ActiveModelsModel(),
+        default_model=default_model,
         usage_stats=UsageStatsModel(usage_count=usage_count),
     )
 

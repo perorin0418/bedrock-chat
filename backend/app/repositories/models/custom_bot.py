@@ -70,6 +70,25 @@ default_active_models = ActiveModelsModel.model_validate(
 )
 
 
+def _first_active_model_name(active_models: "ActiveModelsModel") -> str:  # type: ignore
+    """Return the first model name (in `type_model_name` definition order) that is active."""
+    model_names = get_args(type_model_name)
+    for model_name in model_names:
+        field_name = model_name.replace("-", "_").replace(".", "_")
+        if getattr(active_models, field_name, False):
+            return model_name
+    # No active models at all; fall back to the first defined model as an ultimate safeguard.
+    return model_names[0]
+
+
+def resolve_default_model(default_model: str, active_models: "ActiveModelsModel") -> str:  # type: ignore
+    """Return `default_model` if it's active, otherwise the first active model."""
+    field_name = default_model.replace("-", "_").replace(".", "_")
+    if getattr(active_models, field_name, False):
+        return default_model
+    return _first_active_model_name(active_models)
+
+
 class KnowledgeModel(BaseModel):
     source_urls: list[str]
     sitemap_urls: list[str]
@@ -513,6 +532,7 @@ class BotModel(BaseModel):
     bedrock_knowledge_base: BedrockKnowledgeBaseModel | None
     bedrock_guardrails: BedrockGuardrailsModel | None
     active_models: ActiveModelsModel  # type: ignore
+    default_model: type_model_name
     usage_stats: UsageStatsModel
 
     @staticmethod
@@ -585,6 +605,13 @@ class BotModel(BaseModel):
                 self.bedrock_guardrails.guardrail_arn = ""
                 self.bedrock_guardrails.guardrail_version = ""
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_default_model(self) -> Self:
+        self.default_model = resolve_default_model(
+            self.default_model, self.active_models  # type: ignore
+        )
         return self
 
     @field_validator("published_api_stack_name", mode="after")
@@ -666,6 +693,10 @@ class BotModel(BaseModel):
             bot_id=bot_input.id,
         )
 
+
+        active_models = ActiveModelsModel.model_validate(
+            bot_input.active_models.model_dump()  # type: ignore
+        )
         sync_status: type_sync_status = (
             "QUEUED"
             if bot_input.has_knowledge() or bot_input.has_guardrails()
@@ -750,6 +781,11 @@ class BotModel(BaseModel):
 
     @classmethod
     def from_dynamo_item(cls, item: dict) -> Self:
+        active_models = (
+            ActiveModelsModel.model_validate(item.get("ActiveModels"))
+            if item.get("ActiveModels")
+            else default_active_models  # for backward compatibility
+        )
         return BotModel(
             id=item["BotId"],
             owner_user_id=item["PK"],
@@ -814,11 +850,8 @@ class BotModel(BaseModel):
                 if "GuardrailsParams" in item
                 else None
             ),
-            active_models=(
-                ActiveModelsModel.model_validate(item.get("ActiveModels"))
-                if item.get("ActiveModels")
-                else default_active_models  # for backward compatibility
-            ),
+            active_models=active_models,
+            default_model=item.get("DefaultModel") or _first_active_model_name(active_models),
             usage_stats=(
                 UsageStatsModel.model_validate(item.get("UsageStats"))
                 if item.get("UsageStats")
@@ -871,6 +904,7 @@ class BotModel(BaseModel):
             active_models=ActiveModelsOutput.model_validate(
                 self.active_models.model_dump()  # type: ignore
             ),
+            default_model=self.default_model,
         )
 
     def to_summary_output(self, user: User) -> BotSummaryOutput:
@@ -897,6 +931,7 @@ class BotModel(BaseModel):
             active_models=ActiveModelsOutput.model_validate(
                 self.active_models.model_dump()  # type: ignore
             ),
+            default_model=self.default_model,
         )
 
 
@@ -916,6 +951,8 @@ class BotAliasModel(BaseModel):
     has_agent: bool
     conversation_quick_starters: list[ConversationQuickStarterModel]
     active_models: ActiveModelsModel  # type: ignore
+    default_model: type_model_name
+
 
     @classmethod
     def from_bot_for_initial_alias(cls, bot: BotModel) -> Self:
@@ -935,6 +972,7 @@ class BotAliasModel(BaseModel):
             has_agent=bot.is_agent_enabled(),
             conversation_quick_starters=bot.conversation_quick_starters,
             active_models=bot.active_models,
+            default_model=bot.default_model,
         )
 
     @classmethod
@@ -958,6 +996,7 @@ class BotAliasModel(BaseModel):
             has_agent=bot.is_agent_enabled(),
             conversation_quick_starters=bot.conversation_quick_starters,
             active_models=bot.active_models,
+            default_model=bot.default_model,  # Update to the latest
         )
 
     @classmethod
@@ -980,6 +1019,11 @@ class BotAliasModel(BaseModel):
             if active_models_data
             else default_active_models
         )
+        default_model = resolve_default_model(
+            item.get("DefaultModel") or _first_active_model_name(active_models),
+            active_models,
+        )
+
 
         return cls(
             original_bot_id=item["OriginalBotId"],
@@ -995,6 +1039,7 @@ class BotAliasModel(BaseModel):
             has_agent=item.get("HasAgent", False),
             conversation_quick_starters=conversation_quick_starters,
             active_models=active_models,
+            default_model=item.get("DefaultModel") or _first_active_model_name(active_models),
         )
 
     def to_summary_output(self, bot: BotModel) -> BotSummaryOutput:
@@ -1022,6 +1067,7 @@ class BotAliasModel(BaseModel):
             active_models=ActiveModelsOutput.model_validate(
                 self.active_models.model_dump()  # type: ignore
             ),
+            default_model=self.default_model,
         )
 
 

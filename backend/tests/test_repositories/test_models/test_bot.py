@@ -303,5 +303,102 @@ class TestBotModelFromInput(unittest.TestCase):
         )
 
 
+
+
+class TestResolveDefaultModel(unittest.TestCase):
+    def test_returns_default_model_when_active(self):
+        active_models = ActiveModelsModel(
+            claude_v3_5_sonnet=True, claude_v3_haiku=False
+        )
+        self.assertEqual(
+            resolve_default_model("claude-v3.5-sonnet", active_models),
+            "claude-v3.5-sonnet",
+        )
+
+    def test_falls_back_to_active_model_when_default_is_inactive(self):
+        fields = {name: False for name in ActiveModelsModel.model_fields}
+        fields["amazon_nova_lite"] = True
+        active_models = ActiveModelsModel.model_validate(fields)
+        self.assertEqual(
+            resolve_default_model("claude-v3-haiku", active_models),
+            "amazon-nova-lite",
+        )
+
+    def test_falls_back_to_first_in_definition_order_when_multiple_active(self):
+        fields = {name: False for name in ActiveModelsModel.model_fields}
+        fields["claude_v3_haiku"] = True
+        fields["amazon_nova_lite"] = True
+        active_models = ActiveModelsModel.model_validate(fields)
+        # claude-v3-haiku precedes amazon-nova-lite in type_model_name's definition order
+        self.assertEqual(
+            resolve_default_model("mistral-large", active_models),
+            "claude-v3-haiku",
+        )
+
+
+class TestBotModelDefaultModel(unittest.TestCase):
+    def _make_bot_kwargs(self, **overrides):
+        base = dict(
+            id="test",
+            title="test",
+            description="test",
+            instruction="instruction",
+            create_time=1627984879.9,
+            last_used_time=1627984879.9,
+            shared_scope="private",
+            shared_status="unshared",
+            allowed_cognito_groups=[],
+            allowed_cognito_users=[],
+            is_starred=False,
+            owner_user_id="owner",
+            generation_params=GenerationParamsModel(
+                max_tokens=2000,
+                top_k=250,
+                top_p=0.999,
+                temperature=0.6,
+                stop_sequences=["Human: ", "Assistant: "],
+                reasoning_params=ReasoningParamsModel(budget_tokens=1024),
+            ),
+            agent=AgentModel(tools=[]),
+            knowledge=KnowledgeModel(
+                source_urls=[], sitemap_urls=[], filenames=[], s3_urls=[]
+            ),
+            prompt_caching_enabled=False,
+            sync_status="RUNNING",
+            sync_status_reason="reason",
+            sync_last_exec_id="",
+            published_api_stack_name=None,
+            published_api_datetime=None,
+            published_api_codebuild_id=None,
+            display_retrieved_chunks=True,
+            conversation_quick_starters=[],
+            bedrock_knowledge_base=None,
+            bedrock_guardrails=None,
+            usage_stats=UsageStatsModel(usage_count=0),
+        )
+        base.update(overrides)
+        return base
+
+    def test_default_model_is_kept_when_active(self):
+        bot = BotModel(
+            **self._make_bot_kwargs(
+                active_models=ActiveModelsModel(),
+                default_model="claude-v3.5-sonnet",
+            )
+        )
+        self.assertEqual(bot.default_model, "claude-v3.5-sonnet")
+
+    def test_default_model_is_corrected_when_inactive(self):
+        fields = {name: False for name in ActiveModelsModel.model_fields}
+        fields["amazon_nova_lite"] = True
+        bot = BotModel(
+            **self._make_bot_kwargs(
+                active_models=ActiveModelsModel.model_validate(fields),
+                default_model="claude-v3.5-sonnet",
+            )
+        )
+        self.assertEqual(bot.default_model, "amazon-nova-lite")
+
+
 if __name__ == "__main__":
     unittest.main()

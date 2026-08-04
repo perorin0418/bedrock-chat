@@ -11,6 +11,7 @@ from app.repositories.models.custom_bot import (
     GenerationParamsModel,
     KnowledgeModel,
     ReasoningParamsModel,
+    UsageStatsModel,
 )
 
 
@@ -59,11 +60,12 @@ class TestKnowledgeTool(unittest.TestCase):
             bedrock_knowledge_base=None,
             bedrock_guardrails=None,
             active_models=ActiveModelsModel(),
+            default_model="claude-v4-opus",
             shared_scope="private",
             shared_status="private",
             allowed_cognito_groups=[],
             allowed_cognito_users=[],
-            usage_stats=None,
+            usage_stats=UsageStatsModel(usage_count=0),
         )
         arg = KnowledgeToolInput(query="What are delicious Japanese dishes?")
         tool = create_knowledge_tool(bot=bot)
