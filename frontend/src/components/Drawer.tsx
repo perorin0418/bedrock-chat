@@ -25,6 +25,7 @@ import { isMobile } from 'react-device-detect';
 import useChat from '../hooks/useChat';
 import { useTranslation } from 'react-i18next';
 import Menu from './Menu';
+import RateLimitStatus from './RateLimitStatus';
 import DrawerItem from './DrawerItem';
 import ExpandableDrawerGroup from './ExpandableDrawerGroup';
 import { usePageLabel } from '../routes';
@@ -207,7 +208,7 @@ const Drawer: React.FC<Props> = (props) => {
           <div
             className={twMerge(
               opened ? 'w-64' : 'w-0',
-              isAdminPanel ? 'h-10' : props.isAdmin ? 'h-28' : 'h-20',
+              isAdminPanel ? 'min-h-20' : props.isAdmin ? 'min-h-28' : 'min-h-20',
               'fixed -bottom-2 z-50 mb-2 flex flex-col items-start border-t bg-aws-squid-ink-light transition-width dark:bg-aws-ui-color-dark lg:w-64'
             )}>
             {!isAdminPanel && (
@@ -240,6 +241,7 @@ const Drawer: React.FC<Props> = (props) => {
                 onClick={closeSmallDrawer}
               />
             )}
+            <RateLimitStatus className="mx-2 w-60 py-1" />
             <Menu
               className="mx-2 flex h-10 w-60 justify-start"
               onSignOut={props.onSignOut}

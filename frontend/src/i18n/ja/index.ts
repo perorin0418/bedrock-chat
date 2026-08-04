@@ -26,6 +26,10 @@ const translation: typeof en = {
       userGroups: 'ユーザーグループ',
       backChat: 'チャットに戻る',
       userManual: 'ユーザーマニュアル',
+      usageStatus: {
+        fiveHour: '5時間制限',
+        sevenDay: '7日間制限',
+      },
     },
     model: {
       'claude-v4-opus': {

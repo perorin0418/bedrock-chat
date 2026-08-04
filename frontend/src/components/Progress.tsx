@@ -7,20 +7,22 @@ type Props = BaseProps & {
 };
 
 const Progress: React.FC<Props> = (props) => {
+  const isIndeterminate = props.progress === undefined;
+
   return (
     <div
       className={twMerge(
         'w-full rounded-full bg-gray transition-all',
-        !props.progress && 'overflow-hidden',
+        isIndeterminate && 'overflow-hidden',
         props.thin ? 'h-1' : 'h-2.5'
       )}>
       <div
         className={twMerge(
           `rounded-full bg-aws-aqua`,
-          !props.progress && 'origin-left-right animate-liner-progress',
+          isIndeterminate && 'origin-left-right animate-liner-progress',
           props.thin ? 'h-1' : 'h-2.5'
         )}
-        style={props.progress ? { width: `${props.progress}%` } : {}}
+        style={isIndeterminate ? {} : { width: `${props.progress}%` }}
       />
     </div>
   );
