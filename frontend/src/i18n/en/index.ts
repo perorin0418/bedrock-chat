@@ -22,6 +22,10 @@ const translation = {
       adminConsoles: 'Admin Panel',
       backChat: 'Back to Chat',
       userGroups: 'User Groups',
+      usageStatus: {
+        fiveHour: '5-Hour Limit',
+        sevenDay: '7-Day Limit',
+      },
     },
     model: {
       'claude-v4-opus': {

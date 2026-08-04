@@ -25,6 +25,10 @@ const translation: typeof en = {
       adminConsoles: '管理者用機能',
       userGroups: 'ユーザーグループ',
       backChat: 'チャットに戻る',
+      usageStatus: {
+        fiveHour: '5時間制限',
+        sevenDay: '7日間制限',
+      },
     },
     model: {
       'claude-v4-opus': {

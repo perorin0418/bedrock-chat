@@ -113,5 +113,25 @@ class TestCheckRateLimit(unittest.TestCase):
                 rate_limit._get_limit("/test/param")
 
 
+class TestGetUsageStatus(unittest.TestCase):
+    def setUp(self):
+        rate_limit._limit_cache.clear()
+
+    def test_returns_usage_and_limit_for_both_windows(self):
+        with patch.object(
+            rate_limit, "get_current_time", return_value=1_700_000_000_000
+        ), patch.object(
+            rate_limit, "_get_limit", side_effect=[10.0, 336.0]
+        ), patch.object(
+            rate_limit, "get_usage_since", side_effect=[5.0, 100.0]
+        ):
+            status = rate_limit.get_usage_status("user-1")
+
+            self.assertEqual(status.five_hour.used, 5.0)
+            self.assertEqual(status.five_hour.limit, 10.0)
+            self.assertEqual(status.seven_day.used, 100.0)
+            self.assertEqual(status.seven_day.limit, 336.0)
+
+
 if __name__ == "__main__":
     unittest.main()
