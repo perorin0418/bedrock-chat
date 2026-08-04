@@ -374,6 +374,7 @@ class TestCustomBotRepository(unittest.TestCase):
                 guardrail_version="v1",
             ),
             active_models=ActiveModelsModel(),
+            default_model="amazon-nova-lite",
         )
 
         bot = find_bot_by_id("1")
@@ -433,8 +434,38 @@ class TestCustomBotRepository(unittest.TestCase):
         self.assertEqual(bot.bedrock_guardrails.relevance_threshold, 0.2)
         self.assertEqual(bot.bedrock_guardrails.guardrail_arn, "arn:aws:guardrail")
         self.assertEqual(bot.bedrock_guardrails.guardrail_version, "v1")
+        self.assertEqual(bot.default_model, "amazon-nova-lite")
 
         delete_bot_by_id("user1", "1")
+
+    def test_update_bot_corrects_inactive_default_model(self):
+        bot = create_test_private_bot("1b", False, "user1")
+        store_bot(bot)
+
+        inactive_amazon_nova_lite = ActiveModelsModel.model_validate(
+            {**ActiveModelsModel().model_dump(), "amazon_nova_lite": False}
+        )
+        update_bot(
+            "user1",
+            "1b",
+            title=bot.title,
+            description=bot.description,
+            instruction=bot.instruction,
+            generation_params=bot.generation_params,
+            agent=bot.agent,
+            knowledge=bot.knowledge,
+            prompt_caching_enabled=bot.prompt_caching_enabled,
+            sync_status=bot.sync_status,
+            sync_status_reason=bot.sync_status_reason,
+            display_retrieved_chunks=bot.display_retrieved_chunks,
+            conversation_quick_starters=bot.conversation_quick_starters,
+            active_models=inactive_amazon_nova_lite,
+            default_model="amazon-nova-lite",
+        )
+
+        updated_bot = find_bot_by_id("1b")
+        self.assertEqual(updated_bot.default_model, "amazon-nova-lite")
+        delete_bot_by_id("user1", "1b")
 
     def test_update_bot_stats(self):
         # Note: default count is 0
