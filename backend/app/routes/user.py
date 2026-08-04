@@ -1,5 +1,7 @@
 from venv import logger
 
+from app.routes.schemas.rate_limit import UsageStatusOutput, UsageWindowOutput
+from app.usecases.rate_limit import get_usage_status
 from app.usecases.user import (
     get_user_by_id,
     search_group_by_name_prefix,
@@ -9,6 +11,23 @@ from app.user import User, UserGroup, UserWithoutGroups
 from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter(tags=["user"])
+
+
+@router.get("/user/usage-status", response_model=UsageStatusOutput)
+def get_current_user_usage_status(request: Request) -> UsageStatusOutput:
+    """Get the current user's recorded cost and configured limit for the
+    trailing 5-hour and trailing 7-day rate-limit windows."""
+    current_user: User = request.state.current_user
+
+    status = get_usage_status(current_user.id)
+    return UsageStatusOutput(
+        five_hour=UsageWindowOutput(
+            used=status.five_hour.used, limit=status.five_hour.limit
+        ),
+        seven_day=UsageWindowOutput(
+            used=status.seven_day.used, limit=status.seven_day.limit
+        ),
+    )
 
 
 @router.get("/user/search", response_model=list[UserWithoutGroups])

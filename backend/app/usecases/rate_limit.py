@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from typing import NamedTuple
 
 import boto3
 from app.repositories.common import RateLimitExceededError
@@ -43,24 +44,47 @@ def _get_limit(param_name: str) -> float:
         raise
 
 
-def check_rate_limit(user_id: str) -> None:
-    """Raise `RateLimitExceededError` if `user_id`'s recorded cost exceeds
-    either the trailing 5-hour or trailing 7-day USD limit (values read from
-    SSM)."""
+class UsageWindow(NamedTuple):
+    used: float
+    limit: float
+
+
+class UsageStatus(NamedTuple):
+    five_hour: UsageWindow
+    seven_day: UsageWindow
+
+
+def get_usage_status(user_id: str) -> UsageStatus:
+    """Return `user_id`'s recorded cost and configured USD limit (from SSM)
+    for both the trailing 5-hour and trailing 7-day windows."""
     now_ms = get_current_time()
 
     five_hour_limit = _get_limit(FIVE_HOUR_PARAM_NAME)
     five_hour_sum = get_usage_since(user_id, now_ms - FIVE_HOUR_WINDOW_MS)
-    if five_hour_sum > five_hour_limit:
-        raise RateLimitExceededError(
-            f"Rate limit exceeded: ${five_hour_sum:.2f} spent in the last 5 hours "
-            f"(limit ${five_hour_limit:.2f})."
-        )
 
     seven_day_limit = _get_limit(SEVEN_DAY_PARAM_NAME)
     seven_day_sum = get_usage_since(user_id, now_ms - SEVEN_DAY_WINDOW_MS)
-    if seven_day_sum > seven_day_limit:
+
+    return UsageStatus(
+        five_hour=UsageWindow(used=five_hour_sum, limit=five_hour_limit),
+        seven_day=UsageWindow(used=seven_day_sum, limit=seven_day_limit),
+    )
+
+
+def check_rate_limit(user_id: str) -> None:
+    """Raise `RateLimitExceededError` if `user_id`'s recorded cost exceeds
+    either the trailing 5-hour or trailing 7-day USD limit (values read from
+    SSM)."""
+    status = get_usage_status(user_id)
+
+    if status.five_hour.used > status.five_hour.limit:
         raise RateLimitExceededError(
-            f"Rate limit exceeded: ${seven_day_sum:.2f} spent in the last 7 days "
-            f"(limit ${seven_day_limit:.2f})."
+            f"Rate limit exceeded: ${status.five_hour.used:.2f} spent in the last 5 hours "
+            f"(limit ${status.five_hour.limit:.2f})."
+        )
+
+    if status.seven_day.used > status.seven_day.limit:
+        raise RateLimitExceededError(
+            f"Rate limit exceeded: ${status.seven_day.used:.2f} spent in the last 7 days "
+            f"(limit ${status.seven_day.limit:.2f})."
         )
