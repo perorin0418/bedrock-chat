@@ -464,7 +464,7 @@ class TestCustomBotRepository(unittest.TestCase):
         )
 
         updated_bot = find_bot_by_id("1b")
-        self.assertEqual(updated_bot.default_model, "amazon-nova-lite")
+        self.assertEqual(updated_bot.default_model, "claude-v4-opus")
         delete_bot_by_id("user1", "1b")
 
     def test_update_bot_stats(self):
