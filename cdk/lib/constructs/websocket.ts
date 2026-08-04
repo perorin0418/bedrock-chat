@@ -80,6 +80,15 @@ export class WebSocket extends Construct {
       })
     );
     handlerRole.addToPolicy(
+      // Bedrock's Converse operation checks AWS Marketplace entitlement for
+      // the calling principal; without these the model access is denied
+      // even when the account itself already has model access enabled.
+      new iam.PolicyStatement({
+        actions: ["aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe"],
+        resources: ["*"],
+      })
+    );
+    handlerRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ["cognito-idp:AdminListGroupsForUser"],
