@@ -119,6 +119,7 @@ export const usePageLabel = () => {
     { path: '/bot/my', label: t('bot.my.label.pageTitle') },
     { path: '/bot/discover', label: t('discover.pageTitle') },
     { path: '/bot/shared', label: t('bot.shared.label.pageTitle') },
+    { path: '/conversations', label: t('conversationHistory.pageTitle') },
     { path: '/manual', label: t('app.userManual') },
     {
       path: '/admin/shared-bot-analytics',
