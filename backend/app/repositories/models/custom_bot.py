@@ -95,7 +95,9 @@ def _first_active_model_name(active_models: "ActiveModelsModel") -> type_model_n
 def resolve_default_model(default_model: str, active_models: "ActiveModelsModel") -> type_model_name:  # type: ignore
     """Return `default_model` if it's active, otherwise the first active model."""
     field_name = default_model.replace("-", "_").replace(".", "_")
-    if getattr(active_models, field_name, False):
+    if default_model in get_args(type_model_name) and getattr(
+        active_models, field_name, False
+    ):
         return cast(type_model_name, default_model)
     return _first_active_model_name(active_models)
 
