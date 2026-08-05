@@ -1,6 +1,17 @@
 import json
 import logging
-from typing import Annotated, Any, Dict, List, Literal, Optional, Self, Type, get_args
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Self,
+    Type,
+    cast,
+    get_args,
+)
 
 from app.config import DEFAULT_GENERATION_CONFIG
 from app.repositories.models.common import DynamicBaseModel, Float, SecureString
@@ -70,7 +81,7 @@ default_active_models = ActiveModelsModel.model_validate(
 )
 
 
-def _first_active_model_name(active_models: "ActiveModelsModel") -> str:  # type: ignore
+def _first_active_model_name(active_models: "ActiveModelsModel") -> type_model_name:  # type: ignore
     """Return the first model name (in `type_model_name` definition order) that is active."""
     model_names = get_args(type_model_name)
     for model_name in model_names:
@@ -81,11 +92,11 @@ def _first_active_model_name(active_models: "ActiveModelsModel") -> str:  # type
     return model_names[0]
 
 
-def resolve_default_model(default_model: str, active_models: "ActiveModelsModel") -> str:  # type: ignore
+def resolve_default_model(default_model: str, active_models: "ActiveModelsModel") -> type_model_name:  # type: ignore
     """Return `default_model` if it's active, otherwise the first active model."""
     field_name = default_model.replace("-", "_").replace(".", "_")
     if getattr(active_models, field_name, False):
-        return default_model
+        return cast(type_model_name, default_model)
     return _first_active_model_name(active_models)
 
 
