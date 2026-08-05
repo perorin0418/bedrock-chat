@@ -15,8 +15,8 @@ from strands.tools.mcp import MCPAgentTool, MCPClient
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
-COGNITO_MCP_AUTH_DOMAIN = f"knowledge-mcp-auth.auth.{BEDROCK_REGION}.amazoncognito.com"
+REGION = os.environ.get("REGION", "ap-northeast-1")
+COGNITO_MCP_AUTH_DOMAIN = f"knowledge-mcp-auth.auth.{REGION}.amazoncognito.com"
 
 # Lambda container in-memory cache: cache_key -> (access_token, expires_at)
 _token_cache: dict[str, tuple[str, float]] = {}
