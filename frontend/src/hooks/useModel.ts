@@ -8,6 +8,7 @@ import useLocalStorage from './useLocalStorage';
 import useGlobalConfig from './useGlobalConfig';
 import { ActiveModels } from '../@types/bot';
 import { toCamelCase } from '../utils/StringUtils';
+import { resolveDefaultModel } from '../utils/ModelUtils';
 
 const CLAUDE_SUPPORTED_MEDIA_TYPES = [
   'image/jpeg',
@@ -53,7 +54,11 @@ const usePreviousBotId = (botId: string | null | undefined) => {
   return ref.current;
 };
 
-const useModel = (botId?: string | null, activeModels?: ActiveModels) => {
+const useModel = (
+  botId?: string | null,
+  activeModels?: ActiveModels,
+  botDefaultModel?: Model
+) => {
   const { getGlobalConfig } = useGlobalConfig();
   const { data: globalConfig } = getGlobalConfig();
 
@@ -353,23 +358,13 @@ const useModel = (botId?: string | null, activeModels?: ActiveModels) => {
   }, [processedActiveModels, availableModels]);
 
   const getDefaultModel = useCallback((): Model => {
-    // Use the default model from global config if available
-    const configDefaultModel = globalConfig?.defaultModel as Model | undefined;
-
-    if (configDefaultModel) {
-      // Check if the configured default model is available
-      const defaultModelAvailable = filteredModels.some(
-        (m: ModelItem) => m.modelId === configDefaultModel
-      );
-      if (defaultModelAvailable) {
-        return configDefaultModel;
-      }
-    }
-
-    // If config default is not available or not set yet, select the first model
-    // Returns undefined if no models are available
-    return filteredModels[0]?.modelId ?? 'amazon-nova-lite';
-  }, [filteredModels, globalConfig?.defaultModel]);
+    return (
+      resolveDefaultModel(
+        [botDefaultModel, globalConfig?.defaultModel as Model | undefined],
+        filteredModels
+      ) ?? 'amazon-nova-lite'
+    );
+  }, [filteredModels, botDefaultModel, globalConfig?.defaultModel]);
 
   // select the model via list of activeModels
   const selectModel = useCallback(
