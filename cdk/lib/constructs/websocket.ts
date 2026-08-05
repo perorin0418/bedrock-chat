@@ -106,7 +106,7 @@ export class WebSocket extends Construct {
           }:secret:firecrawl/*/*`,
           `arn:aws:secretsmanager:${Stack.of(this).region}:${
             Stack.of(this).account
-          }:secret:firecrawl/*/*`,
+          }:secret:mcp/*/*`,
         ],
       })
     );

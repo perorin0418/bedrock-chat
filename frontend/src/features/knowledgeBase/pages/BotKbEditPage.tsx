@@ -1021,8 +1021,8 @@ const BotKbEditPage: React.FC = () => {
 
         if (hasDuplicateLabel) {
           setErrorMessages(
-            `tools-${idx}-mcpServers.label`,
-            t('input.validationError.required')
+            `tools-${idx}-mcpServers`,
+            t('agent.tools.mcp.error.duplicateLabel')
           );
           return true;
         }
@@ -1038,7 +1038,7 @@ const BotKbEditPage: React.FC = () => {
         if (hasInvalidServer) {
           setErrorMessages(
             `tools-${idx}-mcpServers`,
-            t('input.validationError.required')
+            t('agent.tools.mcp.error.requiredFields')
           );
           return true;
         }
@@ -1049,8 +1049,8 @@ const BotKbEditPage: React.FC = () => {
 
         if (hasInvalidLabelPattern) {
           setErrorMessages(
-            `tools-${idx}-mcpServers.label`,
-            t('input.validationError.required')
+            `tools-${idx}-mcpServers`,
+            t('agent.tools.mcp.error.invalidLabelPattern')
           );
           return true;
         }
@@ -1061,8 +1061,8 @@ const BotKbEditPage: React.FC = () => {
 
         if (hasTooLongLabel) {
           setErrorMessages(
-            `tools-${idx}-mcpServers.label`,
-            t('input.validationError.required')
+            `tools-${idx}-mcpServers`,
+            t('agent.tools.mcp.error.labelTooLong')
           );
           return true;
         }
@@ -1671,6 +1671,7 @@ const BotKbEditPage: React.FC = () => {
                 availableTools={availableTools}
                 tools={tools}
                 setTools={setTools}
+                errorMessages={errorMessages}
               />
 
               <div className="mt-3">

@@ -2,10 +2,12 @@ import { useTranslation } from 'react-i18next';
 import { McpConfig as McpConfigType } from '../types';
 import { McpConfig as McpConfigComponent } from './McpConfig';
 import Button from '../../../components/Button';
+import Alert from '../../../components/Alert';
 
 type Props = {
   servers: McpConfigType[];
   onChange: (servers: McpConfigType[]) => void;
+  errorMessage?: string;
 };
 
 const EMPTY_SERVER: McpConfigType = {
@@ -15,7 +17,7 @@ const EMPTY_SERVER: McpConfigType = {
   clientSecret: '',
 };
 
-export const McpServersConfig = ({ servers, onChange }: Props) => {
+export const McpServersConfig = ({ servers, onChange, errorMessage }: Props) => {
   const { t } = useTranslation();
 
   const handleServerChange = (index: number, config: McpConfigType) => {
@@ -32,6 +34,11 @@ export const McpServersConfig = ({ servers, onChange }: Props) => {
 
   return (
     <div className="space-y-4">
+      {errorMessage && (
+        <Alert severity="error">
+          <div className="text-sm">{errorMessage}</div>
+        </Alert>
+      )}
       {servers.map((server, index) => (
         <div
           key={index}

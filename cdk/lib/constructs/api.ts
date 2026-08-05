@@ -224,7 +224,7 @@ export class Api extends Construct {
         ],
       })
     );
-    // For Firecrawl api key
+    // For Firecrawl and MCP server api keys
     handlerRole.addToPolicy(
       new iam.PolicyStatement({
         actions: [
@@ -244,6 +244,9 @@ export class Api extends Construct {
           `arn:aws:secretsmanager:${Stack.of(this).region}:${
             Stack.of(this).account
           }:secret:firecrawl/*/*`,
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:mcp/*/*`,
         ],
       })
     );
