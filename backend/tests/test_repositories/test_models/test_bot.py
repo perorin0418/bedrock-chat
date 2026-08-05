@@ -1,5 +1,6 @@
 import sys
 import unittest
+from typing import get_args
 
 sys.path.insert(0, ".")
 
@@ -17,6 +18,7 @@ from app.repositories.models.custom_bot import (
     KnowledgeModel,
     PlainToolModel,
     ReasoningParamsModel,
+    resolve_default_model,
     ToolModel,
     UsageStatsModel,
 )
@@ -33,6 +35,7 @@ from app.routes.schemas.bot import (
     Knowledge,
     ReasoningParams,
 )
+from app.routes.schemas.conversation import type_model_name
 from tests.test_usecases.utils.user_factory import (
     create_test_user,
     delete_cognito_group,
@@ -160,6 +163,7 @@ class TestBotModel(unittest.TestCase):
             active_models=ActiveModelsModel(
                 claude_v3_sonnet_v2=True,
             ),
+            default_model="claude-v3.5-sonnet-v2",
             usage_stats=UsageStatsModel(usage_count=0),
         )
 
@@ -194,6 +198,7 @@ class TestBotModelFromInput(unittest.TestCase):
             description="Test description",
             display_retrieved_chunks=True,
             active_models={field: True for field in DEFAULT_GENERATION_CONFIG},
+            default_model="claude-v4-opus",
             # No generation_params provided initially
             generation_params=None,
             knowledge=Knowledge(
@@ -301,6 +306,147 @@ class TestBotModelFromInput(unittest.TestCase):
             "budget_tokens must be greater than or equal to 1024",
             str(context.exception),
         )
+
+
+class TestResolveDefaultModel(unittest.TestCase):
+    def test_returns_default_model_when_active(self):
+        active_models = ActiveModelsModel(
+            claude_v3_5_sonnet=True, claude_v3_haiku=False
+        )
+        self.assertEqual(
+            resolve_default_model("claude-v3.5-sonnet", active_models),
+            "claude-v3.5-sonnet",
+        )
+
+    def test_falls_back_to_active_model_when_default_is_inactive(self):
+        fields = {name: False for name in ActiveModelsModel.model_fields}
+        fields["amazon_nova_lite"] = True
+        active_models = ActiveModelsModel.model_validate(fields)
+        self.assertEqual(
+            resolve_default_model("claude-v3-haiku", active_models),
+            "amazon-nova-lite",
+        )
+
+    def test_falls_back_to_first_in_definition_order_when_multiple_active(self):
+        fields = {name: False for name in ActiveModelsModel.model_fields}
+        fields["claude_v3_haiku"] = True
+        fields["amazon_nova_lite"] = True
+        active_models = ActiveModelsModel.model_validate(fields)
+        # claude-v3-haiku precedes amazon-nova-lite in type_model_name's definition order
+        self.assertEqual(
+            resolve_default_model("mistral-large", active_models),
+            "claude-v3-haiku",
+        )
+
+
+class TestBotModelDefaultModel(unittest.TestCase):
+    def _make_bot_kwargs(self, **overrides):
+        base = dict(
+            id="test",
+            title="test",
+            description="test",
+            instruction="instruction",
+            create_time=1627984879.9,
+            last_used_time=1627984879.9,
+            shared_scope="private",
+            shared_status="unshared",
+            allowed_cognito_groups=[],
+            allowed_cognito_users=[],
+            is_starred=False,
+            owner_user_id="owner",
+            generation_params=GenerationParamsModel(
+                max_tokens=2000,
+                top_k=250,
+                top_p=0.999,
+                temperature=0.6,
+                stop_sequences=["Human: ", "Assistant: "],
+                reasoning_params=ReasoningParamsModel(budget_tokens=1024),
+            ),
+            agent=AgentModel(tools=[]),
+            knowledge=KnowledgeModel(
+                source_urls=[], sitemap_urls=[], filenames=[], s3_urls=[]
+            ),
+            prompt_caching_enabled=False,
+            sync_status="RUNNING",
+            sync_status_reason="reason",
+            sync_last_exec_id="",
+            published_api_stack_name=None,
+            published_api_datetime=None,
+            published_api_codebuild_id=None,
+            display_retrieved_chunks=True,
+            conversation_quick_starters=[],
+            bedrock_knowledge_base=None,
+            bedrock_guardrails=None,
+            usage_stats=UsageStatsModel(usage_count=0),
+        )
+        base.update(overrides)
+        return base
+
+    def test_default_model_is_kept_when_active(self):
+        bot = BotModel(
+            **self._make_bot_kwargs(
+                active_models=ActiveModelsModel(),
+                default_model="claude-v3.5-sonnet",
+            )
+        )
+        self.assertEqual(bot.default_model, "claude-v3.5-sonnet")
+
+    def test_default_model_is_corrected_when_inactive(self):
+        fields = {name: False for name in ActiveModelsModel.model_fields}
+        fields["amazon_nova_lite"] = True
+        bot = BotModel(
+            **self._make_bot_kwargs(
+                active_models=ActiveModelsModel.model_validate(fields),
+                default_model="claude-v3.5-sonnet",
+            )
+        )
+        self.assertEqual(bot.default_model, "amazon-nova-lite")
+
+    def test_default_model_survives_removal_from_literal(self):
+        # Simulate reading a legacy bot whose stored DefaultModel value no
+        # longer exists in type_model_name (a model was removed from the Literal).
+        # `coerce_unknown_default_model` (field_validator, mode="before") coerces the
+        # unrecognized value to get_args(type_model_name)[0] ("claude-v4-opus"), and
+        # since ActiveModelsModel() defaults every model (including that one) to
+        # active, `validate_default_model` (model_validator, mode="after") leaves it
+        # unchanged.
+        bot = BotModel(
+            **self._make_bot_kwargs(
+                active_models=ActiveModelsModel(),
+                default_model="claude-instant-v1",  # a real, historically-removed model name
+            )
+        )
+        self.assertEqual(bot.default_model, "claude-v4-opus")
+
+    def test_default_model_backfilled_when_dynamo_item_lacks_attribute(self):
+        item = {
+            "BotId": "test",
+            "PK": "owner",
+            "Title": "test",
+            "Description": "test",
+            "Instruction": "instruction",
+            "CreateTime": 1627984879.9,
+            "SharedStatus": "unshared",
+            "Knowledge": {"source_urls": [], "sitemap_urls": [], "filenames": []},
+            "SyncStatus": "RUNNING",
+            "SyncStatusReason": "reason",
+            "LastExecId": "",
+            # Deactivate the first few models (in type_model_name's declared order)
+            # so the test actually exercises "first ACTIVE model", not merely
+            # "first model overall" (which would pass even if the backfill logic
+            # ignored ActiveModels entirely).
+            "ActiveModels": {
+                "claude_v4_opus": False,
+                "claude_v4_1_opus": False,
+                "claude_v4_5_opus": False,
+            },
+            # Note: no "DefaultModel" key at all — simulates a bot created before this feature.
+        }
+        bot = BotModel.from_dynamo_item(item)
+        # First model in type_model_name order that is still active is
+        # "claude-v4.6-opus" (claude-v4-opus, claude-v4.1-opus, claude-v4.5-opus
+        # were deactivated above).
+        self.assertEqual(bot.default_model, "claude-v4.6-opus")
 
 
 if __name__ == "__main__":

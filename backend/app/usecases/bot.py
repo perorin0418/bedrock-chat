@@ -30,6 +30,7 @@ from app.repositories.custom_bot import (
     update_bot_stats,
 )
 from app.repositories.models.custom_bot import (
+    ActiveModelsModel,
     AgentModel,
     BotAliasModel,
     BotModel,
@@ -37,6 +38,7 @@ from app.repositories.models.custom_bot import (
     GenerationParamsModel,
     KnowledgeModel,
     ReasoningParamsModel,
+    resolve_default_model,
 )
 from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
 from app.repositories.models.custom_bot_kb import BedrockKnowledgeBaseModel
@@ -244,6 +246,13 @@ def modify_owned_bot(
     else:
         updated_kb = current_bot_kb
 
+    resolved_default_model = resolve_default_model(
+        modify_input.default_model,
+        ActiveModelsModel.model_validate(
+            modify_input.active_models.model_dump()  # type: ignore
+        ),
+    )
+
     update_bot(
         bot.owner_user_id,
         bot_id,
@@ -284,6 +293,7 @@ def modify_owned_bot(
         active_models=ActiveModelsOutput.model_validate(
             modify_input.active_models.model_dump()  # type: ignore
         ),
+        default_model=resolved_default_model,
     )
 
     if sync_status == "QUEUED":
@@ -345,6 +355,7 @@ def modify_owned_bot(
         active_models=ActiveModelsOutput.model_validate(
             modify_input.active_models.model_dump()  # type: ignore
         ),
+        default_model=resolved_default_model,
     )
 
 

@@ -589,6 +589,7 @@ const ChatPage: React.FC = () => {
                       className="mb-6 mt-3 w-min"
                       activeModels={activeModels}
                       botId={botId}
+                      botDefaultModel={bot?.defaultModel}
                     />
                   )}
                   <div className="px-20 text-center">

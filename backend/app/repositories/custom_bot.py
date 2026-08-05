@@ -24,7 +24,7 @@ from app.repositories.models.custom_bot import (
 )
 from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
 from app.repositories.models.custom_bot_kb import BedrockKnowledgeBaseModel
-from app.routes.schemas.bot import type_shared_scope, type_sync_status
+from app.routes.schemas.bot import type_model_name, type_shared_scope, type_sync_status
 from app.user import User
 from app.utils import get_current_time
 from boto3.dynamodb.conditions import Attr, Key
@@ -77,6 +77,7 @@ def store_bot(custom_bot: BotModel):
             starter.model_dump() for starter in custom_bot.conversation_quick_starters
         ],
         "ActiveModels": custom_bot.active_models.model_dump(),  # type: ignore[attr-defined]
+        "DefaultModel": custom_bot.default_model,
         "UsageStats": custom_bot.usage_stats.model_dump(),
     }
 
@@ -113,6 +114,7 @@ def update_bot(
     sync_status_reason: str,
     display_retrieved_chunks: bool,
     active_models: ActiveModelsModel,  # type: ignore
+    default_model: type_model_name,
     conversation_quick_starters: list[ConversationQuickStarterModel],
     bedrock_knowledge_base: BedrockKnowledgeBaseModel | None = None,
     bedrock_guardrails: BedrockGuardrailsModel | None = None,
@@ -135,7 +137,8 @@ def update_bot(
         "GenerationParams = :generation_params, "
         "DisplayRetrievedChunks = :display_retrieved_chunks, "
         "ConversationQuickStarters = :conversation_quick_starters, "
-        "ActiveModels = :active_models"
+        "ActiveModels = :active_models, "
+        "DefaultModel = :default_model"
     )
 
     expression_attribute_values = {
@@ -153,6 +156,7 @@ def update_bot(
             starter.model_dump() for starter in conversation_quick_starters
         ],
         ":active_models": active_models.model_dump(),  # type: ignore[attr-defined]
+        ":default_model": default_model,
     }
     if bedrock_knowledge_base:
         if bedrock_knowledge_base.exist_knowledge_base_id is not None or (
@@ -224,6 +228,7 @@ def store_alias(user_id: str, alias: BotAliasModel):
             starter.model_dump() for starter in alias.conversation_quick_starters
         ],
         "ActiveModels": alias.active_models.model_dump(),  # type: ignore[attr-defined]
+        "DefaultModel": alias.default_model,
     }
 
     if alias.is_starred:
@@ -765,7 +770,9 @@ def find_all_shared_bots(user: User) -> list[BotMeta]:
     for item in public_response["Items"]:
         if item["PK"] == user.id:
             continue
-        bots.append(BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True))
+        bots.append(
+            BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True)
+        )
 
     partial_response = table.query(
         IndexName="SharedScopeIndex",
@@ -781,7 +788,9 @@ def find_all_shared_bots(user: User) -> list[BotMeta]:
             or user.id in allowed_users
             or any(group in allowed_groups for group in user.groups)
         ):
-            bots.append(BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True))
+            bots.append(
+                BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True)
+            )
 
     logger.info(f"Found {len(bots)} bots shared with user: {user.id}")
     return bots

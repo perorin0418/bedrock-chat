@@ -5,11 +5,13 @@ import { Fragment } from 'react/jsx-runtime';
 import { useMemo, useEffect } from 'react';
 import { PiCaretDown, PiCheck } from 'react-icons/pi';
 import { ActiveModels } from '../@types/bot';
+import { Model } from '../@types/conversation';
 import { toCamelCase } from '../utils/StringUtils';
 
 interface Props extends BaseProps {
   activeModels: ActiveModels;
   botId?: string | null;
+  botDefaultModel?: Model;
 }
 
 const SwitchBedrockModel: React.FC<Props> = (props) => {
@@ -18,7 +20,7 @@ const SwitchBedrockModel: React.FC<Props> = (props) => {
     modelId,
     setModelId,
     getDefaultModel,
-  } = useModel(props.botId, props.activeModels);
+  } = useModel(props.botId, props.activeModels, props.botDefaultModel);
 
   const availableModels = useMemo(() => {
     return allModels.filter((model) => {

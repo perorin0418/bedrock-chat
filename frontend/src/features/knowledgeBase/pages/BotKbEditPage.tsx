@@ -237,6 +237,19 @@ const BotKbEditPage: React.FC = () => {
     return getGeneralModels();
   })();
 
+  const [defaultModel, setDefaultModel] = useState<Model>(
+    activeModelsOptions[0]?.key ?? AVAILABLE_MODEL_KEYS[0]
+  );
+
+  useEffect(() => {
+    const isDefaultModelValid = activeModelsOptions.some(
+      ({ key }) => key === defaultModel
+    );
+    if (!isDefaultModelValid && activeModelsOptions.length > 0) {
+      setDefaultModel(activeModelsOptions[0].key);
+    }
+  }, [activeModelsOptions, defaultModel]);
+
   const embeddingsModelOptions: {
     label: string;
     value: EmbeddingsModel;
@@ -653,6 +666,7 @@ const BotKbEditPage: React.FC = () => {
               ?.excludePatterns || [''],
           });
           setActiveModels(bot.activeModels);
+          setDefaultModel(bot.defaultModel);
         })
         .finally(() => {
           setIsLoading(false);
@@ -667,14 +681,26 @@ const BotKbEditPage: React.FC = () => {
     return pattern.test(syncErrorMessage);
   }, []);
 
-  const onChangeActiveModels = useCallback((key: string, value: boolean) => {
-    setActiveModels((prevState) => {
+  const onChangeActiveModels = useCallback(
+    (key: string, value: boolean) => {
       const camelKey = toCamelCase(key) as keyof ActiveModels;
-      const newState = { ...prevState };
-      newState[camelKey] = value;
-      return newState;
-    });
-  }, []);
+      setActiveModels((prevState) => {
+        const newActiveModels = { ...prevState, [camelKey]: value };
+        if (!value && toCamelCase(defaultModel) === camelKey) {
+          const fallback = activeModelsOptions.find(
+            ({ key: optionKey }) =>
+              newActiveModels[toCamelCase(optionKey) as keyof ActiveModels] !==
+              false
+          );
+          if (fallback) {
+            setDefaultModel(fallback.key);
+          }
+        }
+        return newActiveModels;
+      });
+    },
+    [defaultModel, activeModelsOptions]
+  );
 
   const onChangeS3Url = useCallback(
     (s3Url: string, idx: number) => {
@@ -1397,6 +1423,7 @@ const BotKbEditPage: React.FC = () => {
         guardrailVersion: '',
       },
       activeModels,
+      defaultModel,
     })
       .then(() => {
         navigate('/bot/my');
@@ -1446,6 +1473,7 @@ const BotKbEditPage: React.FC = () => {
     webCrawlingScope,
     webCrawlingFilters,
     activeModels,
+    defaultModel,
   ]);
 
   const onClickEdit = useCallback(() => {
@@ -1523,6 +1551,7 @@ const BotKbEditPage: React.FC = () => {
           guardrailVersion: (isGuardrailEnabled) ? guardrailVersion : '',
         },
         activeModels,
+        defaultModel,
       })
         .then(() => {
           navigate('/bot/my');
@@ -1579,6 +1608,7 @@ const BotKbEditPage: React.FC = () => {
     webCrawlingScope,
     webCrawlingFilters,
     activeModels,
+    defaultModel,
   ]);
 
   const [isOpenSamples, setIsOpenSamples] = useState(false);
@@ -2690,6 +2720,29 @@ const BotKbEditPage: React.FC = () => {
                   />
                 </div>
               </ExpandableDrawerGroup>
+
+              <div className="mt-3">
+                <Select
+                  label={t('bot.defaultModel.title')}
+                  value={defaultModel}
+                  options={activeModelsOptions
+                    .filter(
+                      ({ key }) =>
+                        activeModels[toCamelCase(key) as keyof ActiveModels] !==
+                        false
+                    )
+                    .map(({ key, label }) => ({
+                      value: key,
+                      label,
+                    }))}
+                  onChange={(val) => {
+                    setDefaultModel(val as Model);
+                  }}
+                />
+                <div className="text-sm text-aws-font-color-light/50 dark:text-aws-font-color-dark">
+                  {t('bot.defaultModel.description')}
+                </div>
+              </div>
 
               <ExpandableDrawerGroup
                 isDefaultShow={false}

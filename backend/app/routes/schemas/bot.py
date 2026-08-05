@@ -273,6 +273,7 @@ class BotInput(BaseSchema):
     bedrock_knowledge_base: BedrockKnowledgeBaseInput | None = None
     bedrock_guardrails: BedrockGuardrailsInput | None = None
     active_models: ActiveModelsInput  # type: ignore
+    default_model: type_model_name
 
     def has_knowledge(self) -> bool:
         if self.knowledge:
@@ -309,6 +310,7 @@ class BotModifyInput(BaseSchema):
     bedrock_knowledge_base: BedrockKnowledgeBaseInput | None = None
     bedrock_guardrails: BedrockGuardrailsInput | None = None
     active_models: ActiveModelsInput  # type: ignore
+    default_model: type_model_name
 
     def _has_update_files(self) -> bool:
         return self.knowledge is not None and (
@@ -479,6 +481,7 @@ class BotModifyOutput(BaseSchema):
     bedrock_knowledge_base: BedrockKnowledgeBaseOutput | None
     bedrock_guardrails: BedrockGuardrailsOutput | None
     active_models: ActiveModelsOutput  # type: ignore
+    default_model: type_model_name
 
 
 class BotOutput(BaseSchema):
@@ -506,6 +509,7 @@ class BotOutput(BaseSchema):
     bedrock_knowledge_base: BedrockKnowledgeBaseOutput | None
     bedrock_guardrails: BedrockGuardrailsOutput | None
     active_models: ActiveModelsOutput  # type: ignore
+    default_model: type_model_name
 
 
 class BotMetaOutput(BaseSchema):
@@ -545,6 +549,7 @@ class BotSummaryOutput(BaseSchema):
         description="Shared status of the bot. Possible values: `private`, `shared` and `pinned@xxx",
     )
     active_models: ActiveModelsOutput  # type: ignore
+    default_model: type_model_name
 
 
 class PrivateVisibilityInput(BaseSchema):
