@@ -430,6 +430,24 @@ const useModel = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [botId]);
 
+  const appliedBotDefaultRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!botId || botModelId) {
+      return;
+    }
+    if (appliedBotDefaultRef.current === botId) {
+      return;
+    }
+    if (
+      botDefaultModel &&
+      filteredModels.some((m: ModelItem) => m.modelId === botDefaultModel)
+    ) {
+      setModelId(selectModel(botDefaultModel));
+      appliedBotDefaultRef.current = botId;
+    }
+  }, [botId, botDefaultModel, filteredModels, botModelId, selectModel, setModelId]);
+
   const model = useMemo(() => {
     if (!modelId) { return undefined; }
     return filteredModels.find(
