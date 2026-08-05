@@ -405,13 +405,18 @@ class TestBotModelDefaultModel(unittest.TestCase):
     def test_default_model_survives_removal_from_literal(self):
         # Simulate reading a legacy bot whose stored DefaultModel value no
         # longer exists in type_model_name (a model was removed from the Literal).
+        # `coerce_unknown_default_model` (field_validator, mode="before") coerces the
+        # unrecognized value to get_args(type_model_name)[0] ("claude-v4-opus"), and
+        # since ActiveModelsModel() defaults every model (including that one) to
+        # active, `validate_default_model` (model_validator, mode="after") leaves it
+        # unchanged.
         bot = BotModel(
             **self._make_bot_kwargs(
                 active_models=ActiveModelsModel(),
                 default_model="claude-instant-v1",  # a real, historically-removed model name
             )
         )
-        self.assertIn(bot.default_model, get_args(type_model_name))
+        self.assertEqual(bot.default_model, "claude-v4-opus")
 
     def test_default_model_backfilled_when_dynamo_item_lacks_attribute(self):
         item = {
@@ -426,10 +431,22 @@ class TestBotModelDefaultModel(unittest.TestCase):
             "SyncStatus": "RUNNING",
             "SyncStatusReason": "reason",
             "LastExecId": "",
+            # Deactivate the first few models (in type_model_name's declared order)
+            # so the test actually exercises "first ACTIVE model", not merely
+            # "first model overall" (which would pass even if the backfill logic
+            # ignored ActiveModels entirely).
+            "ActiveModels": {
+                "claude_v4_opus": False,
+                "claude_v4_1_opus": False,
+                "claude_v4_5_opus": False,
+            },
             # Note: no "DefaultModel" key at all — simulates a bot created before this feature.
         }
         bot = BotModel.from_dynamo_item(item)
-        self.assertIn(bot.default_model, get_args(type_model_name))
+        # First model in type_model_name order that is still active is
+        # "claude-v4.6-opus" (claude-v4-opus, claude-v4.1-opus, claude-v4.5-opus
+        # were deactivated above).
+        self.assertEqual(bot.default_model, "claude-v4.6-opus")
 
 
 if __name__ == "__main__":
