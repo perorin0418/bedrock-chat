@@ -684,21 +684,22 @@ const BotKbEditPage: React.FC = () => {
   const onChangeActiveModels = useCallback(
     (key: string, value: boolean) => {
       const camelKey = toCamelCase(key) as keyof ActiveModels;
-      const newActiveModels = { ...activeModels, [camelKey]: value };
-      setActiveModels(newActiveModels);
-
-      if (!value && toCamelCase(defaultModel) === camelKey) {
-        const fallback = activeModelsOptions.find(
-          ({ key: optionKey }) =>
-            newActiveModels[toCamelCase(optionKey) as keyof ActiveModels] !==
-            false
-        );
-        if (fallback) {
-          setDefaultModel(fallback.key);
+      setActiveModels((prevState) => {
+        const newActiveModels = { ...prevState, [camelKey]: value };
+        if (!value && toCamelCase(defaultModel) === camelKey) {
+          const fallback = activeModelsOptions.find(
+            ({ key: optionKey }) =>
+              newActiveModels[toCamelCase(optionKey) as keyof ActiveModels] !==
+              false
+          );
+          if (fallback) {
+            setDefaultModel(fallback.key);
+          }
         }
-      }
+        return newActiveModels;
+      });
     },
-    [activeModels, defaultModel, activeModelsOptions]
+    [defaultModel, activeModelsOptions]
   );
 
   const onChangeS3Url = useCallback(

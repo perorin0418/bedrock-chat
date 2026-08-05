@@ -514,8 +514,9 @@ class TestModifyOwnedBotDefaultModel(unittest.TestCase):
         output = modify_owned_bot(
             self.user, "test-modify-default-model-bot", modify_input
         )
-        # amazon-nova-lite is inactive, so it must fall back to an active model
-        self.assertNotEqual(output.default_model, "amazon-nova-lite")
+        # amazon-nova-lite is inactive; every other model defaults to active, so
+        # it must fall back to claude-v4-opus (first in type_model_name's order).
+        self.assertEqual(output.default_model, "claude-v4-opus")
 
         persisted = find_bot_by_id("test-modify-default-model-bot")
         # The API response and the persisted value must always agree.

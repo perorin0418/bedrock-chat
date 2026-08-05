@@ -438,7 +438,7 @@ class TestCustomBotRepository(unittest.TestCase):
 
         delete_bot_by_id("user1", "1")
 
-    def test_update_bot_corrects_inactive_default_model(self):
+    def test_update_bot_persists_default_model_as_is_and_read_time_corrects_it(self):
         bot = create_test_private_bot("1b", False, "user1")
         store_bot(bot)
 
