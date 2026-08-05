@@ -1,5 +1,6 @@
 import sys
 import unittest
+from typing import get_args
 
 sys.path.insert(0, ".")
 
@@ -34,6 +35,7 @@ from app.routes.schemas.bot import (
     Knowledge,
     ReasoningParams,
 )
+from app.routes.schemas.conversation import type_model_name
 from tests.test_usecases.utils.user_factory import (
     create_test_user,
     delete_cognito_group,
@@ -399,6 +401,17 @@ class TestBotModelDefaultModel(unittest.TestCase):
             )
         )
         self.assertEqual(bot.default_model, "amazon-nova-lite")
+
+    def test_default_model_survives_removal_from_literal(self):
+        # Simulate reading a legacy bot whose stored DefaultModel value no
+        # longer exists in type_model_name (a model was removed from the Literal).
+        bot = BotModel(
+            **self._make_bot_kwargs(
+                active_models=ActiveModelsModel(),
+                default_model="claude-instant-v1",  # a real, historically-removed model name
+            )
+        )
+        self.assertIn(bot.default_model, get_args(type_model_name))
 
 
 if __name__ == "__main__":

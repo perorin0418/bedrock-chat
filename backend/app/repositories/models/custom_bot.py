@@ -618,6 +618,13 @@ class BotModel(BaseModel):
 
         return self
 
+    @field_validator("default_model", mode="before")
+    @classmethod
+    def coerce_unknown_default_model(cls, value: object) -> object:
+        if isinstance(value, str) and value not in get_args(type_model_name):
+            return get_args(type_model_name)[0]
+        return value
+
     @model_validator(mode="after")
     def validate_default_model(self) -> Self:
         self.default_model = resolve_default_model(
