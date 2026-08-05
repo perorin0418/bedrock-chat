@@ -95,6 +95,7 @@ export type BotDetails = Omit<BotMeta, 'isStarred' | 'owned'> & {
   bedrockGuardrails: GuardrailsParams;
   bedrockKnowledgeBase: BedrockKnowledgeBase;
   activeModels: ActiveModels;
+  defaultModel: Model;
 };
 
 export type BotSummary = BotMeta & {
@@ -102,6 +103,7 @@ export type BotSummary = BotMeta & {
   hasAgent: boolean;
   conversationQuickStarters: ConversationQuickStarter[];
   activeModels: ActiveModels;
+  defaultModel: Model;
 };
 
 export type BotFile = {
@@ -125,6 +127,7 @@ export type RegisterBotRequest = {
   bedrockGuardrails?: GuardrailsParams;
   bedrockKnowledgeBase?: BedrockKnowledgeBase;
   activeModels: ActiveModels;
+  defaultModel: Model;
 };
 
 export type RegisterBotResponse = BotDetails;
@@ -142,6 +145,7 @@ export type UpdateBotRequest = {
   bedrockGuardrails?: GuardrailsParams;
   bedrockKnowledgeBase?: BedrockKnowledgeBase;
   activeModels: ActiveModels;
+  defaultModel: Model;
 };
 
 export type UpdateBotResponse = {
@@ -156,6 +160,7 @@ export type UpdateBotResponse = {
   conversationQuickStarters: ConversationQuickStarter[];
   bedrockKnowledgeBase: BedrockKnowledgeBase;
   activeModels: ActiveModels;
+  defaultModel: Model;
 };
 
 export type UpdateBotStarredRequest = {
