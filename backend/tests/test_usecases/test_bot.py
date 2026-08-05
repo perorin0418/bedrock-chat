@@ -18,12 +18,17 @@ from app.routes.schemas.admin import (
     PushBotInputUnpinned,
 )
 from app.routes.schemas.bot import (
+    ActiveModelsInput,
     AllVisibilityInput,
     BedrockAgentTool,
+    BotModifyInput,
+    GenerationParams,
     InternetTool,
+    KnowledgeDiffInput,
     PartialVisibilityInput,
     PlainTool,
     PrivateVisibilityInput,
+    ReasoningParams,
 )
 from app.usecases.bot import (
     fetch_all_bots,
@@ -33,6 +38,7 @@ from app.usecases.bot import (
     fetch_bot_summary,
     issue_presigned_url,
     modify_bot_visibility,
+    modify_owned_bot,
     modify_pinning_status,
     modify_star_status,
     remove_bot_by_id,
@@ -447,6 +453,73 @@ class TestFetchAvailableAgentTools(unittest.TestCase):
             self.assertIsNotNone(tool.description)
             self.assertNotEqual(tool.description, "")
             self.assertIsInstance(tool.description, str)
+
+
+class TestModifyOwnedBotDefaultModel(unittest.TestCase):
+    def setUp(self):
+        self.user = create_test_user("test-modify-default-model-user")
+        self.bot = create_test_private_bot(
+            "test-modify-default-model-bot", False, self.user.id
+        )
+        store_bot(self.bot)
+
+    def tearDown(self) -> None:
+        delete_bot_by_id(self.user.id, "test-modify-default-model-bot")
+
+    def _make_modify_input(self, active_models: dict, default_model: str):
+        return BotModifyInput(
+            title="Updated Title",
+            instruction="Updated Instruction",
+            description="Updated Description",
+            generation_params=GenerationParams(
+                max_tokens=2000,
+                top_k=250,
+                top_p=0.999,
+                temperature=0.6,
+                stop_sequences=["Human: ", "Assistant: "],
+                reasoning_params=ReasoningParams(budget_tokens=1024),
+            ),
+            knowledge=KnowledgeDiffInput(
+                source_urls=[],
+                sitemap_urls=[],
+                s3_urls=[],
+                added_filenames=[],
+                deleted_filenames=[],
+                unchanged_filenames=[],
+            ),
+            display_retrieved_chunks=True,
+            prompt_caching_enabled=False,
+            conversation_quick_starters=[],
+            active_models=ActiveModelsInput.model_validate(active_models),
+            default_model=default_model,
+        )
+
+    def test_default_model_is_kept_when_active(self):
+        modify_input = self._make_modify_input(
+            {"amazon_nova_lite": True}, "amazon-nova-lite"
+        )
+        output = modify_owned_bot(
+            self.user, "test-modify-default-model-bot", modify_input
+        )
+        self.assertEqual(output.default_model, "amazon-nova-lite")
+
+        persisted = find_bot_by_id("test-modify-default-model-bot")
+        self.assertEqual(persisted.default_model, "amazon-nova-lite")
+
+    def test_default_model_is_corrected_when_inactive(self):
+        modify_input = self._make_modify_input(
+            {"amazon_nova_lite": False, "claude_v3_5_sonnet": True},
+            "amazon-nova-lite",
+        )
+        output = modify_owned_bot(
+            self.user, "test-modify-default-model-bot", modify_input
+        )
+        # amazon-nova-lite is inactive, so it must fall back to an active model
+        self.assertNotEqual(output.default_model, "amazon-nova-lite")
+
+        persisted = find_bot_by_id("test-modify-default-model-bot")
+        # The API response and the persisted value must always agree.
+        self.assertEqual(persisted.default_model, output.default_model)
 
 
 if __name__ == "__main__":
