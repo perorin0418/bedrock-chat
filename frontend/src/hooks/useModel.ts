@@ -433,7 +433,10 @@ const useModel = (
   const appliedBotDefaultRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!botId || botModelId) {
+    if (!botId) {
+      return;
+    }
+    if (localStorage.getItem(`bot_model_${botId}`)) {
       return;
     }
     if (appliedBotDefaultRef.current === botId) {
@@ -446,7 +449,7 @@ const useModel = (
       setModelId(selectModel(botDefaultModel));
       appliedBotDefaultRef.current = botId;
     }
-  }, [botId, botDefaultModel, filteredModels, botModelId, selectModel, setModelId]);
+  }, [botId, botDefaultModel, filteredModels, selectModel, setModelId]);
 
   const model = useMemo(() => {
     if (!modelId) { return undefined; }
