@@ -604,6 +604,10 @@ const translation: typeof en = {
         title: '利用可能なモデル設定',
         description: 'このボットで使用可能なモデルを設定します。',
       },
+      defaultModel: {
+        title: 'デフォルトモデル',
+        description: 'チャット画面を開いたときに最初に選択されるモデルです。',
+      },
       promptCaching: {
         title: 'プロンプトキャッシュ',
         promptCachingEnabled: {

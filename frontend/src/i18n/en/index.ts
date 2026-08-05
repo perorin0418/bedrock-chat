@@ -598,6 +598,10 @@ How would you categorize this email?`,
         title: 'Model Activation',
         description: 'Configure which AI models can be used with this bot.',
       },
+      defaultModel: {
+        title: 'Default Model',
+        description: 'The model selected by default when the chat screen is opened.',
+      },
       promptCaching: {
         title: 'Prompt Caching',
         promptCachingEnabled: {
