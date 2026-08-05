@@ -413,6 +413,24 @@ class TestBotModelDefaultModel(unittest.TestCase):
         )
         self.assertIn(bot.default_model, get_args(type_model_name))
 
+    def test_default_model_backfilled_when_dynamo_item_lacks_attribute(self):
+        item = {
+            "BotId": "test",
+            "PK": "owner",
+            "Title": "test",
+            "Description": "test",
+            "Instruction": "instruction",
+            "CreateTime": 1627984879.9,
+            "SharedStatus": "unshared",
+            "Knowledge": {"source_urls": [], "sitemap_urls": [], "filenames": []},
+            "SyncStatus": "RUNNING",
+            "SyncStatusReason": "reason",
+            "LastExecId": "",
+            # Note: no "DefaultModel" key at all — simulates a bot created before this feature.
+        }
+        bot = BotModel.from_dynamo_item(item)
+        self.assertIn(bot.default_model, get_args(type_model_name))
+
 
 if __name__ == "__main__":
     unittest.main()
