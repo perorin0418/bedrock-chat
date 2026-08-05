@@ -261,8 +261,7 @@ export class Auth extends Construct {
               actions: [
                 "bedrock:InvokeModel",
                 "bedrock:InvokeModelWithResponseStream",
-                "bedrock:Converse",
-                "bedrock:ConverseStream",
+                "bedrock:ListInferenceProfiles",
               ],
               resources: ["*"],
             }),

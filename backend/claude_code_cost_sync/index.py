@@ -44,8 +44,6 @@ DENY_POLICY_DOCUMENT = {
             "Action": [
                 "bedrock:InvokeModel",
                 "bedrock:InvokeModelWithResponseStream",
-                "bedrock:Converse",
-                "bedrock:ConverseStream",
             ],
             "Resource": "*",
         }
