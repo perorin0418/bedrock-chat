@@ -283,6 +283,12 @@ const translation: typeof en = {
           description: '設定されたMCPサーバーに接続してツールを利用します。',
           addServer: 'サーバーを追加',
           removeServer: '削除',
+          error: {
+            duplicateLabel: 'サーバーラベルが重複しています。それぞれ異なるラベルを設定してください。',
+            requiredFields: '全てのMCPサーバー設定項目(ラベル、エンドポイントURL、Client ID、Client Secret)を入力してください。',
+            invalidLabelPattern: 'サーバーラベルは半角英数字とアンダースコアのみ使用できます。',
+            labelTooLong: 'サーバーラベルは20文字以内で入力してください。',
+          },
         },
         mcpConfig: {
           label: {

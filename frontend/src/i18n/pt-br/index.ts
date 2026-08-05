@@ -236,6 +236,12 @@ const translation = {
           description: 'Conecte-se ao servidor MCP configurado para usar suas ferramentas.',
           addServer: 'Adicionar Servidor',
           removeServer: 'Remover',
+          error: {
+            duplicateLabel: 'Os rótulos dos servidores devem ser exclusivos. Defina um rótulo diferente para cada servidor.',
+            requiredFields: 'Preencha todos os campos do servidor MCP (Rótulo, URL do Endpoint, Client ID e Client Secret).',
+            invalidLabelPattern: 'O rótulo do servidor pode conter apenas letras, números e sublinhado.',
+            labelTooLong: 'O rótulo do servidor deve ter no máximo 20 caracteres.',
+          },
         },
         mcpConfig: {
           label: {

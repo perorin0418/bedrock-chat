@@ -282,6 +282,12 @@ const translation = {
           description: 'Connect to the configured MCP server to use its tools.',
           addServer: 'Add Server',
           removeServer: 'Remove',
+          error: {
+            duplicateLabel: 'Server labels must be unique. Please set a different label for each server.',
+            requiredFields: 'Please fill in all MCP server fields (Label, Endpoint URL, Client ID, and Client Secret).',
+            invalidLabelPattern: 'Server label can only contain letters, digits, and underscores.',
+            labelTooLong: 'Server label must be 20 characters or fewer.',
+          },
         },
         mcpConfig: {
           label: {

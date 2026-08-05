@@ -9,9 +9,14 @@ import { EDGE_FIRECRAWL_CONFIG } from '../constants';
 type Props = {
   config: FirecrawlConfigType;
   onChange: (config: FirecrawlConfigType) => void;
+  apiKeyErrorMessage?: string;
 };
 
-export const FirecrawlConfig = ({ config, onChange }: Props) => {
+export const FirecrawlConfig = ({
+  config,
+  onChange,
+  apiKeyErrorMessage,
+}: Props) => {
   const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -43,6 +48,7 @@ export const FirecrawlConfig = ({ config, onChange }: Props) => {
           label={t('agent.tools.firecrawl.apiKey')}
           type={showPassword ? 'text' : 'password'}
           value={config.apiKey || ''}
+          errorMessage={apiKeyErrorMessage}
           onChange={handleApiKeyChange}
         />
         <button

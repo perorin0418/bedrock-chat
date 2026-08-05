@@ -28,9 +28,15 @@ type Props = {
   availableTools: AgentTool[] | undefined;
   tools: AgentTool[];
   setTools: Dispatch<React.SetStateAction<AgentTool[]>>;
+  errorMessages?: Record<string, string>;
 };
 
-export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
+export const AvailableTools = ({
+  availableTools,
+  tools,
+  setTools,
+  errorMessages,
+}: Props) => {
   const { t } = useTranslation();
   const [searchEngine, setSearchEngine] = useState<SearchEngine>('duckduckgo');
 
@@ -307,6 +313,11 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
                               }
                             }
                             onChange={handleFirecrawlConfigChange}
+                            apiKeyErrorMessage={
+                              errorMessages?.[
+                                `tools-${tools.findIndex(({ name }) => name === 'internet_search')}-firecrawlConfig.apiKey`
+                              ]
+                            }
                           />
                         )}
                       </div>
@@ -330,6 +341,16 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
                       }
                     }
                     onChange={handleBedrockAgentConfigChange}
+                    agentIdErrorMessage={
+                      errorMessages?.[
+                        `tools-${tools.findIndex(({ name }) => name === 'bedrock_agent')}-bedrockAgentConfig.agent_id`
+                      ]
+                    }
+                    aliasIdErrorMessage={
+                      errorMessages?.[
+                        `tools-${tools.findIndex(({ name }) => name === 'bedrock_agent')}-bedrockAgentConfig.alias_id`
+                      ]
+                    }
                   />
                 </div>
               </div>
@@ -345,6 +366,11 @@ export const AvailableTools = ({ availableTools, tools, setTools }: Props) => {
                       )?.mcpServers || []
                     }
                     onChange={handleMcpServersChange}
+                    errorMessage={
+                      errorMessages?.[
+                        `tools-${tools.findIndex(({ name }) => name === 'mcp')}-mcpServers`
+                      ]
+                    }
                   />
                 </div>
               </div>
