@@ -241,6 +241,15 @@ const BotKbEditPage: React.FC = () => {
     activeModelsOptions[0]?.key ?? AVAILABLE_MODEL_KEYS[0]
   );
 
+  useEffect(() => {
+    const isDefaultModelValid = activeModelsOptions.some(
+      ({ key }) => key === defaultModel
+    );
+    if (!isDefaultModelValid && activeModelsOptions.length > 0) {
+      setDefaultModel(activeModelsOptions[0].key);
+    }
+  }, [activeModelsOptions, defaultModel]);
+
   const embeddingsModelOptions: {
     label: string;
     value: EmbeddingsModel;
