@@ -275,7 +275,6 @@ class BotInput(BaseSchema):
     active_models: ActiveModelsInput  # type: ignore
     default_model: type_model_name
 
-
     def has_knowledge(self) -> bool:
         if self.knowledge:
             return (
@@ -312,7 +311,6 @@ class BotModifyInput(BaseSchema):
     bedrock_guardrails: BedrockGuardrailsInput | None = None
     active_models: ActiveModelsInput  # type: ignore
     default_model: type_model_name
-
 
     def _has_update_files(self) -> bool:
         return self.knowledge is not None and (
@@ -486,7 +484,6 @@ class BotModifyOutput(BaseSchema):
     default_model: type_model_name
 
 
-
 class BotOutput(BaseSchema):
     id: str
     title: str
@@ -513,7 +510,6 @@ class BotOutput(BaseSchema):
     bedrock_guardrails: BedrockGuardrailsOutput | None
     active_models: ActiveModelsOutput  # type: ignore
     default_model: type_model_name
-
 
 
 class BotMetaOutput(BaseSchema):
@@ -554,7 +550,6 @@ class BotSummaryOutput(BaseSchema):
     )
     active_models: ActiveModelsOutput  # type: ignore
     default_model: type_model_name
-
 
 
 class PrivateVisibilityInput(BaseSchema):

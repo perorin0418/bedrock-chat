@@ -693,7 +693,6 @@ class BotModel(BaseModel):
             bot_id=bot_input.id,
         )
 
-
         active_models = ActiveModelsModel.model_validate(
             bot_input.active_models.model_dump()  # type: ignore
         )
@@ -850,7 +849,8 @@ class BotModel(BaseModel):
                 else None
             ),
             active_models=active_models,
-            default_model=item.get("DefaultModel") or _first_active_model_name(active_models),
+            default_model=item.get("DefaultModel")
+            or _first_active_model_name(active_models),
             usage_stats=(
                 UsageStatsModel.model_validate(item.get("UsageStats"))
                 if item.get("UsageStats")
@@ -951,7 +951,6 @@ class BotAliasModel(BaseModel):
     conversation_quick_starters: list[ConversationQuickStarterModel]
     active_models: ActiveModelsModel  # type: ignore
     default_model: type_model_name
-
 
     @classmethod
     def from_bot_for_initial_alias(cls, bot: BotModel) -> Self:

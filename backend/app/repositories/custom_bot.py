@@ -770,7 +770,9 @@ def find_all_shared_bots(user: User) -> list[BotMeta]:
     for item in public_response["Items"]:
         if item["PK"] == user.id:
             continue
-        bots.append(BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True))
+        bots.append(
+            BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True)
+        )
 
     partial_response = table.query(
         IndexName="SharedScopeIndex",
@@ -786,7 +788,9 @@ def find_all_shared_bots(user: User) -> list[BotMeta]:
             or user.id in allowed_users
             or any(group in allowed_groups for group in user.groups)
         ):
-            bots.append(BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True))
+            bots.append(
+                BotMeta.from_dynamo_item(item, owned=False, is_origin_accessible=True)
+            )
 
     logger.info(f"Found {len(bots)} bots shared with user: {user.id}")
     return bots

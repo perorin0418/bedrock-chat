@@ -242,7 +242,6 @@ class TestBedrockAgentTool(unittest.TestCase):
             bedrock_guardrails=None,
             active_models=ActiveModelsModel(),
             default_model="claude-v4-opus",
-            
             usage_stats=UsageStatsModel(usage_count=0),
         )
 

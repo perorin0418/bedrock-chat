@@ -306,8 +306,6 @@ class TestBotModelFromInput(unittest.TestCase):
         )
 
 
-
-
 class TestResolveDefaultModel(unittest.TestCase):
     def test_returns_default_model_when_active(self):
         active_models = ActiveModelsModel(
