@@ -212,10 +212,6 @@ const BotKbEditPage: React.FC = () => {
     return initialState;
   });
 
-  const [defaultModel, setDefaultModel] = useState<Model>(
-    AVAILABLE_MODEL_KEYS[0]
-  );
-
   const activeModelsOptions: {
     key: Model;
     label: string;
@@ -240,6 +236,10 @@ const BotKbEditPage: React.FC = () => {
 
     return getGeneralModels();
   })();
+
+  const [defaultModel, setDefaultModel] = useState<Model>(
+    activeModelsOptions[0]?.key ?? AVAILABLE_MODEL_KEYS[0]
+  );
 
   const embeddingsModelOptions: {
     label: string;
