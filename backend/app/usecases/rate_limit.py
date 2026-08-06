@@ -19,9 +19,14 @@ SEVEN_DAY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
 CACHE_TTL_SECONDS = 60
 
+NO_RATE_LIMIT_GROUP_NAME = "NoRateLimit"
+USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
+
 ssm_client = boto3.client("ssm")
+cognito_client = boto3.client("cognito-idp")
 
 _limit_cache: dict[str, tuple[float, float]] = {}
+_no_rate_limit_group_cache: dict[str, tuple[bool, float]] = {}
 
 
 def _get_limit(param_name: str) -> float:
@@ -71,10 +76,41 @@ def get_usage_status(user_id: str) -> UsageStatus:
     )
 
 
+def _is_rate_limit_exempt(user_id: str) -> bool:
+    """Return True if `user_id` belongs to the `NoRateLimit` Cognito group,
+    in which case rate limiting should be skipped entirely."""
+    if not USER_POOL_ID:
+        return False
+
+    cached = _no_rate_limit_group_cache.get(user_id)
+    now = time.time()
+    if cached is not None and now - cached[1] < CACHE_TTL_SECONDS:
+        return cached[0]
+
+    try:
+        response = cognito_client.admin_list_groups_for_user(
+            UserPoolId=USER_POOL_ID, Username=user_id
+        )
+        groups = [group["GroupName"] for group in response.get("Groups", [])]
+        exempt = NO_RATE_LIMIT_GROUP_NAME in groups
+    except Exception:
+        logger.warning(
+            f"Failed to look up Cognito groups for {user_id}; "
+            "treating as not rate-limit exempt."
+        )
+        exempt = cached[0] if cached is not None else False
+
+    _no_rate_limit_group_cache[user_id] = (exempt, now)
+    return exempt
+
+
 def check_rate_limit(user_id: str) -> None:
     """Raise `RateLimitExceededError` if `user_id`'s recorded cost exceeds
     either the trailing 5-hour or trailing 7-day USD limit (values read from
-    SSM)."""
+    SSM). Skipped entirely for users in the `NoRateLimit` Cognito group."""
+    if _is_rate_limit_exempt(user_id):
+        return
+
     status = get_usage_status(user_id)
 
     if status.five_hour.used > status.five_hour.limit:

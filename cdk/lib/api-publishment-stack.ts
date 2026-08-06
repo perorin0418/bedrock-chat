@@ -21,6 +21,7 @@ interface ApiPublishmentStackProps extends StackProps {
   readonly botTableName: string;
   readonly usageLedgerTableName: string;
   readonly apiKeyOwnerTableName: string;
+  readonly userPoolId: string;
   readonly tableAccessRoleArn: string;
   readonly webAclArn: string;
   readonly usagePlan: apigateway.UsagePlanProps;
@@ -94,6 +95,18 @@ export class ApiPublishmentStack extends Stack {
         resources: [rateLimitFiveHourParamArn, rateLimitSevenDayParamArn],
       })
     );
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        // Lets check_rate_limit() look up whether the API key's owner is in
+        // the `NoRateLimit` Cognito group, to exempt them from rate limiting.
+        actions: ["cognito-idp:AdminListGroupsForUser"],
+        resources: [
+          `arn:aws:cognito-idp:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:userpool/${props.userPoolId}`,
+        ],
+      })
+    );
     const largeMessageBucket = s3.Bucket.fromBucketName(
       this,
       "LargeMessageBucket",
@@ -130,6 +143,7 @@ export class ApiPublishmentStack extends Stack {
         API_KEY_OWNER_TABLE_NAME: props.apiKeyOwnerTableName,
         RATE_LIMIT_FIVE_HOUR_PARAM_NAME: rateLimitFiveHourParamName,
         RATE_LIMIT_SEVEN_DAY_PARAM_NAME: rateLimitSevenDayParamName,
+        USER_POOL_ID: props.userPoolId,
       },
       role: handlerRole,
       logRetention: logs.RetentionDays.THREE_MONTHS,

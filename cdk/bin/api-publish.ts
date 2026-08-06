@@ -41,6 +41,9 @@ const usageLedgerTableName = cdk.Fn.importValue(
 const apiKeyOwnerTableName = cdk.Fn.importValue(
   `${params.envPrefix}${sepHyphen}BedrockClaudeChatApiKeyOwnerTableName`
 );
+const userPoolId = cdk.Fn.importValue(
+  `${params.envPrefix}${sepHyphen}BedrockClaudeChatUserPoolId`
+);
 
 // NOTE: DO NOT change the stack id naming rule.
 new ApiPublishmentStack(app, `ApiPublishmentStack${params.publishedApiId}`, {
@@ -53,6 +56,7 @@ new ApiPublishmentStack(app, `ApiPublishmentStack${params.publishedApiId}`, {
   botTableName: botTableName,
   usageLedgerTableName: usageLedgerTableName,
   apiKeyOwnerTableName: apiKeyOwnerTableName,
+  userPoolId: userPoolId,
   tableAccessRoleArn: tableAccessRoleArn,
   webAclArn: webAclArn,
   largeMessageBucketName: largeMessageBucketName,

@@ -232,6 +232,11 @@ export class Auth extends Construct {
       }
     );
 
+    const noRateLimitGroup = new CfnUserPoolGroup(this, "NoRateLimitGroup", {
+      groupName: "NoRateLimit",
+      userPoolId: userPool.userPoolId,
+    });
+
     if (
       props.autoJoinUserGroups.length >= 1 ||
       props.requireAdminApproval ||

@@ -14,6 +14,15 @@ from app.usecases import rate_limit
 class TestCheckRateLimit(unittest.TestCase):
     def setUp(self):
         rate_limit._limit_cache.clear()
+        rate_limit._no_rate_limit_group_cache.clear()
+
+    def test_skips_limit_check_when_exempt(self):
+        with patch.object(
+            rate_limit, "_is_rate_limit_exempt", return_value=True
+        ), patch.object(rate_limit, "get_usage_status") as mock_get_usage_status:
+            rate_limit.check_rate_limit("user-1")
+
+            mock_get_usage_status.assert_not_called()
 
     def test_allows_when_under_both_limits(self):
         with patch.object(
@@ -111,6 +120,93 @@ class TestCheckRateLimit(unittest.TestCase):
 
             with self.assertRaises(Exception):
                 rate_limit._get_limit("/test/param")
+
+
+class TestIsRateLimitExempt(unittest.TestCase):
+    def setUp(self):
+        rate_limit._no_rate_limit_group_cache.clear()
+
+    def test_not_exempt_when_user_pool_id_not_configured(self):
+        with patch.object(rate_limit, "USER_POOL_ID", ""), patch.object(
+            rate_limit, "cognito_client"
+        ) as mock_cognito:
+            self.assertFalse(rate_limit._is_rate_limit_exempt("user-1"))
+
+            mock_cognito.admin_list_groups_for_user.assert_not_called()
+
+    def test_exempt_when_user_in_no_rate_limit_group(self):
+        with patch.object(rate_limit, "USER_POOL_ID", "us-east-1_test"), patch.object(
+            rate_limit, "cognito_client"
+        ) as mock_cognito:
+            mock_cognito.admin_list_groups_for_user.return_value = {
+                "Groups": [{"GroupName": "NoRateLimit"}]
+            }
+
+            self.assertTrue(rate_limit._is_rate_limit_exempt("user-1"))
+
+    def test_not_exempt_when_user_not_in_no_rate_limit_group(self):
+        with patch.object(rate_limit, "USER_POOL_ID", "us-east-1_test"), patch.object(
+            rate_limit, "cognito_client"
+        ) as mock_cognito:
+            mock_cognito.admin_list_groups_for_user.return_value = {
+                "Groups": [{"GroupName": "Admin"}]
+            }
+
+            self.assertFalse(rate_limit._is_rate_limit_exempt("user-1"))
+
+    def test_caches_within_ttl(self):
+        with patch.object(rate_limit, "USER_POOL_ID", "us-east-1_test"), patch.object(
+            rate_limit, "cognito_client"
+        ) as mock_cognito, patch("time.time", side_effect=[100.0, 130.0]):
+            mock_cognito.admin_list_groups_for_user.return_value = {
+                "Groups": [{"GroupName": "NoRateLimit"}]
+            }
+
+            first = rate_limit._is_rate_limit_exempt("user-1")
+            second = rate_limit._is_rate_limit_exempt("user-1")
+
+            self.assertTrue(first)
+            self.assertTrue(second)
+            mock_cognito.admin_list_groups_for_user.assert_called_once()
+
+    def test_refetches_after_ttl_expires(self):
+        with patch.object(rate_limit, "USER_POOL_ID", "us-east-1_test"), patch.object(
+            rate_limit, "cognito_client"
+        ) as mock_cognito, patch("time.time", side_effect=[100.0, 161.0]):
+            mock_cognito.admin_list_groups_for_user.side_effect = [
+                {"Groups": [{"GroupName": "NoRateLimit"}]},
+                {"Groups": []},
+            ]
+
+            first = rate_limit._is_rate_limit_exempt("user-1")
+            second = rate_limit._is_rate_limit_exempt("user-1")
+
+            self.assertTrue(first)
+            self.assertFalse(second)
+            self.assertEqual(mock_cognito.admin_list_groups_for_user.call_count, 2)
+
+    def test_falls_back_to_stale_cache_on_error(self):
+        with patch.object(rate_limit, "USER_POOL_ID", "us-east-1_test"), patch.object(
+            rate_limit, "cognito_client"
+        ) as mock_cognito, patch("time.time", side_effect=[100.0, 161.0]):
+            mock_cognito.admin_list_groups_for_user.side_effect = [
+                {"Groups": [{"GroupName": "NoRateLimit"}]},
+                Exception("boom"),
+            ]
+
+            first = rate_limit._is_rate_limit_exempt("user-1")
+            second = rate_limit._is_rate_limit_exempt("user-1")
+
+            self.assertTrue(first)
+            self.assertTrue(second)
+
+    def test_not_exempt_on_error_with_no_cache(self):
+        with patch.object(rate_limit, "USER_POOL_ID", "us-east-1_test"), patch.object(
+            rate_limit, "cognito_client"
+        ) as mock_cognito, patch("time.time", side_effect=[100.0]):
+            mock_cognito.admin_list_groups_for_user.side_effect = Exception("boom")
+
+            self.assertFalse(rate_limit._is_rate_limit_exempt("user-1"))
 
 
 class TestGetUsageStatus(unittest.TestCase):
