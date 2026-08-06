@@ -411,6 +411,10 @@ export class BedrockChatStack extends cdk.Stack {
       value: database.apiKeyOwnerTable.tableName,
       exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatApiKeyOwnerTableName`,
     });
+    new CfnOutput(this, "UserPoolIdExport", {
+      value: auth.userPool.userPoolId,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatUserPoolId`,
+    });
     new CfnOutput(this, "ClaudeCodeIamUserTableNameExport", {
       value: database.claudeCodeIamUserTable.tableName,
       exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeCodeIamUserTableName`,
