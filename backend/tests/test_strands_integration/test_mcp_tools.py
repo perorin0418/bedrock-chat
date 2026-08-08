@@ -10,7 +10,9 @@ from mcp.types import Tool as MCPTool
 from strands.tools.mcp import MCPAgentTool
 
 from app.strands_integration.tools.mcp_tools import (
+    COGNITO_MCP_AUTH_DOMAIN,
     _LabelStrippingMcpClient,
+    _build_auth_headers,
     _token_cache,
     get_mcp_bearer_token,
 )
@@ -85,11 +87,74 @@ class TestGetMcpBearerToken(unittest.TestCase):
         mock_post.assert_called_once()
 
 
+class TestBuildAuthHeaders(unittest.TestCase):
+    def test_none_returns_no_headers(self):
+        server = McpConfigModel(
+            label="public",
+            endpoint_url="https://example.com/mcp",
+            auth_type=McpAuthType.NONE,
+        )
+
+        headers = _build_auth_headers(server, secret_arn=None)
+
+        self.assertEqual(headers, {})
+
+    def test_bearer_token_returns_bearer_header(self):
+        server = McpConfigModel(
+            label="rovo",
+            endpoint_url="https://mcp.atlassian.com/v1/mcp",
+            auth_type=McpAuthType.BEARER_TOKEN,
+            bearer_token="rovo-token-1",
+        )
+
+        headers = _build_auth_headers(server, secret_arn=None)
+
+        self.assertEqual(headers, {"Authorization": "Bearer rovo-token-1"})
+
+    def test_basic_auth_returns_base64_basic_header(self):
+        server = McpConfigModel(
+            label="rovo",
+            endpoint_url="https://mcp.atlassian.com/v1/mcp",
+            auth_type=McpAuthType.BASIC_AUTH,
+            username="me@example.com",
+            basic_auth_token="api-token-1",
+        )
+
+        headers = _build_auth_headers(server, secret_arn=None)
+
+        import base64
+
+        expected = base64.b64encode(b"me@example.com:api-token-1").decode()
+        self.assertEqual(headers, {"Authorization": f"Basic {expected}"})
+
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_cognito_client_credentials_uses_existing_token_flow(self, mock_get_token):
+        mock_get_token.return_value = "cognito-token-1"
+        server = McpConfigModel(
+            label="powersort",
+            endpoint_url="https://example.com/powersort",
+            auth_type=McpAuthType.COGNITO_CLIENT_CREDENTIALS,
+            client_id="client-1",
+            client_secret="secret-1",
+        )
+
+        headers = _build_auth_headers(server, secret_arn="arn:aws:secretsmanager:...")
+
+        self.assertEqual(headers, {"Authorization": "Bearer cognito-token-1"})
+        mock_get_token.assert_called_once_with(
+            "client-1",
+            "secret-1",
+            COGNITO_MCP_AUTH_DOMAIN,
+            "arn:aws:secretsmanager:...:powersort",
+        )
+
+
 from app.repositories.models.custom_bot import (
     ActiveModelsModel,
     AgentModel,
     GenerationParamsModel,
     KnowledgeModel,
+    McpAuthType,
     McpConfigModel,
     McpToolModel,
     ReasoningParamsModel,

@@ -2,13 +2,20 @@
 MCP server integration - token acquisition/caching and tool scoping.
 """
 
+import base64
 import logging
 import os
 import time
 from contextlib import ExitStack, contextmanager
+from typing import cast
 
 import requests
-from app.repositories.models.custom_bot import BotModel, McpToolModel
+from app.repositories.models.custom_bot import (
+    BotModel,
+    McpAuthType,
+    McpConfigModel,
+    McpToolModel,
+)
 from mcp.client.streamable_http import streamablehttp_client
 from strands.tools.mcp import MCPAgentTool, MCPClient
 
@@ -77,6 +84,33 @@ def get_mcp_bearer_token(
     _token_cache[cache_key] = (body["access_token"], expires_at)
 
     return body["access_token"]
+
+
+def _build_auth_headers(
+    server: McpConfigModel, secret_arn: str | None
+) -> dict[str, str]:
+    """Build the `Authorization` header (if any) for connecting to one MCP server,
+    based on that server's configured `auth_type`."""
+    if server.auth_type == McpAuthType.NONE:
+        return {}
+
+    if server.auth_type == McpAuthType.BEARER_TOKEN:
+        return {"Authorization": f"Bearer {server.bearer_token}"}
+
+    if server.auth_type == McpAuthType.BASIC_AUTH:
+        credentials = base64.b64encode(
+            f"{server.username}:{server.basic_auth_token}".encode()
+        ).decode()
+        return {"Authorization": f"Basic {credentials}"}
+
+    # McpAuthType.COGNITO_CLIENT_CREDENTIALS (existing behavior)
+    token = get_mcp_bearer_token(
+        cast(str, server.client_id),
+        cast(str, server.client_secret),
+        COGNITO_MCP_AUTH_DOMAIN,
+        f"{secret_arn}:{server.label}",
+    )
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _get_mcp_tool(bot: BotModel | None) -> McpToolModel | None:
@@ -154,16 +188,11 @@ def mcp_tools_scope(bot: BotModel | None):
     with ExitStack() as stack:
         for server in mcp_tool.mcpServers:
             try:
-                token = get_mcp_bearer_token(
-                    server.client_id,
-                    server.client_secret,
-                    COGNITO_MCP_AUTH_DOMAIN,
-                    f"{mcp_tool.secret_arn}:{server.label}",
-                )
+                headers = _build_auth_headers(server, mcp_tool.secret_arn)
                 client = MCPClient(
-                    lambda: streamablehttp_client(
+                    lambda headers=headers: streamablehttp_client(  # type: ignore[misc]
                         server.endpoint_url,
-                        headers={"Authorization": f"Bearer {token}"},
+                        headers=headers,
                         timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
                     ),
                     startup_timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
