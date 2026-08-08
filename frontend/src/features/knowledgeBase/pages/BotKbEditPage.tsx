@@ -27,7 +27,7 @@ import ExpandableDrawerGroup from '../../../components/ExpandableDrawerGroup';
 import useErrorMessage from '../../../hooks/useErrorMessage';
 import Toggle from '../../../components/Toggle';
 import { useAgent } from '../../../features/agent/hooks/useAgent';
-import { AgentTool } from '../../../features/agent/types';
+import { AgentTool, McpAuthType, McpConfig as McpConfigType } from '../../../features/agent/types';
 import {
   isInternetTool,
   isBedrockAgentTool,
@@ -612,12 +612,23 @@ const BotKbEditPage: React.FC = () => {
           return true;
         }
 
+        const requiredFieldsByAuthType: Record<
+          McpAuthType,
+          (keyof McpConfigType)[]
+        > = {
+          cognito_client_credentials: ['clientId', 'clientSecret'],
+          none: [],
+          bearer_token: ['bearerToken'],
+          basic_auth: ['username', 'basicAuthToken'],
+        };
+
         const hasInvalidServer = tool.mcpServers.some(
           (server) =>
             !server.label ||
             !server.endpointUrl ||
-            !server.clientId ||
-            !server.clientSecret
+            requiredFieldsByAuthType[server.authType].some(
+              (field) => !server[field]
+            )
         );
 
         if (hasInvalidServer) {

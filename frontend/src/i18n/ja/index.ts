@@ -285,7 +285,7 @@ const translation: typeof en = {
           removeServer: '削除',
           error: {
             duplicateLabel: 'サーバーラベルが重複しています。それぞれ異なるラベルを設定してください。',
-            requiredFields: '全てのMCPサーバー設定項目(ラベル、エンドポイントURL、Client ID、Client Secret)を入力してください。',
+            requiredFields: 'ラベル・エンドポイントURL、および選択した認証方式に必要な項目を全て入力してください。',
             invalidLabelPattern: 'サーバーラベルは半角英数字とアンダースコアのみ使用できます。',
             labelTooLong: 'サーバーラベルは20文字以内で入力してください。',
           },
