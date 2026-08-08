@@ -291,6 +291,15 @@ const translation: typeof en = {
           },
         },
         mcpConfig: {
+          authType: {
+            label: '認証方式',
+            options: {
+              cognito_client_credentials: 'ボット間ナレッジ共有(Cognito)',
+              none: '認証なし',
+              bearer_token: 'Bearerトークン',
+              basic_auth: 'Basic認証(ユーザー名+トークン)',
+            },
+          },
           label: {
             label: 'サーバーラベル',
             placeholder: '英数字とアンダースコアのみ(例: powersort)',
@@ -306,6 +315,18 @@ const translation: typeof en = {
           clientSecret: {
             label: 'Client Secret',
             placeholder: 'Client Secretを入力',
+          },
+          bearerToken: {
+            label: 'トークン',
+            placeholder: 'Bearerトークンを入力',
+          },
+          username: {
+            label: 'ユーザー名',
+            placeholder: 'ユーザー名(またはメールアドレス)を入力',
+          },
+          basicAuthToken: {
+            label: 'トークン',
+            placeholder: 'APIトークンを入力',
           },
         },
       },

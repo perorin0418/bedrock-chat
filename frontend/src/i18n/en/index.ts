@@ -290,9 +290,18 @@ const translation = {
           },
         },
         mcpConfig: {
+          authType: {
+            label: 'Authentication Type',
+            options: {
+              cognito_client_credentials: 'Bot-to-bot knowledge sharing (Cognito)',
+              none: 'No authentication',
+              bearer_token: 'Bearer token',
+              basic_auth: 'Basic auth (username + token)',
+            },
+          },
           label: {
             label: 'Server Label',
-            placeholder: 'Letters, digits, underscores only (e.g. powersort)',
+            placeholder: 'Letters, digits, and underscores only (e.g. powersort)',
           },
           endpointUrl: {
             label: 'Endpoint URL',
@@ -305,6 +314,18 @@ const translation = {
           clientSecret: {
             label: 'Client Secret',
             placeholder: 'Enter Client Secret',
+          },
+          bearerToken: {
+            label: 'Token',
+            placeholder: 'Enter the bearer token',
+          },
+          username: {
+            label: 'Username',
+            placeholder: 'Enter username (or email)',
+          },
+          basicAuthToken: {
+            label: 'Token',
+            placeholder: 'Enter the API token',
           },
         },
       },
