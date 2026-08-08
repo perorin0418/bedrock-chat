@@ -173,3 +173,23 @@ All Strands tools must return a dictionary with the following structure:
   - Edit `xx/index.ts` as well. Where `xx` represents the country code you wish.
 
 - Run `npx cdk deploy` to deploy your changes. This will make your custom tool available in the custom bot screen.
+
+## MCPサーバーの登録(bot単位)
+
+bot作成/編集画面の「MCPサーバー」ツールで、外部のMCPサーバーを登録できる。サーバーごとに以下4つの認証方式から選択する:
+
+| 認証方式 | 用途 | 必要な入力項目 |
+|---|---|---|
+| ボット間ナレッジ共有(Cognito) | 自社の他botが公開するナレッジベースMCPサーバーに接続する | Client ID, Client Secret |
+| 認証なし | 認証を要求しない公開MCPサーバーに接続する | (URLのみ) |
+| Bearerトークン | 固定トークンを`Authorization: Bearer <token>`で送るMCPサーバーに接続する | トークン |
+| Basic認証(ユーザー名+トークン) | `Authorization: Basic <base64>`を要求するMCPサーバーに接続する | ユーザー名, トークン |
+
+### 例: Atlassian Rovo MCP Serverを登録する
+
+Atlassian Rovo MCP Server(Jira/Confluence等に接続するAtlassian公式のMCPサーバー)は、組織管理者がAPIトークン認証を有効化していれば、以下のいずれかで登録できる:
+
+- サービスアカウントAPIキーを使う場合: 認証方式に「Bearerトークン」を選択し、エンドポイントURLに`https://mcp.atlassian.com/v1/mcp`、トークンにサービスアカウントのAPIキーを入力する
+- 個人APIトークンを使う場合: 認証方式に「Basic認証」を選択し、エンドポイントURLに`https://mcp.atlassian.com/v1/mcp`、ユーザー名にAtlassianアカウントのメールアドレス、トークンに個人APIトークンを入力する
+
+APIトークン認証で利用できないツール(Compass等)がある点、トークンがcloud IDに紐付いていないためツール呼び出し時にcloud IDを明示する必要がある点は、Atlassian公式ドキュメントを参照すること。OAuth 2.1による対話的な認可フローは本機能の対象外。

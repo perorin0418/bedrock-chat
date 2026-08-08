@@ -34,6 +34,7 @@ from app.routes.schemas.bot import (
     GenerationParams,
     InternetTool,
     Knowledge,
+    McpAuthType,
     McpConfig,
     McpTool,
     PlainTool,
@@ -287,11 +288,24 @@ class BedrockAgentToolModel(BaseModel):
         )
 
 
+def _mcp_secret_field_name(auth_type: McpAuthType) -> str | None:
+    return {
+        McpAuthType.COGNITO_CLIENT_CREDENTIALS: "client_secret",
+        McpAuthType.BEARER_TOKEN: "bearer_token",
+        McpAuthType.BASIC_AUTH: "basic_auth_token",
+        McpAuthType.NONE: None,
+    }[auth_type]
+
+
 class McpConfigModel(BaseModel):
     label: str
     endpoint_url: str
-    client_id: str
-    client_secret: SecureString = Field(..., repr=False)
+    auth_type: McpAuthType = McpAuthType.COGNITO_CLIENT_CREDENTIALS
+    client_id: str | None = None
+    client_secret: SecureString | None = Field(None, repr=False)
+    bearer_token: SecureString | None = Field(None, repr=False)
+    username: str | None = None
+    basic_auth_token: SecureString | None = Field(None, repr=False)
 
     @classmethod
     def from_mcp_config(cls, config: McpConfig) -> Self:
@@ -300,8 +314,12 @@ class McpConfigModel(BaseModel):
         return cls(
             label=config.label,
             endpoint_url=config.endpoint_url,
+            auth_type=config.auth_type,
             client_id=config.client_id,
             client_secret=config.client_secret,
+            bearer_token=config.bearer_token,
+            username=config.username,
+            basic_auth_token=config.basic_auth_token,
         )
 
 
@@ -318,30 +336,40 @@ class McpToolModel(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def load_mcp_secrets(cls, data):
-        """Load per-server client secrets from the shared Secrets Manager entry when empty.
+        """Load per-server secrets from the shared Secrets Manager entry when empty.
 
         All of a bot's MCP server secrets are stored together as one JSON blob
-        (`{label: client_secret, ...}`) under a single Secrets Manager entry
-        (`secret_arn`), keyed by each server's `label`.
+        (`{label: secret_value, ...}`) under a single Secrets Manager entry
+        (`secret_arn`), keyed by each server's `label`. Which field holds the
+        secret depends on that server's `auth_type` (see `_mcp_secret_field_name`);
+        servers with `auth_type == "none"` have no secret and are skipped.
         """
         if isinstance(data, dict) and data.get("mcpServers") and data.get("secret_arn"):
             servers = data["mcpServers"]
 
-            def _get_secret(s):
+            def _get_auth_type(s):
+                raw = s.get("auth_type") if isinstance(s, dict) else s.auth_type
                 return (
-                    s.get("client_secret", "")
-                    if isinstance(s, dict)
-                    else s.client_secret
+                    McpAuthType(raw) if raw else McpAuthType.COGNITO_CLIENT_CREDENTIALS
                 )
+
+            def _get_secret(s):
+                field = _mcp_secret_field_name(_get_auth_type(s))
+                if field is None:
+                    return None
+                return s.get(field, "") if isinstance(s, dict) else getattr(s, field)
 
             def _get_label(s):
                 return s.get("label") if isinstance(s, dict) else s.label
 
             def _set_secret(s, value):
+                field = _mcp_secret_field_name(_get_auth_type(s))
+                if field is None:
+                    return
                 if isinstance(s, dict):
-                    s["client_secret"] = value
+                    s[field] = value
                 else:
-                    s.client_secret = value
+                    setattr(s, field, value)
 
             needs_load = any(_get_secret(s) == "" for s in servers)
             if needs_load:
@@ -361,11 +389,14 @@ class McpToolModel(BaseModel):
 
     @classmethod
     def from_tool_input(cls, tool: McpTool, user_id: str, bot_id: str) -> Self:
+        secrets_by_label = {}
+        for server in tool.mcpServers:
+            field = _mcp_secret_field_name(server.auth_type)
+            if field is not None:
+                secrets_by_label[server.label] = getattr(server, field)
+
         secret_arn = None
-        if tool.mcpServers:
-            secrets_by_label = {
-                server.label: server.client_secret for server in tool.mcpServers
-            }
+        if secrets_by_label:
             secret_arn = store_api_key_to_secret_manager(
                 user_id, bot_id, "mcp", json.dumps(secrets_by_label)
             )
@@ -474,8 +505,12 @@ class AgentModel(BaseModel):
                             McpConfig(
                                 label=server.label,
                                 endpoint_url=server.endpoint_url,
+                                auth_type=server.auth_type,
                                 client_id=server.client_id,
                                 client_secret=server.client_secret,
+                                bearer_token=server.bearer_token,
+                                username=server.username,
+                                basic_auth_token=server.basic_auth_token,
                             )
                             for server in tool.mcpServers
                         ],

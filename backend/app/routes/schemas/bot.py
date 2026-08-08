@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -28,6 +29,7 @@ from pydantic import (
     Field,
     create_model,
     field_validator,
+    model_validator,
     validator,
 )
 
@@ -137,11 +139,37 @@ class BedrockAgentTool(BaseSchema):
     bedrockAgentConfig: Optional[BedrockAgentConfig] | None = None
 
 
+class McpAuthType(str, Enum):
+    COGNITO_CLIENT_CREDENTIALS = "cognito_client_credentials"
+    NONE = "none"
+    BEARER_TOKEN = "bearer_token"
+    BASIC_AUTH = "basic_auth"
+
+
+MCP_AUTH_REQUIRED_FIELDS: dict[McpAuthType, list[str]] = {
+    McpAuthType.COGNITO_CLIENT_CREDENTIALS: ["client_id", "client_secret"],
+    McpAuthType.NONE: [],
+    McpAuthType.BEARER_TOKEN: ["bearer_token"],
+    McpAuthType.BASIC_AUTH: ["username", "basic_auth_token"],
+}
+MCP_AUTH_ALL_FIELDS = {
+    "client_id",
+    "client_secret",
+    "bearer_token",
+    "username",
+    "basic_auth_token",
+}
+
+
 class McpConfig(BaseSchema):
     label: str
     endpoint_url: str
-    client_id: str
-    client_secret: str
+    auth_type: McpAuthType = McpAuthType.COGNITO_CLIENT_CREDENTIALS
+    client_id: str | None = None
+    client_secret: str | None = None
+    bearer_token: str | None = None
+    username: str | None = None
+    basic_auth_token: str | None = None
 
     @field_validator("label")
     def validate_label(cls, v):
@@ -163,17 +191,20 @@ class McpConfig(BaseSchema):
             raise ValueError("MCP endpoint URL must use https://")
         return v
 
-    @field_validator("client_id")
-    def validate_client_id(cls, v):
-        if v == "":
-            raise ValueError("MCP client ID is empty")
-        return v
-
-    @field_validator("client_secret")
-    def validate_client_secret(cls, v):
-        if v == "":
-            raise ValueError("MCP client secret is empty")
-        return v
+    @model_validator(mode="after")
+    def validate_auth_fields(self):
+        needed = set(MCP_AUTH_REQUIRED_FIELDS[self.auth_type])
+        for field in needed:
+            if not getattr(self, field):
+                raise ValueError(
+                    f"'{field}' is required when auth_type is '{self.auth_type.value}'"
+                )
+        for field in MCP_AUTH_ALL_FIELDS - needed:
+            if getattr(self, field):
+                raise ValueError(
+                    f"'{field}' must not be set when auth_type is '{self.auth_type.value}'"
+                )
+        return self
 
 
 class McpTool(BaseSchema):

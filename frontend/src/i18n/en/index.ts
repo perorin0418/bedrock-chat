@@ -284,15 +284,24 @@ const translation = {
           removeServer: 'Remove',
           error: {
             duplicateLabel: 'Server labels must be unique. Please set a different label for each server.',
-            requiredFields: 'Please fill in all MCP server fields (Label, Endpoint URL, Client ID, and Client Secret).',
+            requiredFields: 'Please fill in the label, endpoint URL, and all fields required by the selected authentication type.',
             invalidLabelPattern: 'Server label can only contain letters, digits, and underscores.',
             labelTooLong: 'Server label must be 20 characters or fewer.',
           },
         },
         mcpConfig: {
+          authType: {
+            label: 'Authentication Type',
+            options: {
+              cognito_client_credentials: 'Bot-to-bot knowledge sharing (Cognito)',
+              none: 'No authentication',
+              bearer_token: 'Bearer token',
+              basic_auth: 'Basic auth (username + token)',
+            },
+          },
           label: {
             label: 'Server Label',
-            placeholder: 'Letters, digits, underscores only (e.g. powersort)',
+            placeholder: 'Letters, digits, and underscores only (e.g. powersort)',
           },
           endpointUrl: {
             label: 'Endpoint URL',
@@ -305,6 +314,18 @@ const translation = {
           clientSecret: {
             label: 'Client Secret',
             placeholder: 'Enter Client Secret',
+          },
+          bearerToken: {
+            label: 'Token',
+            placeholder: 'Enter the bearer token',
+          },
+          username: {
+            label: 'Username',
+            placeholder: 'Enter username (or email)',
+          },
+          basicAuthToken: {
+            label: 'Token',
+            placeholder: 'Enter the API token',
           },
         },
       },

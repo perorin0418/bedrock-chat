@@ -13,8 +13,7 @@ type Props = {
 const EMPTY_SERVER: McpConfigType = {
   label: '',
   endpointUrl: '',
-  clientId: '',
-  clientSecret: '',
+  authType: 'cognito_client_credentials',
 };
 
 export const McpServersConfig = ({ servers, onChange, errorMessage }: Props) => {

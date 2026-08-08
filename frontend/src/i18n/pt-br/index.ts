@@ -238,7 +238,7 @@ const translation = {
           removeServer: 'Remover',
           error: {
             duplicateLabel: 'Os rótulos dos servidores devem ser exclusivos. Defina um rótulo diferente para cada servidor.',
-            requiredFields: 'Preencha todos os campos do servidor MCP (Rótulo, URL do Endpoint, Client ID e Client Secret).',
+            requiredFields: 'Preencha o rótulo, a URL do endpoint e todos os campos exigidos pelo tipo de autenticação selecionado.',
             invalidLabelPattern: 'O rótulo do servidor pode conter apenas letras, números e sublinhado.',
             labelTooLong: 'O rótulo do servidor deve ter no máximo 20 caracteres.',
           },
