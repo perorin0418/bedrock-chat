@@ -295,7 +295,11 @@ const ChatMessageMarkdown: React.FC<Props> = ({
   }), [Code, Sup, Section]);
 
   return (
-    <div className={twMerge(className, 'prose dark:prose-invert w-full break-words')}>
+    <div
+      className={twMerge(
+        className,
+        'prose dark:prose-invert w-full max-w-none break-words'
+      )}>
       {isStreaming ? (
         <Markdown
           children={text}
