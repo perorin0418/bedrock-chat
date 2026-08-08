@@ -312,6 +312,25 @@ class TestMcpToolModel(unittest.TestCase):
         self.assertNotIn("do-not-leak-this-secret", repr(model))
         self.assertNotIn("do-not-leak-this-secret", f"{model}")
 
+    def test_model_dump_blanks_secret_fields_for_every_auth_type(self):
+        bearer_model = McpConfigModel(
+            label="rovo",
+            endpoint_url="https://mcp.atlassian.com/v1/mcp",
+            auth_type="bearer_token",
+            bearer_token="do-not-leak-this-token",
+        )
+        self.assertEqual(bearer_model.model_dump()["bearer_token"], "")
+
+        basic_model = McpConfigModel(
+            label="rovo",
+            endpoint_url="https://mcp.atlassian.com/v1/mcp",
+            auth_type="basic_auth",
+            username="me@example.com",
+            basic_auth_token="do-not-leak-this-token",
+        )
+        self.assertEqual(basic_model.model_dump()["basic_auth_token"], "")
+        self.assertEqual(basic_model.model_dump()["username"], "me@example.com")
+
 
 if __name__ == "__main__":
     unittest.main()

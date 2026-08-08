@@ -190,8 +190,8 @@ def mcp_tools_scope(bot: BotModel | None):
             try:
                 headers = _build_auth_headers(server, mcp_tool.secret_arn)
                 client = MCPClient(
-                    lambda headers=headers: streamablehttp_client(  # type: ignore[misc]
-                        server.endpoint_url,
+                    lambda headers=headers, endpoint_url=server.endpoint_url: streamablehttp_client(  # type: ignore[misc]
+                        endpoint_url,
                         headers=headers,
                         timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
                     ),

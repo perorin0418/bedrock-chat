@@ -479,6 +479,65 @@ class TestMcpToolsScope(unittest.TestCase):
             self.assertEqual(len(tools), 1)
             self.assertEqual(tools[0].mcp_tool.name, "foo_bar-search")
 
+    @patch("app.strands_integration.tools.mcp_tools.streamablehttp_client")
+    @patch("app.strands_integration.tools.mcp_tools.MCPClient")
+    @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
+    def test_mixed_auth_types_send_correct_headers_per_server(
+        self, mock_get_token, mock_mcp_client_cls, mock_streamablehttp_client
+    ):
+        """Three servers with different auth_types in one bot: verify each
+        server's MCPClient transport callable is built with THAT server's
+        headers, not a later iteration's (headers cross-wiring would be a
+        credential leak between MCP servers)."""
+        mock_get_token.return_value = "cognito-token-1"
+
+        captured_transport_callables = []
+
+        def client_factory(transport_callable, **kwargs):
+            captured_transport_callables.append(transport_callable)
+            mock_instance = MagicMock()
+            mock_instance.list_tools_sync.return_value = []
+            return mock_instance
+
+        mock_mcp_client_cls.side_effect = client_factory
+
+        none_server = McpConfigModel(
+            label="public",
+            endpoint_url="https://example.com/public",
+            auth_type=McpAuthType.NONE,
+        )
+        bearer_server = McpConfigModel(
+            label="rovo",
+            endpoint_url="https://mcp.atlassian.com/v1/mcp",
+            auth_type=McpAuthType.BEARER_TOKEN,
+            bearer_token="rovo-token-1",
+        )
+        cognito_server = _make_server("powersort")
+
+        bot = _make_bot([_make_mcp_tool(none_server, bearer_server, cognito_server)])
+
+        with mcp_tools_scope(bot) as tools:
+            self.assertEqual(tools, [])
+
+        self.assertEqual(len(captured_transport_callables), 3)
+        for transport_callable in captured_transport_callables:
+            transport_callable()
+
+        self.assertEqual(mock_streamablehttp_client.call_count, 3)
+        calls_by_endpoint = {
+            call.args[0]: call.kwargs["headers"]
+            for call in mock_streamablehttp_client.call_args_list
+        }
+        self.assertEqual(calls_by_endpoint["https://example.com/public"], {})
+        self.assertEqual(
+            calls_by_endpoint["https://mcp.atlassian.com/v1/mcp"],
+            {"Authorization": "Bearer rovo-token-1"},
+        )
+        self.assertEqual(
+            calls_by_endpoint["https://example.com/mcp"],
+            {"Authorization": "Bearer cognito-token-1"},
+        )
+
 
 class TestLabelStrippingMcpClient(unittest.TestCase):
     """Verifies the fix for the tool-name-prefixing bug: the model-facing
