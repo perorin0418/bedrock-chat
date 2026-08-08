@@ -20,11 +20,21 @@ export type BedrockAgentConfig = {
   aliasId: string;
 };
 
+export type McpAuthType =
+  | 'cognito_client_credentials'
+  | 'none'
+  | 'bearer_token'
+  | 'basic_auth';
+
 export type McpConfig = {
   label: string;
   endpointUrl: string;
-  clientId: string;
-  clientSecret: string;
+  authType: McpAuthType;
+  clientId?: string;
+  clientSecret?: string;
+  bearerToken?: string;
+  username?: string;
+  basicAuthToken?: string;
 };
 
 export type InternetAgentTool = {
