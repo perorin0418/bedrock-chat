@@ -28,6 +28,7 @@ export interface WebSocketProps {
   readonly enableBedrockGlobalInference: boolean;
   readonly enableBedrockCrossRegionInference: boolean;
   readonly enableLambdaSnapStart: boolean;
+  readonly mcpOAuthRedirectUri: string;
 }
 
 export class WebSocket extends Construct {
@@ -96,7 +97,7 @@ export class WebSocket extends Construct {
       })
     );
 
-    // get api key from secrets manager
+    // get api key from secrets manager (read-only: firecrawl/mcp static credentials)
     handlerRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ["secretsmanager:GetSecretValue"],
@@ -107,6 +108,24 @@ export class WebSocket extends Construct {
           `arn:aws:secretsmanager:${Stack.of(this).region}:${
             Stack.of(this).account
           }:secret:mcp/*/*`,
+        ],
+      })
+    );
+
+    // For MCP oauth tokens: chat-time token refresh (OAuthClientProvider)
+    // can rotate/write the stored tokens, so this needs read-write access,
+    // unlike the read-only firecrawl/mcp static credentials above.
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "secretsmanager:CreateSecret",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:TagResource",
+        ],
+        resources: [
           `arn:aws:secretsmanager:${Stack.of(this).region}:${
             Stack.of(this).account
           }:secret:mcp-oauth/*/*`,
@@ -151,6 +170,7 @@ export class WebSocket extends Construct {
         ENABLE_BEDROCK_CROSS_REGION_INFERENCE:
           props.enableBedrockCrossRegionInference.toString(),
         USE_STRANDS: "true",
+        MCP_OAUTH_REDIRECT_URI: props.mcpOAuthRedirectUri,
       },
       role: handlerRole,
       snapStart: props.enableLambdaSnapStart

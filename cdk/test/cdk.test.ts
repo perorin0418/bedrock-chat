@@ -388,6 +388,91 @@ describe("Bedrock Chat Stack Test", () => {
     });
   });
 
+  test("WebSocket Lambda has MCP_OAUTH_REDIRECT_URI env var and can write mcp-oauth secrets", () => {
+    const app = new cdk.App();
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
+
+    const stack = new BedrockChatStack(app, "MyTestStack", {
+      env: {
+        region: "us-west-2",
+      },
+      envName: "test",
+      envPrefix: "test-",
+      bedrockRegion: "us-east-1",
+      crossRegionReferences: true,
+      webAclId: "",
+      identityProviders: [],
+      userPoolDomainPrefix: "",
+      publishedApiAllowedIpV4AddressRanges: [""],
+      publishedApiAllowedIpV6AddressRanges: [""],
+      allowedSignUpEmailDomains: [],
+      autoJoinUserGroups: [],
+      selfSignUpEnabled: true,
+      requireAdminApproval: false,
+      enableIpV6: true,
+      allowedIpV4AddressRanges: [""],
+      allowedIpV6AddressRanges: [""],
+      documentBucket: bedrockRegionResourcesStack.documentBucket,
+      enableRagReplicas: false,
+      enableBedrockGlobalInference: false,
+      enableBedrockCrossRegionInference: false,
+      enableLambdaSnapStart: true,
+      enableBotStore: true,
+      enableBotStoreReplicas: false,
+      botStoreLanguage: "en",
+      tokenValidMinutes: 60,
+    });
+    const template = Template.fromStack(stack);
+
+    // WEBSOCKET_SESSION_TABLE_NAME only exists on the WebSocket (chat)
+    // Lambda's environment, so combining it with MCP_OAUTH_REDIRECT_URI
+    // pins this assertion to that specific function (the API Lambda also
+    // has MCP_OAUTH_REDIRECT_URI, but not WEBSOCKET_SESSION_TABLE_NAME).
+    template.hasResourceProperties("AWS::Lambda::Function", {
+      Environment: {
+        Variables: Match.objectLike({
+          MCP_OAUTH_REDIRECT_URI: Match.anyValue(),
+          WEBSOCKET_SESSION_TABLE_NAME: Match.anyValue(),
+        }),
+      },
+    });
+
+    // The WebSocket Lambda's role must be able to write (not just read)
+    // mcp-oauth/*/* secrets, since chat-time token refresh
+    // (OAuthClientProvider) can rotate the stored tokens. The ARN embeds
+    // region/account tokens, so it synthesizes as an Fn::Join intrinsic
+    // rather than a plain string (see the existing IAM assertion above in
+    // this file for the same pattern).
+    template.hasResourceProperties("AWS::IAM::Policy", {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith([
+              "secretsmanager:CreateSecret",
+              "secretsmanager:PutSecretValue",
+              "secretsmanager:UpdateSecret",
+            ]),
+            Resource: Match.objectLike({
+              "Fn::Join": Match.arrayWith([
+                Match.arrayWith([Match.stringLikeRegexp("secret:mcp-oauth/\\*/\\*")]),
+              ]),
+            }),
+          }),
+        ]),
+      },
+    });
+  });
+
   test("custom domain configuration", () => {
     const app = new cdk.App();
 
