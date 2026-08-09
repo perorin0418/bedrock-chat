@@ -283,6 +283,7 @@ export class Api extends Construct {
         LARGE_MESSAGE_BUCKET: props.largeMessageBucket.bucketName,
         USAGE_LEDGER_TABLE_NAME: database.usageLedgerTable.tableName,
         API_KEY_OWNER_TABLE_NAME: database.apiKeyOwnerTable.tableName,
+        MCP_OAUTH_STATE_TABLE_NAME: database.mcpOAuthStateTable.tableName,
         RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
         RATE_LIMIT_SEVEN_DAY_PARAM_NAME: props.rateLimitSevenDayParam.parameterName,
         PUBLISH_API_CODEBUILD_PROJECT_NAME: props.apiPublishProject.projectName,

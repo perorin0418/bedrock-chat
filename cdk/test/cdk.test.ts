@@ -284,6 +284,58 @@ describe("Bedrock Chat Stack Test", () => {
     });
   });
 
+  test("Mcp OAuth state table exists with TTL", () => {
+    const app = new cdk.App();
+
+    const bedrockRegionResourcesStack = new BedrockRegionResourcesStack(
+      app,
+      "BedrockRegionResourcesStack",
+      {
+        env: {
+          region: "us-east-1",
+        },
+        crossRegionReferences: true,
+      }
+    );
+
+    const stack = new BedrockChatStack(app, "MyTestStack", {
+      env: {
+        region: "us-west-2",
+      },
+      envName: "test",
+      envPrefix: "test-",
+      bedrockRegion: "us-east-1",
+      crossRegionReferences: true,
+      webAclId: "",
+      identityProviders: [],
+      userPoolDomainPrefix: "",
+      publishedApiAllowedIpV4AddressRanges: [""],
+      publishedApiAllowedIpV6AddressRanges: [""],
+      allowedSignUpEmailDomains: [],
+      autoJoinUserGroups: [],
+      selfSignUpEnabled: true,
+      requireAdminApproval: false,
+      enableIpV6: true,
+      allowedIpV4AddressRanges: [""],
+      allowedIpV6AddressRanges: [""],
+      documentBucket: bedrockRegionResourcesStack.documentBucket,
+      enableRagReplicas: false,
+      enableBedrockGlobalInference: false,
+      enableBedrockCrossRegionInference: false,
+      enableLambdaSnapStart: true,
+      enableBotStore: true,
+      enableBotStoreReplicas: false,
+      botStoreLanguage: "en",
+      tokenValidMinutes: 60,
+    });
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties("AWS::DynamoDB::Table", {
+      KeySchema: [{ AttributeName: "State", KeyType: "HASH" }],
+      TimeToLiveSpecification: { AttributeName: "expire", Enabled: true },
+    });
+  });
+
   test("custom domain configuration", () => {
     const app = new cdk.App();
 

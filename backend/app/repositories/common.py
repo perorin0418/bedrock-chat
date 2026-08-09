@@ -11,6 +11,7 @@ CONVERSATION_TABLE_NAME = os.environ.get("CONVERSATION_TABLE_NAME", "")
 BOT_TABLE_NAME = os.environ.get("BOT_TABLE_NAME", "")
 USAGE_LEDGER_TABLE_NAME = os.environ.get("USAGE_LEDGER_TABLE_NAME", "")
 API_KEY_OWNER_TABLE_NAME = os.environ.get("API_KEY_OWNER_TABLE_NAME", "")
+MCP_OAUTH_STATE_TABLE_NAME = os.environ.get("MCP_OAUTH_STATE_TABLE_NAME", "")
 ACCOUNT = os.environ.get("ACCOUNT", "")
 REGION = os.environ.get("REGION", "ap-northeast-1")
 TABLE_ACCESS_ROLE_ARN = os.environ.get("TABLE_ACCESS_ROLE_ARN", "")
@@ -24,12 +25,15 @@ OPENSEARCH_DOMAIN_ENDPOINT = os.environ.get(
 TRANSACTION_BATCH_WRITE_SIZE = 25
 TRANSACTION_BATCH_READ_SIZE = 100
 
-type_table = Literal["conversation", "bot", "usage_ledger", "api_key_owner"]
+type_table = Literal[
+    "conversation", "bot", "usage_ledger", "api_key_owner", "mcp_oauth_state"
+]
 _table_name_map = {
     "conversation": CONVERSATION_TABLE_NAME,
     "bot": BOT_TABLE_NAME,
     "usage_ledger": USAGE_LEDGER_TABLE_NAME,
     "api_key_owner": API_KEY_OWNER_TABLE_NAME,
+    "mcp_oauth_state": MCP_OAUTH_STATE_TABLE_NAME,
 }
 
 
@@ -198,6 +202,16 @@ def get_api_key_owner_table_client():
     """
     return _get_aws_resource("dynamodb", table_name=API_KEY_OWNER_TABLE_NAME).Table(
         API_KEY_OWNER_TABLE_NAME
+    )
+
+
+def get_mcp_oauth_state_table_client():
+    """Get a DynamoDB table client for the MCP OAuth state table.
+    Note: No row-level access control (short-lived reference data keyed by
+    a random `state` token, not scoped per Cognito user).
+    """
+    return _get_aws_resource("dynamodb", table_name=MCP_OAUTH_STATE_TABLE_NAME).Table(
+        MCP_OAUTH_STATE_TABLE_NAME
     )
 
 
