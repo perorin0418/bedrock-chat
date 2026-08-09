@@ -94,7 +94,6 @@ def get_mcp_bearer_token(
 def _build_auth_headers(
     server: McpConfigModel,
     secret_arn: str | None,
-    oauth_secret_arn: str | None,
     bot_id: str,
     user_id: str,
 ) -> tuple[dict[str, str], httpx.Auth | None]:
@@ -123,7 +122,6 @@ def _build_auth_headers(
             user_id=user_id,
             bot_id=bot_id,
             label=server.label,
-            oauth_secret_arn=oauth_secret_arn,
         )
         auth = OAuthClientProvider(
             server_url=server.endpoint_url,
@@ -231,7 +229,6 @@ def mcp_tools_scope(bot: BotModel | None):
                 headers, auth = _build_auth_headers(
                     server,
                     mcp_tool.secret_arn,
-                    mcp_tool.oauth_secret_arn,
                     bot.id,  # type: ignore[union-attr]
                     bot.owner_user_id,  # type: ignore[union-attr]
                 )

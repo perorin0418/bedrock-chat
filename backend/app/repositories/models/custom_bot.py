@@ -338,7 +338,6 @@ class McpToolModel(BaseModel):
     description: str
     mcpServers: list[McpConfigModel] = []
     secret_arn: str | None = None
-    oauth_secret_arn: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -465,7 +464,7 @@ class AgentModel(BaseModel):
 
         return cls(tools=tools)
 
-    def to_agent(self) -> Agent:
+    def to_agent(self, owner_user_id: str, bot_id: str) -> Agent:
         """Convert to Agent schema while preserving secure strings."""
 
         tools: List[Tool] = []
@@ -521,7 +520,7 @@ class AgentModel(BaseModel):
                                 api_key=server.api_key,
                                 oauth_connected=(
                                     is_mcp_oauth_connected(
-                                        tool.oauth_secret_arn, server.label
+                                        owner_user_id, bot_id, server.label
                                     )
                                     if server.auth_type == McpAuthType.OAUTH
                                     else False
@@ -945,7 +944,7 @@ class BotModel(BaseModel):
             generation_params=GenerationParams.model_validate(
                 self.generation_params.model_dump()
             ),
-            agent=self.agent.to_agent(),
+            agent=self.agent.to_agent(self.owner_user_id, self.id),
             knowledge=Knowledge.model_validate(self.knowledge.model_dump()),
             prompt_caching_enabled=self.prompt_caching_enabled,
             sync_status=self.sync_status,

@@ -9,7 +9,9 @@ sys.path.insert(0, ".")
 from app.strands_integration.tools.mcp_oauth_flow import (
     build_authorization_url,
     discover_and_register,
+    discover_oauth_metadata,
     exchange_code_for_tokens,
+    register_client,
 )
 from mcp.shared.auth import (
     OAuthClientInformationFull,
@@ -96,45 +98,104 @@ class TestExchangeCodeForTokens(unittest.TestCase):
         self.assertEqual(posted_data["client_secret"], "secret-1")
 
 
-class TestDiscoverAndRegister(unittest.TestCase):
+def _prm_response(server_url: str) -> httpx.Response:
+    prm = ProtectedResourceMetadata(
+        resource=server_url,
+        authorization_servers=["https://auth.atlassian.com"],
+    )
+    return httpx.Response(200, content=prm.model_dump_json(exclude_none=True).encode())
+
+
+def _asm_response() -> httpx.Response:
+    oauth_metadata = OAuthMetadata(
+        issuer="https://auth.atlassian.com",
+        authorization_endpoint="https://auth.atlassian.com/authorize",
+        token_endpoint="https://auth.atlassian.com/oauth/token",
+        registration_endpoint="https://auth.atlassian.com/register",
+    )
+    return httpx.Response(
+        200, content=oauth_metadata.model_dump_json(exclude_none=True).encode()
+    )
+
+
+def _dcr_response(redirect_uri: str) -> httpx.Response:
+    client_info = OAuthClientInformationFull(
+        redirect_uris=[redirect_uri],
+        client_id="client-1",
+        client_secret="secret-1",
+    )
+    return httpx.Response(
+        200, content=client_info.model_dump_json(exclude_none=True).encode()
+    )
+
+
+class TestDiscoverOauthMetadata(unittest.TestCase):
     @patch("httpx.AsyncClient")
-    def test_discovers_metadata_and_registers_client(self, mock_client_cls):
+    def test_discovers_metadata_without_triggering_dcr(self, mock_client_cls):
+        """The whole point of splitting discover_and_register is that this
+        function alone must NOT perform Dynamic Client Registration -- only
+        two `.send()` calls (PRM + ASM discovery), never a third (DCR)."""
+        server_url = "https://mcp.atlassian.com/v1/mcp"
+
+        mock_client = AsyncMock()
+        mock_client.send.side_effect = [
+            _prm_response(server_url),
+            _asm_response(),
+        ]
+        mock_client_cls.return_value.__aenter__.return_value = mock_client
+
+        result_metadata = run(discover_oauth_metadata(server_url))
+
+        self.assertIsInstance(result_metadata, OAuthMetadata)
+        self.assertEqual(
+            str(result_metadata.token_endpoint),
+            "https://auth.atlassian.com/oauth/token",
+        )
+        # Exactly 2 requests: PRM discovery + ASM discovery. No DCR request.
+        self.assertEqual(mock_client.send.call_count, 2)
+
+
+class TestRegisterClient(unittest.TestCase):
+    @patch("httpx.AsyncClient")
+    def test_registers_client_with_redirect_uri(self, mock_client_cls):
         server_url = "https://mcp.atlassian.com/v1/mcp"
         redirect_uri = "https://api.example.com/mcp/oauth/callback"
 
-        # Step 1: Protected Resource Metadata discovery response.
-        prm = ProtectedResourceMetadata(
-            resource=server_url,
-            authorization_servers=["https://auth.atlassian.com"],
-        )
-        prm_response = httpx.Response(
-            200, content=prm.model_dump_json(exclude_none=True).encode()
-        )
-
-        # Step 2: Authorization Server Metadata discovery response.
         oauth_metadata = OAuthMetadata(
             issuer="https://auth.atlassian.com",
             authorization_endpoint="https://auth.atlassian.com/authorize",
             token_endpoint="https://auth.atlassian.com/oauth/token",
             registration_endpoint="https://auth.atlassian.com/register",
         )
-        asm_response = httpx.Response(
-            200,
-            content=oauth_metadata.model_dump_json(exclude_none=True).encode(),
-        )
-
-        # Step 3: Dynamic Client Registration response.
-        client_info = OAuthClientInformationFull(
-            redirect_uris=[redirect_uri],
-            client_id="client-1",
-            client_secret="secret-1",
-        )
-        dcr_response = httpx.Response(
-            200, content=client_info.model_dump_json(exclude_none=True).encode()
-        )
 
         mock_client = AsyncMock()
-        mock_client.send.side_effect = [prm_response, asm_response, dcr_response]
+        mock_client.send.side_effect = [_dcr_response(redirect_uri)]
+        mock_client_cls.return_value.__aenter__.return_value = mock_client
+
+        result_client_info = run(
+            register_client(oauth_metadata, server_url, redirect_uri)
+        )
+
+        self.assertIsInstance(result_client_info, OAuthClientInformationFull)
+        self.assertEqual(result_client_info.client_id, "client-1")
+        self.assertEqual(mock_client.send.call_count, 1)
+
+        registration_request = mock_client.send.call_args_list[0].args[0]
+        self.assertIn(redirect_uri, registration_request.content.decode())
+
+
+class TestDiscoverAndRegister(unittest.TestCase):
+    @patch("httpx.AsyncClient")
+    def test_discovers_metadata_and_registers_client(self, mock_client_cls):
+        server_url = "https://mcp.atlassian.com/v1/mcp"
+        redirect_uri = "https://api.example.com/mcp/oauth/callback"
+
+        mock_client = AsyncMock()
+        mock_client.send.side_effect = [
+            _prm_response(server_url),
+            _asm_response(),
+            _dcr_response(redirect_uri),
+        ]
         mock_client_cls.return_value.__aenter__.return_value = mock_client
 
         result_metadata, result_client_info = run(

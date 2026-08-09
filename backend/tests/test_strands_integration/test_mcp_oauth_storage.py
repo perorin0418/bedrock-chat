@@ -23,9 +23,16 @@ def run(coro):
 
 
 class TestSecretsManagerTokenStorage(unittest.TestCase):
-    def test_get_tokens_returns_none_when_no_arn(self):
+    @patch(
+        "app.strands_integration.tools.mcp_oauth_storage.get_api_key_from_secret_manager"
+    )
+    def test_get_tokens_returns_none_when_secret_does_not_exist_yet(self, mock_get):
+        # The secret name is always deterministic now (mcp-oauth/{user_id}/{bot_id}),
+        # so "never connected" is represented by a ResourceNotFoundException,
+        # not by a missing ARN.
+        mock_get.side_effect = _client_error("ResourceNotFoundException")
         storage = SecretsManagerTokenStorage(
-            user_id="user-1", bot_id="bot-1", label="atlassian", oauth_secret_arn=None
+            user_id="user-1", bot_id="bot-1", label="atlassian"
         )
         self.assertIsNone(run(storage.get_tokens()))
         self.assertIsNone(run(storage.get_client_info()))
@@ -41,7 +48,6 @@ class TestSecretsManagerTokenStorage(unittest.TestCase):
             user_id="user-1",
             bot_id="bot-1",
             label="atlassian",
-            oauth_secret_arn="arn:aws:secretsmanager:...",
         )
 
         tokens = run(storage.get_tokens())
@@ -49,20 +55,27 @@ class TestSecretsManagerTokenStorage(unittest.TestCase):
         self.assertIsInstance(tokens, OAuthToken)
         assert tokens is not None
         self.assertEqual(tokens.access_token, "a1")
+        mock_get.assert_called_once_with("mcp-oauth/user-1/bot-1")
 
     @patch(
         "app.strands_integration.tools.mcp_oauth_storage.store_api_key_to_secret_manager"
     )
-    def test_set_tokens_creates_secret_when_none_and_updates_arn(self, mock_store):
+    @patch(
+        "app.strands_integration.tools.mcp_oauth_storage.get_api_key_from_secret_manager"
+    )
+    def test_set_tokens_creates_secret_when_none_exists(self, mock_get, mock_store):
+        mock_get.side_effect = _client_error("ResourceNotFoundException")
         mock_store.return_value = "arn:aws:secretsmanager:new-arn"
         storage = SecretsManagerTokenStorage(
-            user_id="user-1", bot_id="bot-1", label="atlassian", oauth_secret_arn=None
+            user_id="user-1", bot_id="bot-1", label="atlassian"
         )
 
         run(storage.set_tokens(OAuthToken(access_token="a1", token_type="Bearer")))
 
-        self.assertEqual(storage.oauth_secret_arn, "arn:aws:secretsmanager:new-arn")
         mock_store.assert_called_once()
+        self.assertEqual(mock_store.call_args.args[0], "user-1")
+        self.assertEqual(mock_store.call_args.args[1], "bot-1")
+        self.assertEqual(mock_store.call_args.args[2], "mcp-oauth")
         stored_blob = json.loads(mock_store.call_args.args[3])
         self.assertEqual(stored_blob["atlassian"]["tokens"]["access_token"], "a1")
 
@@ -70,16 +83,13 @@ class TestSecretsManagerTokenStorage(unittest.TestCase):
         "app.strands_integration.tools.mcp_oauth_storage.get_api_key_from_secret_manager"
     )
     def test_load_blob_returns_empty_when_secret_resource_not_found(self, mock_get):
-        # Regression test: an oauth_secret_arn IS set (so _load_blob actually
-        # enters the try/except), but the underlying secret doesn't exist yet
-        # (a genuine ResourceNotFoundException). This must be treated as "no
-        # data yet" and return an empty blob, not raise.
+        # A genuine ResourceNotFoundException must be treated as "no data
+        # yet" and return an empty blob, not raise.
         mock_get.side_effect = _client_error("ResourceNotFoundException")
         storage = SecretsManagerTokenStorage(
             user_id="user-1",
             bot_id="bot-1",
             label="atlassian",
-            oauth_secret_arn="arn:aws:secretsmanager:...",
         )
 
         self.assertIsNone(run(storage.get_tokens()))
@@ -99,7 +109,6 @@ class TestSecretsManagerTokenStorage(unittest.TestCase):
             user_id="user-1",
             bot_id="bot-1",
             label="atlassian",
-            oauth_secret_arn="arn:aws:secretsmanager:...",
         )
 
         with self.assertRaises(ClientError):
@@ -116,7 +125,6 @@ class TestSecretsManagerTokenStorage(unittest.TestCase):
             user_id="user-1",
             bot_id="bot-1",
             label="atlassian",
-            oauth_secret_arn="arn:aws:secretsmanager:...",
         )
 
         with self.assertRaises(json.JSONDecodeError):
@@ -137,7 +145,6 @@ class TestSecretsManagerTokenStorage(unittest.TestCase):
             user_id="user-1",
             bot_id="bot-1",
             label="atlassian",
-            oauth_secret_arn="arn:aws:secretsmanager:...",
         )
 
         run(

@@ -3,6 +3,10 @@
 Blob shape under Secrets Manager prefix "mcp-oauth" (one entry per bot,
 shared across that bot's oauth-type MCP servers, keyed by server label):
     {"<label>": {"client_info": {...}, "tokens": {...}}}
+
+The secret name is deterministic (`mcp-oauth/{user_id}/{bot_id}`), so no ARN
+needs to be tracked/persisted anywhere: `get_api_key_from_secret_manager`'s
+`SecretId` parameter accepts either a real ARN or a plain secret name.
 """
 
 import asyncio
@@ -22,19 +26,18 @@ class SecretsManagerTokenStorage:
     """`mcp.client.auth.oauth2.TokenStorage` implementation. boto3 calls are
     synchronous, so each method offloads to a thread."""
 
-    def __init__(
-        self, user_id: str, bot_id: str, label: str, oauth_secret_arn: str | None
-    ) -> None:
+    def __init__(self, user_id: str, bot_id: str, label: str) -> None:
         self.user_id = user_id
         self.bot_id = bot_id
         self.label = label
-        self.oauth_secret_arn = oauth_secret_arn
+
+    @property
+    def _secret_name(self) -> str:
+        return f"mcp-oauth/{self.user_id}/{self.bot_id}"
 
     def _load_blob(self) -> dict[str, dict]:
-        if not self.oauth_secret_arn:
-            return {}
         try:
-            raw = get_api_key_from_secret_manager(self.oauth_secret_arn)
+            raw = get_api_key_from_secret_manager(self._secret_name)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
                 logger.warning(
@@ -45,7 +48,7 @@ class SecretsManagerTokenStorage:
         return json.loads(raw) if raw else {}
 
     def _save_blob(self, blob: dict[str, dict]) -> None:
-        self.oauth_secret_arn = store_api_key_to_secret_manager(
+        store_api_key_to_secret_manager(
             self.user_id, self.bot_id, "mcp-oauth", json.dumps(blob)
         )
 

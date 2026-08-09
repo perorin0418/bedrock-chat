@@ -35,14 +35,11 @@ logger.setLevel(logging.INFO)
 HTTP_TIMEOUT_SECONDS = 10
 
 
-async def discover_and_register(
-    server_url: str, redirect_uri: str
-) -> tuple[OAuthMetadata, OAuthClientInformationFull]:
-    """Discover the MCP server's protected-resource/authorization-server
-    metadata, then register a new OAuth client via Dynamic Client
-    Registration (RFC 7591). Call once per MCP server config; the returned
-    `client_info` should be persisted (`SecretsManagerTokenStorage.set_client_info`)
-    and reused for subsequent authorize attempts."""
+async def discover_oauth_metadata(server_url: str) -> OAuthMetadata:
+    """Discover the MCP server's protected-resource metadata, then its
+    authorization-server metadata. Does NOT perform Dynamic Client
+    Registration -- safe to call repeatedly (e.g. on every OAuth callback)
+    without registering a new (orphan) OAuth client each time."""
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
         auth_server_url: str | None = None
         for url in build_protected_resource_metadata_discovery_urls(None, server_url):
@@ -69,6 +66,18 @@ async def discover_and_register(
                 f"Could not discover OAuth authorization server metadata for {server_url}"
             )
 
+        return oauth_metadata
+
+
+async def register_client(
+    oauth_metadata: OAuthMetadata, server_url: str, redirect_uri: str
+) -> OAuthClientInformationFull:
+    """Register a new OAuth client via Dynamic Client Registration (RFC 7591).
+    Call once per MCP server config; the returned `client_info` should be
+    persisted (`SecretsManagerTokenStorage.set_client_info`) and reused for
+    subsequent authorize attempts -- calling this again would register a new
+    (orphan) client rather than reusing the existing registration."""
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
         client_metadata = OAuthClientMetadata(
             redirect_uris=[redirect_uri],  # type: ignore[list-item]
             grant_types=["authorization_code", "refresh_token"],
@@ -78,9 +87,21 @@ async def discover_and_register(
             oauth_metadata, client_metadata, _authorization_base_url(server_url)
         )
         registration_response = await client.send(registration_request)
-        client_info = await handle_registration_response(registration_response)
+        return await handle_registration_response(registration_response)
 
-        return oauth_metadata, client_info
+
+async def discover_and_register(
+    server_url: str, redirect_uri: str
+) -> tuple[OAuthMetadata, OAuthClientInformationFull]:
+    """Discover the MCP server's protected-resource/authorization-server
+    metadata, then register a new OAuth client via Dynamic Client
+    Registration (RFC 7591). Convenience wrapper combining
+    `discover_oauth_metadata` and `register_client`; use those directly
+    when only discovery is needed (e.g. in the OAuth callback, where DCR
+    must not run a second time)."""
+    oauth_metadata = await discover_oauth_metadata(server_url)
+    client_info = await register_client(oauth_metadata, server_url, redirect_uri)
+    return oauth_metadata, client_info
 
 
 def build_authorization_url(

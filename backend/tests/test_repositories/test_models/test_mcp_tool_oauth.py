@@ -54,7 +54,6 @@ class TestMcpToolModelOauth(unittest.TestCase):
                 }
             ],
         )
-        self.assertIsNone(tool.oauth_secret_arn)
         self.assertFalse(tool.mcpServers[0].oauth_connected)
 
     @patch("app.repositories.models.custom_bot.is_mcp_oauth_connected")
@@ -73,16 +72,13 @@ class TestMcpToolModelOauth(unittest.TestCase):
                     "auth_type": McpAuthType.OAUTH,
                 }
             ],
-            oauth_secret_arn="arn:aws:secretsmanager:...",
         )
         from app.repositories.models.custom_bot import AgentModel
 
-        agent = AgentModel(tools=[tool]).to_agent()
+        agent = AgentModel(tools=[tool]).to_agent("user-1", "bot-1")
 
         self.assertTrue(agent.tools[0].mcpServers[0].oauth_connected)  # type: ignore[union-attr]
-        mock_is_connected.assert_called_once_with(
-            "arn:aws:secretsmanager:...", "atlassian"
-        )
+        mock_is_connected.assert_called_once_with("user-1", "bot-1", "atlassian")
 
     def test_to_agent_does_not_check_oauth_status_for_non_oauth_servers(self):
         # Regression guard for the hot-path concern: a non-oauth server must
@@ -104,7 +100,7 @@ class TestMcpToolModelOauth(unittest.TestCase):
         with patch(
             "app.repositories.models.custom_bot.is_mcp_oauth_connected"
         ) as mock_is_connected:
-            agent = AgentModel(tools=[tool]).to_agent()
+            agent = AgentModel(tools=[tool]).to_agent("user-1", "bot-1")
 
         mock_is_connected.assert_not_called()
         self.assertFalse(agent.tools[0].mcpServers[0].oauth_connected)  # type: ignore[union-attr]

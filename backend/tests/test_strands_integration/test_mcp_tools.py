@@ -98,7 +98,6 @@ class TestBuildAuthHeaders(unittest.TestCase):
         headers, _auth = _build_auth_headers(
             server,
             secret_arn=None,
-            oauth_secret_arn=None,
             bot_id="bot-1",
             user_id="user-1",
         )
@@ -116,7 +115,6 @@ class TestBuildAuthHeaders(unittest.TestCase):
         headers, _auth = _build_auth_headers(
             server,
             secret_arn=None,
-            oauth_secret_arn=None,
             bot_id="bot-1",
             user_id="user-1",
         )
@@ -135,7 +133,6 @@ class TestBuildAuthHeaders(unittest.TestCase):
         headers, _auth = _build_auth_headers(
             server,
             secret_arn=None,
-            oauth_secret_arn=None,
             bot_id="bot-1",
             user_id="user-1",
         )
@@ -156,7 +153,6 @@ class TestBuildAuthHeaders(unittest.TestCase):
         headers, _auth = _build_auth_headers(
             server,
             secret_arn=None,
-            oauth_secret_arn=None,
             bot_id="bot-1",
             user_id="user-1",
         )
@@ -177,7 +173,6 @@ class TestBuildAuthHeaders(unittest.TestCase):
         headers, _auth = _build_auth_headers(
             server,
             secret_arn="arn:aws:secretsmanager:...",
-            oauth_secret_arn=None,
             bot_id="bot-1",
             user_id="user-1",
         )
@@ -206,7 +201,6 @@ class TestBuildAuthHeaders(unittest.TestCase):
         headers, auth = _build_auth_headers(
             server,
             secret_arn=None,
-            oauth_secret_arn="arn:aws:secretsmanager:...",
             bot_id="bot-1",
             user_id="user-1",
         )
@@ -224,7 +218,6 @@ class TestBuildAuthHeaders(unittest.TestCase):
         headers, auth = _build_auth_headers(
             server,
             secret_arn=None,
-            oauth_secret_arn=None,
             bot_id="bot-1",
             user_id="user-1",
         )
