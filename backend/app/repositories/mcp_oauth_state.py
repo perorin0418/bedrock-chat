@@ -45,12 +45,11 @@ def save_mcp_oauth_state(
 
 def pop_mcp_oauth_state(state: str) -> McpOAuthStateItem | None:
     """Return and delete the stored state (single-use: the same `state`
-    value can't be replayed). Returns None if not found or already expired
-    (DynamoDB TTL deletion is best-effort/eventual, so an expired-but-not-
-    yet-deleted item is still treated as missing by the caller re-checking
-    `expire`... intentionally NOT done here to keep this function simple;
-    the authorization code itself is single-use on Atlassian's side, which
-    is the actual security boundary)."""
+    value can't be replayed). Returns None if not found or already expired.
+    DynamoDB TTL deletion is best-effort/eventual (can lag by hours), so
+    `expire` is also checked here explicitly rather than relying purely on
+    TTL: an expired-but-not-yet-deleted item is deleted (cleanup) and
+    treated as missing."""
     table = get_mcp_oauth_state_table_client()
     response = table.get_item(Key={"State": state})
     item = response.get("Item")
@@ -58,6 +57,10 @@ def pop_mcp_oauth_state(state: str) -> McpOAuthStateItem | None:
         return None
 
     table.delete_item(Key={"State": state})
+
+    expire = item.get("expire")
+    if expire is not None and expire < get_current_time() // 1000:
+        return None
 
     return McpOAuthStateItem(
         bot_id=item["BotId"],

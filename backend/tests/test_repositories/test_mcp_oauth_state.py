@@ -81,6 +81,33 @@ class TestMcpOauthStateRepository(unittest.TestCase):
         self.assertIsNone(item)
         self.mock_table.delete_item.assert_not_called()
 
+    @patch(
+        "app.repositories.mcp_oauth_state.get_current_time",
+        return_value=1_700_000_000_000,
+    )
+    def test_pop_mcp_oauth_state_returns_none_when_already_expired(
+        self, mock_get_current_time
+    ):
+        # DynamoDB TTL deletion is best-effort/eventual and can lag by hours,
+        # so an item past its `expire` time but not yet TTL-deleted must
+        # still be treated as missing (and cleaned up here).
+        self.mock_table.get_item.return_value = {
+            "Item": {
+                "State": "state-1",
+                "BotId": "bot-1",
+                "Label": "atlassian",
+                "OwnerUserId": "user-1",
+                "CodeVerifier": "verifier-1",
+                "ClientId": "client-1",
+                "expire": 1_700_000_000 - 1,
+            }
+        }
+
+        item = pop_mcp_oauth_state("state-1")
+
+        self.assertIsNone(item)
+        self.mock_table.delete_item.assert_called_once_with(Key={"State": "state-1"})
+
 
 if __name__ == "__main__":
     unittest.main()

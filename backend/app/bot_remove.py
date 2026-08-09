@@ -79,6 +79,7 @@ def handler(event: dict, context: Any) -> None:
     delete_custom_bot_stack_by_bot_id(bot_id)
     delete_api_key_from_secret_manager(user_id, bot_id, "firecrawl")
     delete_api_key_from_secret_manager(user_id, bot_id, "mcp")
+    delete_api_key_from_secret_manager(user_id, bot_id, "mcp-oauth")
 
     # Check if api published stack exists
     try:

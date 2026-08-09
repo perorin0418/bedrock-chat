@@ -85,10 +85,20 @@ const BotKbEditPage: React.FC = () => {
     const mcpOauth = params.get('mcpOauth');
     if (mcpOauth === 'success') {
       snackbar.open(t('agent.tools.mcpConfig.oauth.connected'));
-      navigate(`/bot/edit/${paramsBotId}`, { replace: true });
     } else if (mcpOauth === 'error') {
       snackbar.open(t('agent.tools.mcpConfig.oauth.connectError'));
+    } else {
+      return;
+    }
+    // The backend's unknown-state failure path redirects to
+    // `/bot/new?mcpOauth=error` (no bot id known at that point), so
+    // `paramsBotId` can be undefined here -- only navigate to the edit
+    // screen when we actually have a bot id, otherwise just strip the query
+    // string from wherever we already are.
+    if (paramsBotId) {
       navigate(`/bot/edit/${paramsBotId}`, { replace: true });
+    } else {
+      navigate('/bot/new', { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
