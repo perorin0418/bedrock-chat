@@ -8,6 +8,8 @@ type Props = {
   servers: McpConfigType[];
   onChange: (servers: McpConfigType[]) => void;
   errorMessage?: string;
+  botId: string;
+  isNewBot: boolean;
 };
 
 const EMPTY_SERVER: McpConfigType = {
@@ -16,7 +18,13 @@ const EMPTY_SERVER: McpConfigType = {
   authType: 'cognito_client_credentials',
 };
 
-export const McpServersConfig = ({ servers, onChange, errorMessage }: Props) => {
+export const McpServersConfig = ({
+  servers,
+  onChange,
+  errorMessage,
+  botId,
+  isNewBot,
+}: Props) => {
   const { t } = useTranslation();
 
   const handleServerChange = (index: number, config: McpConfigType) => {
@@ -46,6 +54,8 @@ export const McpServersConfig = ({ servers, onChange, errorMessage }: Props) => 
             <McpConfigComponent
               config={server}
               onChange={(config) => handleServerChange(index, config)}
+              botId={botId}
+              isNewBot={isNewBot}
             />
           </div>
           <Button

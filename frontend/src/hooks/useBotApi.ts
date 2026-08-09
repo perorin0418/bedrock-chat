@@ -83,6 +83,17 @@ const useBotApi = () => {
     deleteBot: (botId: string) => {
       return http.delete(`bot/${botId}`);
     },
+    postMcpOauthAuthorize: (botId: string, label: string) => {
+      return http
+        .post<{ authorizationUrl: string }>(
+          `bot/${botId}/mcp-servers/${label}/oauth/authorize`,
+          {}
+        )
+        .then((res) => res.data);
+    },
+    deleteMcpOauth: (botId: string, label: string) => {
+      return http.delete(`bot/${botId}/mcp-servers/${label}/oauth`);
+    },
     removeFromRecentlyUsed: (botId: string) => {
       return http.delete(`bot/${botId}/recently-used`);
     },

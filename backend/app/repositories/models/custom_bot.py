@@ -17,6 +17,7 @@ from app.config import DEFAULT_GENERATION_CONFIG
 from app.repositories.models.common import DynamicBaseModel, Float, SecureString
 from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
 from app.repositories.models.custom_bot_kb import BedrockKnowledgeBaseModel
+from app.repositories.models.mcp_oauth_secret import is_mcp_oauth_connected
 from app.routes.schemas.bot import (
     ActiveModelsOutput,
     Agent,
@@ -295,6 +296,7 @@ def _mcp_secret_field_name(auth_type: McpAuthType) -> str | None:
         McpAuthType.BASIC_AUTH: "basic_auth_token",
         McpAuthType.API_KEY: "api_key",
         McpAuthType.NONE: None,
+        McpAuthType.OAUTH: None,
     }[auth_type]
 
 
@@ -308,6 +310,7 @@ class McpConfigModel(BaseModel):
     username: str | None = None
     basic_auth_token: SecureString | None = Field(None, repr=False)
     api_key: SecureString | None = Field(None, repr=False)
+    oauth_connected: bool = False
 
     @classmethod
     def from_mcp_config(cls, config: McpConfig) -> Self:
@@ -461,7 +464,7 @@ class AgentModel(BaseModel):
 
         return cls(tools=tools)
 
-    def to_agent(self) -> Agent:
+    def to_agent(self, owner_user_id: str, bot_id: str) -> Agent:
         """Convert to Agent schema while preserving secure strings."""
 
         tools: List[Tool] = []
@@ -515,6 +518,13 @@ class AgentModel(BaseModel):
                                 username=server.username,
                                 basic_auth_token=server.basic_auth_token,
                                 api_key=server.api_key,
+                                oauth_connected=(
+                                    is_mcp_oauth_connected(
+                                        owner_user_id, bot_id, server.label
+                                    )
+                                    if server.auth_type == McpAuthType.OAUTH
+                                    else False
+                                ),
                             )
                             for server in tool.mcpServers
                         ],
@@ -934,7 +944,7 @@ class BotModel(BaseModel):
             generation_params=GenerationParams.model_validate(
                 self.generation_params.model_dump()
             ),
-            agent=self.agent.to_agent(),
+            agent=self.agent.to_agent(self.owner_user_id, self.id),
             knowledge=Knowledge.model_validate(self.knowledge.model_dump()),
             prompt_caching_enabled=self.prompt_caching_enabled,
             sync_status=self.sync_status,

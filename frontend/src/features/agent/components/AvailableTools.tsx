@@ -29,6 +29,8 @@ type Props = {
   tools: AgentTool[];
   setTools: Dispatch<React.SetStateAction<AgentTool[]>>;
   errorMessages?: Record<string, string>;
+  botId: string;
+  isNewBot: boolean;
 };
 
 export const AvailableTools = ({
@@ -36,6 +38,8 @@ export const AvailableTools = ({
   tools,
   setTools,
   errorMessages,
+  botId,
+  isNewBot,
 }: Props) => {
   const { t } = useTranslation();
   const [searchEngine, setSearchEngine] = useState<SearchEngine>('duckduckgo');
@@ -371,6 +375,8 @@ export const AvailableTools = ({
                         `tools-${tools.findIndex(({ name }) => name === 'mcp')}-mcpServers`
                       ]
                     }
+                    botId={botId}
+                    isNewBot={isNewBot}
                   />
                 </div>
               </div>

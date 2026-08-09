@@ -299,7 +299,15 @@ const translation: typeof en = {
               bearer_token: 'Bearerトークン',
               basic_auth: 'Basic認証(ユーザー名+トークン)',
               api_key: 'APIキー(x-api-key)',
+              oauth: 'OAuth 2.1(ブラウザ認可)',
             },
+          },
+          oauth: {
+            connect: 'Atlassianに接続',
+            disconnect: '切断',
+            connected: '接続済み',
+            saveFirst: '先にボットを保存してください',
+            connectError: 'OAuth接続の開始に失敗しました。',
           },
           label: {
             label: 'サーバーラベル',

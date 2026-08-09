@@ -22,6 +22,7 @@ export class Database extends Construct {
   readonly apiKeyOwnerTable: Table;
   readonly claudeCodeIamUserTable: Table;
   readonly claudeCodeCostSyncRole: Role;
+  readonly mcpOAuthStateTable: Table;
 
   constructor(scope: Construct, id: string, props?: DatabaseProps) {
     super(scope, id);
@@ -163,6 +164,19 @@ export class Database extends Construct {
       timeToLiveAttribute: "expire",
     });
 
+    // Holds PKCE code_verifier/state during the MCP OAuth authorization-code
+    // round trip (bot owner clicks Connect -> Atlassian redirects back to
+    // our callback). Short TTL: the round trip completes in minutes or not
+    // at all.
+    const mcpOAuthStateTable = new Table(this, "McpOAuthStateTable", {
+      partitionKey: { name: "State", type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      timeToLiveAttribute: "expire",
+      encryption: TableEncryption.AWS_MANAGED,
+    });
+    mcpOAuthStateTable.grantReadWriteData(tableAccessRole);
+
     this.conversationTable = conversationTable;
     this.botTable = botTable;
     this.tableAccessRole = tableAccessRole;
@@ -171,6 +185,7 @@ export class Database extends Construct {
     this.apiKeyOwnerTable = apiKeyOwnerTable;
     this.claudeCodeIamUserTable = claudeCodeIamUserTable;
     this.claudeCodeCostSyncRole = claudeCodeCostSyncRole;
+    this.mcpOAuthStateTable = mcpOAuthStateTable;
 
     new CfnOutput(this, "ConversationTableName", {
       value: conversationTable.tableName,
@@ -186,6 +201,9 @@ export class Database extends Construct {
     });
     new CfnOutput(this, "ClaudeCodeIamUserTableName", {
       value: claudeCodeIamUserTable.tableName,
+    });
+    new CfnOutput(this, "McpOAuthStateTableName", {
+      value: mcpOAuthStateTable.tableName,
     });
   }
 }

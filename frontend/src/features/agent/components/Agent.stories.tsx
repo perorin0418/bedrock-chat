@@ -49,6 +49,8 @@ export const Tools = () => {
       availableTools={availableTools}
       tools={tools}
       setTools={setTools}
+      botId="story-bot-id"
+      isNewBot={false}
     />
   );
 };

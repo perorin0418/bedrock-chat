@@ -112,7 +112,7 @@ class TestMcpToolModel(unittest.TestCase):
             ]
         )
 
-        agent = agent_model.to_agent()
+        agent = agent_model.to_agent("user1", "bot1")
 
         self.assertEqual(len(agent.tools), 1)
         tool = agent.tools[0]
@@ -306,7 +306,7 @@ class TestMcpToolModel(unittest.TestCase):
             ]
         )
 
-        agent = agent_model.to_agent()
+        agent = agent_model.to_agent("user1", "bot1")
 
         self.assertEqual(agent.tools[0].mcpServers[0].bearer_token, "rovo-token-1")
 
@@ -333,7 +333,7 @@ class TestMcpToolModel(unittest.TestCase):
             ]
         )
 
-        agent = agent_model.to_agent()
+        agent = agent_model.to_agent("user1", "bot1")
 
         self.assertEqual(agent.tools[0].mcpServers[0].api_key, "apigw-key-1")
 
@@ -356,7 +356,7 @@ class TestMcpToolModel(unittest.TestCase):
             ]
         )
 
-        agent = agent_model.to_agent()
+        agent = agent_model.to_agent("user1", "bot1")
 
         self.assertEqual(agent.tools[0].mcpServers[0].auth_type, "none")
 

@@ -31,6 +31,7 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 
 export interface ApiProps {
   readonly database: Database;
+  readonly frontendUrl: string;
   readonly rateLimitFiveHourParam: ssm.IStringParameter;
   readonly rateLimitSevenDayParam: ssm.IStringParameter;
   readonly envName: string;
@@ -247,6 +248,9 @@ export class Api extends Construct {
           `arn:aws:secretsmanager:${Stack.of(this).region}:${
             Stack.of(this).account
           }:secret:mcp/*/*`,
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:mcp-oauth/*/*`,
         ],
       })
     );
@@ -255,6 +259,24 @@ export class Api extends Construct {
     props.largeMessageBucket.grantReadWrite(handlerRole);
     props.rateLimitFiveHourParam.grantRead(handlerRole);
     props.rateLimitSevenDayParam.grantRead(handlerRole);
+
+    const api = new HttpApi(this, "Default", {
+      description: `Main API for ${Stack.of(this).stackName}`,
+      corsPreflight: {
+        allowHeaders: ["*"],
+        allowMethods: [
+          CorsHttpMethod.GET,
+          CorsHttpMethod.HEAD,
+          CorsHttpMethod.OPTIONS,
+          CorsHttpMethod.POST,
+          CorsHttpMethod.PUT,
+          CorsHttpMethod.PATCH,
+          CorsHttpMethod.DELETE,
+        ],
+        allowOrigins: allowOrigins,
+        maxAge: Duration.days(10),
+      },
+    });
 
     const handler = new PythonFunction(this, "HandlerV2", {
       entry: path.join(__dirname, "../../../backend"),
@@ -283,6 +305,9 @@ export class Api extends Construct {
         LARGE_MESSAGE_BUCKET: props.largeMessageBucket.bucketName,
         USAGE_LEDGER_TABLE_NAME: database.usageLedgerTable.tableName,
         API_KEY_OWNER_TABLE_NAME: database.apiKeyOwnerTable.tableName,
+        MCP_OAUTH_STATE_TABLE_NAME: database.mcpOAuthStateTable.tableName,
+        MCP_OAUTH_REDIRECT_URI: `${api.apiEndpoint}/mcp/oauth/callback`,
+        FRONTEND_URL: props.frontendUrl,
         RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
         RATE_LIMIT_SEVEN_DAY_PARAM_NAME: props.rateLimitSevenDayParam.parameterName,
         PUBLISH_API_CODEBUILD_PROJECT_NAME: props.apiPublishProject.projectName,
@@ -330,24 +355,6 @@ export class Api extends Construct {
       "run.sh"
     );
 
-    const api = new HttpApi(this, "Default", {
-      description: `Main API for ${Stack.of(this).stackName}`,
-      corsPreflight: {
-        allowHeaders: ["*"],
-        allowMethods: [
-          CorsHttpMethod.GET,
-          CorsHttpMethod.HEAD,
-          CorsHttpMethod.OPTIONS,
-          CorsHttpMethod.POST,
-          CorsHttpMethod.PUT,
-          CorsHttpMethod.PATCH,
-          CorsHttpMethod.DELETE,
-        ],
-        allowOrigins: allowOrigins,
-        maxAge: Duration.days(10),
-      },
-    });
-
     const integration = new HttpLambdaIntegration(
       "Integration",
       handler.currentVersion
@@ -373,6 +380,16 @@ export class Api extends Construct {
     };
 
     api.addRoutes(routeProps);
+
+    // Atlassian (or any MCP OAuth server) redirects the browser directly here
+    // with no Authorization header, so this route must NOT go through the
+    // Cognito authorizer. A more specific path takes priority over the
+    // `/{proxy+}` catch-all above in HTTP API routing.
+    api.addRoutes({
+      path: "/mcp/oauth/callback",
+      integration,
+      methods: [HttpMethod.GET],
+    });
 
     this.api = api;
     this.handler = handler;

@@ -64,6 +64,7 @@ import {
 } from '../types';
 import { toCamelCase } from '../../../utils/StringUtils';
 import useGlobalConfig from '../../../hooks/useGlobalConfig';
+import useSnackbar from '../../../hooks/useSnackbar';
 
 const edgeGenerationParams = EDGE_GENERATION_PARAMS;
 
@@ -77,6 +78,30 @@ const BotKbEditPage: React.FC = () => {
   const { availableTools } = useAgent();
   const { getGlobalConfig } = useGlobalConfig();
   const { data: globalConfig } = getGlobalConfig();
+  const snackbar = useSnackbar();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mcpOauth = params.get('mcpOauth');
+    if (mcpOauth === 'success') {
+      snackbar.open(t('agent.tools.mcpConfig.oauth.connected'));
+    } else if (mcpOauth === 'error') {
+      snackbar.open(t('agent.tools.mcpConfig.oauth.connectError'));
+    } else {
+      return;
+    }
+    // The backend's unknown-state failure path redirects to
+    // `/bot/new?mcpOauth=error` (no bot id known at that point), so
+    // `paramsBotId` can be undefined here -- only navigate to the edit
+    // screen when we actually have a bot id, otherwise just strip the query
+    // string from wherever we already are.
+    if (paramsBotId) {
+      navigate(`/bot/edit/${paramsBotId}`, { replace: true });
+    } else {
+      navigate('/bot/new', { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -621,6 +646,7 @@ const BotKbEditPage: React.FC = () => {
           bearer_token: ['bearerToken'],
           basic_auth: ['username', 'basicAuthToken'],
           api_key: ['apiKey'],
+          oauth: [],
         };
 
         const hasInvalidServer = tool.mcpServers.some(
@@ -1267,6 +1293,8 @@ const BotKbEditPage: React.FC = () => {
                 tools={tools}
                 setTools={setTools}
                 errorMessages={errorMessages}
+                botId={botId}
+                isNewBot={isNewBot}
               />
 
               <div className="mt-3">
