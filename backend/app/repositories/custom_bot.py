@@ -258,6 +258,27 @@ def update_bot_last_used_time(user_id: str, bot_id: str):
     return response
 
 
+def update_bot_mcp_oauth_secret_arn(
+    owner_user_id: str, bot_id: str, tool_index: int, oauth_secret_arn: str
+) -> None:
+    """Persist the oauth Secrets Manager ARN onto one bot's "mcp" tool entry
+    after the first successful Dynamic Client Registration + token exchange.
+    `tool_index` is this tool's position within `AgentData.tools`."""
+    table = get_bot_table_client()
+    try:
+        table.update_item(
+            Key={"PK": owner_user_id, "SK": compose_sk(bot_id, "bot")},
+            UpdateExpression=f"SET AgentData.tools[{tool_index}].oauth_secret_arn = :val",
+            ExpressionAttributeValues={":val": oauth_secret_arn},
+            ConditionExpression="attribute_exists(PK) AND attribute_exists(SK)",
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            raise RecordNotFoundError(f"Bot with id {bot_id} not found")
+        else:
+            raise e
+
+
 def update_alias_last_used_time(user_id: str, original_bot_id: str):
     """Update last used time for alias."""
     table = get_bot_table_client()

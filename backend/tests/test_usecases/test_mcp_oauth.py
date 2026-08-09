@@ -3,7 +3,10 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, ".")
-from app.usecases.mcp_oauth import start_mcp_oauth_authorize
+from app.usecases.mcp_oauth import (
+    complete_mcp_oauth_callback,
+    start_mcp_oauth_authorize,
+)
 from app.user import User
 from mcp.shared.auth import OAuthClientInformationFull, OAuthMetadata
 
@@ -88,6 +91,84 @@ class TestStartMcpOauthAuthorize(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             asyncio.run(start_mcp_oauth_authorize(user, "bot-1", "atlassian"))
+
+
+class TestCompleteMcpOauthCallback(unittest.TestCase):
+    @patch(
+        "app.usecases.mcp_oauth.MCP_OAUTH_REDIRECT_URI",
+        "https://api.example.com/mcp/oauth/callback",
+    )
+    @patch("app.usecases.mcp_oauth.update_bot_mcp_oauth_secret_arn")
+    @patch("app.usecases.mcp_oauth.SecretsManagerTokenStorage")
+    @patch("app.usecases.mcp_oauth.exchange_code_for_tokens", new_callable=AsyncMock)
+    @patch("app.usecases.mcp_oauth.discover_and_register", new_callable=AsyncMock)
+    @patch("app.usecases.mcp_oauth.pop_mcp_oauth_state")
+    @patch("app.usecases.mcp_oauth.find_bot_by_id")
+    def test_completes_and_stores_tokens(
+        self,
+        mock_find_bot,
+        mock_pop_state,
+        mock_discover,
+        mock_exchange,
+        mock_storage_cls,
+        mock_update_arn,
+    ):
+        from app.repositories.mcp_oauth_state import McpOAuthStateItem
+
+        bot, tool = _make_bot()
+        mock_find_bot.return_value = bot
+        mock_pop_state.return_value = McpOAuthStateItem(
+            bot_id="bot-1",
+            label="atlassian",
+            owner_user_id="user-1",
+            code_verifier="verifier-1",
+            client_id="client-1",
+        )
+        mock_discover.return_value = (
+            OAuthMetadata(
+                issuer="https://auth.atlassian.com",
+                authorization_endpoint="https://auth.atlassian.com/authorize",
+                token_endpoint="https://auth.atlassian.com/oauth/token",
+            ),
+            OAuthClientInformationFull(
+                redirect_uris=["https://api.example.com/mcp/oauth/callback"],
+                client_id="client-1",
+            ),
+        )
+        from mcp.shared.auth import OAuthToken
+
+        mock_exchange.return_value = OAuthToken(access_token="a1", token_type="Bearer")
+        mock_storage = MagicMock()
+        mock_storage.set_client_info = AsyncMock()
+        mock_storage.set_tokens = AsyncMock()
+        mock_storage.oauth_secret_arn = "arn:aws:secretsmanager:new-arn"
+        mock_storage_cls.return_value = mock_storage
+
+        import asyncio
+
+        bot_id, label, succeeded = asyncio.run(
+            complete_mcp_oauth_callback(code="code-1", state="state-1")
+        )
+
+        self.assertEqual(bot_id, "bot-1")
+        self.assertEqual(label, "atlassian")
+        self.assertTrue(succeeded)
+        mock_storage.set_tokens.assert_called_once()
+        mock_update_arn.assert_called_once_with(
+            owner_user_id="user-1",
+            bot_id="bot-1",
+            tool_index=0,
+            oauth_secret_arn="arn:aws:secretsmanager:new-arn",
+        )
+
+    @patch("app.usecases.mcp_oauth.pop_mcp_oauth_state")
+    def test_returns_failure_when_state_unknown(self, mock_pop_state):
+        mock_pop_state.return_value = None
+
+        import asyncio
+
+        with self.assertRaises(ValueError):
+            asyncio.run(complete_mcp_oauth_callback(code="code-1", state="unknown"))
 
 
 if __name__ == "__main__":

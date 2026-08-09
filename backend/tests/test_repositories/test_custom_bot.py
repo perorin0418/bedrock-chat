@@ -478,6 +478,41 @@ class TestCustomBotRepository(unittest.TestCase):
 
         delete_bot_by_id("user1", "1")
 
+    def test_update_bot_mcp_oauth_secret_arn(self):
+        from app.repositories.custom_bot import update_bot_mcp_oauth_secret_arn
+        from app.repositories.models.custom_bot import McpConfigModel, McpToolModel
+
+        bot = create_test_private_bot("1", False, "user1")
+        bot.agent.tools = [
+            McpToolModel(
+                tool_type="mcp",
+                name="atlassian-mcp",
+                description="atlassian mcp tool",
+                mcpServers=[
+                    McpConfigModel(
+                        label="atlassian",
+                        endpoint_url="https://mcp.atlassian.com/v1/mcp",
+                        auth_type="oauth",
+                    )
+                ],
+            )
+        ]
+        store_bot(bot)
+
+        update_bot_mcp_oauth_secret_arn(
+            owner_user_id="user1",
+            bot_id="1",
+            tool_index=0,
+            oauth_secret_arn="arn:aws:secretsmanager:...",
+        )
+
+        bot = find_bot_by_id("1")
+        self.assertEqual(
+            bot.agent.tools[0].oauth_secret_arn, "arn:aws:secretsmanager:..."
+        )
+
+        delete_bot_by_id("user1", "1")
+
 
 class TestBotAliasRepository(unittest.TestCase):
     def setUp(self) -> None:
