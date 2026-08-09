@@ -127,6 +127,18 @@ class TestBuildAuthHeaders(unittest.TestCase):
         expected = base64.b64encode(b"me@example.com:api-token-1").decode()
         self.assertEqual(headers, {"Authorization": f"Basic {expected}"})
 
+    def test_api_key_returns_x_api_key_header(self):
+        server = McpConfigModel(
+            label="gateway",
+            endpoint_url="https://abc123.execute-api.ap-northeast-1.amazonaws.com/prod/mcp",
+            auth_type=McpAuthType.API_KEY,
+            api_key="apigw-key-1",
+        )
+
+        headers = _build_auth_headers(server, secret_arn=None)
+
+        self.assertEqual(headers, {"x-api-key": "apigw-key-1"})
+
     @patch("app.strands_integration.tools.mcp_tools.get_mcp_bearer_token")
     def test_cognito_client_credentials_uses_existing_token_flow(self, mock_get_token):
         mock_get_token.return_value = "cognito-token-1"

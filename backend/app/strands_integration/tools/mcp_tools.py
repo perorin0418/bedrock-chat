@@ -103,6 +103,9 @@ def _build_auth_headers(
         ).decode()
         return {"Authorization": f"Basic {credentials}"}
 
+    if server.auth_type == McpAuthType.API_KEY:
+        return {"x-api-key": cast(str, server.api_key)}
+
     # McpAuthType.COGNITO_CLIENT_CREDENTIALS (existing behavior)
     token = get_mcp_bearer_token(
         cast(str, server.client_id),
