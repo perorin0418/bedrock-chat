@@ -113,6 +113,7 @@ export class BedrockChatStack extends cdk.Stack {
             "**/.DS_Store/**",
             "**/.git/**",
             "**/.github/**",
+            "**/.claude/**",
             "**/.mypy_cache/**",
             "**/examples/**",
             "**/docs/**",
