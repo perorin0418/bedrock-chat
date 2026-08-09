@@ -330,7 +330,8 @@ const translation = {
           },
           apiKey: {
             label: 'API Key',
-            placeholder: 'Enter the API key (e.g. issued by an API Gateway usage plan)',
+            placeholder:
+              'Enter the API key (e.g. issued by an API Gateway usage plan)',
           },
         },
       },
