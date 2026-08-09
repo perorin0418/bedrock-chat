@@ -144,6 +144,7 @@ class McpAuthType(str, Enum):
     NONE = "none"
     BEARER_TOKEN = "bearer_token"
     BASIC_AUTH = "basic_auth"
+    API_KEY = "api_key"
 
 
 MCP_AUTH_REQUIRED_FIELDS: dict[McpAuthType, list[str]] = {
@@ -151,6 +152,7 @@ MCP_AUTH_REQUIRED_FIELDS: dict[McpAuthType, list[str]] = {
     McpAuthType.NONE: [],
     McpAuthType.BEARER_TOKEN: ["bearer_token"],
     McpAuthType.BASIC_AUTH: ["username", "basic_auth_token"],
+    McpAuthType.API_KEY: ["api_key"],
 }
 MCP_AUTH_ALL_FIELDS = {
     "client_id",
@@ -158,6 +160,7 @@ MCP_AUTH_ALL_FIELDS = {
     "bearer_token",
     "username",
     "basic_auth_token",
+    "api_key",
 }
 
 
@@ -170,6 +173,7 @@ class McpConfig(BaseSchema):
     bearer_token: str | None = None
     username: str | None = None
     basic_auth_token: str | None = None
+    api_key: str | None = None
 
     @field_validator("label")
     def validate_label(cls, v):

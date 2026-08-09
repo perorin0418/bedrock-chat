@@ -81,6 +81,33 @@ class TestMcpConfigAuthType(unittest.TestCase):
         self.assertEqual(config.username, "user-1")
         self.assertEqual(config.basic_auth_token, "token-1")
 
+    def test_api_key_requires_api_key_field(self):
+        with self.assertRaises(ValidationError):
+            McpConfig(
+                label="foo",
+                endpoint_url="https://example.com/mcp",
+                auth_type=McpAuthType.API_KEY,
+            )
+
+    def test_api_key_valid(self):
+        config = McpConfig(
+            label="foo",
+            endpoint_url="https://example.com/mcp",
+            auth_type=McpAuthType.API_KEY,
+            api_key="key-1",
+        )
+        self.assertEqual(config.api_key, "key-1")
+
+    def test_api_key_rejects_other_auth_fields(self):
+        with self.assertRaises(ValidationError):
+            McpConfig(
+                label="foo",
+                endpoint_url="https://example.com/mcp",
+                auth_type=McpAuthType.API_KEY,
+                api_key="key-1",
+                bearer_token="should-not-be-here",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
