@@ -9,6 +9,7 @@ import time
 from contextlib import ExitStack, contextmanager
 from typing import cast
 
+import httpx
 import requests
 from app.repositories.models.custom_bot import (
     BotModel,
@@ -16,7 +17,10 @@ from app.repositories.models.custom_bot import (
     McpConfigModel,
     McpToolModel,
 )
+from app.strands_integration.tools.mcp_oauth_storage import SecretsManagerTokenStorage
+from mcp.client.auth.oauth2 import OAuthClientProvider
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.shared.auth import OAuthClientMetadata
 from strands.tools.mcp import MCPAgentTool, MCPClient
 
 logger = logging.getLogger(__name__)
@@ -24,6 +28,7 @@ logger.setLevel(logging.INFO)
 
 REGION = os.environ.get("REGION", "ap-northeast-1")
 COGNITO_MCP_AUTH_DOMAIN = f"knowledge-mcp-auth.auth.{REGION}.amazoncognito.com"
+MCP_OAUTH_REDIRECT_URI = os.environ.get("MCP_OAUTH_REDIRECT_URI", "")
 
 # Lambda container in-memory cache: cache_key -> (access_token, expires_at)
 _token_cache: dict[str, tuple[str, float]] = {}
@@ -87,24 +92,56 @@ def get_mcp_bearer_token(
 
 
 def _build_auth_headers(
-    server: McpConfigModel, secret_arn: str | None
-) -> dict[str, str]:
-    """Build the authentication header(s) (if any) for connecting to one MCP
-    server, based on that server's configured `auth_type`."""
+    server: McpConfigModel,
+    secret_arn: str | None,
+    oauth_secret_arn: str | None,
+    bot_id: str,
+    user_id: str,
+) -> tuple[dict[str, str], httpx.Auth | None]:
+    """Build the authentication header(s) and/or httpx.Auth provider for
+    connecting to one MCP server, based on that server's configured
+    `auth_type`. Only `oauth` returns a non-None `auth` (a live
+    `httpx.Auth` that checks/refreshes tokens per-request); all other types
+    return static headers, same as before."""
     if server.auth_type == McpAuthType.NONE:
-        return {}
+        return {}, None
 
     if server.auth_type == McpAuthType.BEARER_TOKEN:
-        return {"Authorization": f"Bearer {server.bearer_token}"}
+        return {"Authorization": f"Bearer {server.bearer_token}"}, None
 
     if server.auth_type == McpAuthType.BASIC_AUTH:
         credentials = base64.b64encode(
             f"{server.username}:{server.basic_auth_token}".encode()
         ).decode()
-        return {"Authorization": f"Basic {credentials}"}
+        return {"Authorization": f"Basic {credentials}"}, None
 
     if server.auth_type == McpAuthType.API_KEY:
-        return {"x-api-key": cast(str, server.api_key)}
+        return {"x-api-key": cast(str, server.api_key)}, None
+
+    if server.auth_type == McpAuthType.OAUTH:
+        storage = SecretsManagerTokenStorage(
+            user_id=user_id,
+            bot_id=bot_id,
+            label=server.label,
+            oauth_secret_arn=oauth_secret_arn,
+        )
+        auth = OAuthClientProvider(
+            server_url=server.endpoint_url,
+            client_metadata=OAuthClientMetadata(
+                redirect_uris=[MCP_OAUTH_REDIRECT_URI],  # type: ignore[list-item]
+                grant_types=["authorization_code", "refresh_token"],
+            ),
+            storage=storage,
+            # No interactive step here: tokens must already exist (set via
+            # the /oauth/authorize + /mcp/oauth/callback flow). If they
+            # don't, OAuthClientProvider raises OAuthFlowError instead of
+            # trying to redirect, which the per-server try/except below
+            # turns into "skip this server's tools" like any other
+            # connection failure.
+            redirect_handler=None,
+            callback_handler=None,
+        )
+        return {}, auth
 
     # McpAuthType.COGNITO_CLIENT_CREDENTIALS (existing behavior)
     token = get_mcp_bearer_token(
@@ -113,7 +150,7 @@ def _build_auth_headers(
         COGNITO_MCP_AUTH_DOMAIN,
         f"{secret_arn}:{server.label}",
     )
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {token}"}, None
 
 
 def _get_mcp_tool(bot: BotModel | None) -> McpToolModel | None:
@@ -191,11 +228,18 @@ def mcp_tools_scope(bot: BotModel | None):
     with ExitStack() as stack:
         for server in mcp_tool.mcpServers:
             try:
-                headers = _build_auth_headers(server, mcp_tool.secret_arn)
+                headers, auth = _build_auth_headers(
+                    server,
+                    mcp_tool.secret_arn,
+                    mcp_tool.oauth_secret_arn,
+                    bot.id,  # type: ignore[union-attr]
+                    bot.owner_user_id,  # type: ignore[union-attr]
+                )
                 client = MCPClient(
-                    lambda headers=headers, endpoint_url=server.endpoint_url: streamablehttp_client(  # type: ignore[misc]
+                    lambda headers=headers, auth=auth, endpoint_url=server.endpoint_url: streamablehttp_client(  # type: ignore[misc]
                         endpoint_url,
                         headers=headers,
+                        auth=auth,
                         timeout=MCP_CONNECTION_TIMEOUT_SECONDS,
                     ),
                     startup_timeout=MCP_CONNECTION_TIMEOUT_SECONDS,

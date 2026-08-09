@@ -95,7 +95,13 @@ class TestBuildAuthHeaders(unittest.TestCase):
             auth_type=McpAuthType.NONE,
         )
 
-        headers = _build_auth_headers(server, secret_arn=None)
+        headers, _auth = _build_auth_headers(
+            server,
+            secret_arn=None,
+            oauth_secret_arn=None,
+            bot_id="bot-1",
+            user_id="user-1",
+        )
 
         self.assertEqual(headers, {})
 
@@ -107,7 +113,13 @@ class TestBuildAuthHeaders(unittest.TestCase):
             bearer_token="rovo-token-1",
         )
 
-        headers = _build_auth_headers(server, secret_arn=None)
+        headers, _auth = _build_auth_headers(
+            server,
+            secret_arn=None,
+            oauth_secret_arn=None,
+            bot_id="bot-1",
+            user_id="user-1",
+        )
 
         self.assertEqual(headers, {"Authorization": "Bearer rovo-token-1"})
 
@@ -120,7 +132,13 @@ class TestBuildAuthHeaders(unittest.TestCase):
             basic_auth_token="api-token-1",
         )
 
-        headers = _build_auth_headers(server, secret_arn=None)
+        headers, _auth = _build_auth_headers(
+            server,
+            secret_arn=None,
+            oauth_secret_arn=None,
+            bot_id="bot-1",
+            user_id="user-1",
+        )
 
         import base64
 
@@ -135,7 +153,13 @@ class TestBuildAuthHeaders(unittest.TestCase):
             api_key="apigw-key-1",
         )
 
-        headers = _build_auth_headers(server, secret_arn=None)
+        headers, _auth = _build_auth_headers(
+            server,
+            secret_arn=None,
+            oauth_secret_arn=None,
+            bot_id="bot-1",
+            user_id="user-1",
+        )
 
         self.assertEqual(headers, {"x-api-key": "apigw-key-1"})
 
@@ -150,7 +174,13 @@ class TestBuildAuthHeaders(unittest.TestCase):
             client_secret="secret-1",
         )
 
-        headers = _build_auth_headers(server, secret_arn="arn:aws:secretsmanager:...")
+        headers, _auth = _build_auth_headers(
+            server,
+            secret_arn="arn:aws:secretsmanager:...",
+            oauth_secret_arn=None,
+            bot_id="bot-1",
+            user_id="user-1",
+        )
 
         self.assertEqual(headers, {"Authorization": "Bearer cognito-token-1"})
         mock_get_token.assert_called_once_with(
@@ -159,6 +189,48 @@ class TestBuildAuthHeaders(unittest.TestCase):
             COGNITO_MCP_AUTH_DOMAIN,
             "arn:aws:secretsmanager:...:powersort",
         )
+
+    @patch(
+        "app.strands_integration.tools.mcp_tools.MCP_OAUTH_REDIRECT_URI",
+        "https://api.example.com/mcp/oauth/callback",
+    )
+    def test_build_auth_headers_oauth_returns_provider(self):
+        from app.strands_integration.tools.mcp_tools import _build_auth_headers
+        from mcp.client.auth.oauth2 import OAuthClientProvider
+
+        server = MagicMock()
+        server.auth_type = McpAuthType.OAUTH
+        server.label = "atlassian"
+        server.endpoint_url = "https://mcp.atlassian.com/v1/mcp"
+
+        headers, auth = _build_auth_headers(
+            server,
+            secret_arn=None,
+            oauth_secret_arn="arn:aws:secretsmanager:...",
+            bot_id="bot-1",
+            user_id="user-1",
+        )
+
+        self.assertEqual(headers, {})
+        self.assertIsInstance(auth, OAuthClientProvider)
+
+    def test_build_auth_headers_bearer_token_unchanged(self):
+        from app.strands_integration.tools.mcp_tools import _build_auth_headers
+
+        server = MagicMock()
+        server.auth_type = McpAuthType.BEARER_TOKEN
+        server.bearer_token = "token-1"
+
+        headers, auth = _build_auth_headers(
+            server,
+            secret_arn=None,
+            oauth_secret_arn=None,
+            bot_id="bot-1",
+            user_id="user-1",
+        )
+
+        self.assertEqual(headers, {"Authorization": "Bearer token-1"})
+        self.assertIsNone(auth)
 
 
 from app.repositories.models.custom_bot import (
