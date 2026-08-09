@@ -76,7 +76,19 @@ async def complete_mcp_oauth_callback(
 ) -> tuple[str, str, bool]:
     """Complete the authorization-code exchange for the in-flight request
     identified by `state`. Returns `(bot_id, label, succeeded)` so the route
-    can redirect the browser back to the right bot edit screen either way."""
+    can redirect the browser back to the right bot edit screen either way.
+
+    This is invoked from the one unauthenticated route in this backend
+    (`GET /mcp/oauth/callback`), reached directly by the OAuth provider's
+    browser redirect. Only the "unknown/expired state" case (before we even
+    know which bot/label this request belongs to) raises `ValueError` --
+    the route handles that by redirecting to a generic fallback page. Every
+    other failure once `state_item` is known (bot lookup, MCP discovery,
+    token exchange, secret storage, updating the bot's oauth_secret_arn)
+    must degrade to the clean `(bot_id, label, False)` failure tuple rather
+    than propagating, since an uncaught exception here would otherwise hit
+    `app/main.py`'s blanket exception handler and return a raw 500 with the
+    exception message straight to this anonymous, unauthenticated caller."""
     state_item = pop_mcp_oauth_state(state)
     if not state_item:
         raise ValueError(f"Unknown or expired MCP OAuth state: {state}")
@@ -84,14 +96,14 @@ async def complete_mcp_oauth_callback(
     if error or not code:
         return state_item.bot_id, state_item.label, False
 
-    bot = find_bot_by_id(state_item.bot_id)
-    tool, server = _find_mcp_tool_and_server(bot, state_item.label)
-
-    oauth_metadata, _ = await discover_and_register(
-        server.endpoint_url, MCP_OAUTH_REDIRECT_URI
-    )
-
     try:
+        bot = find_bot_by_id(state_item.bot_id)
+        tool, server = _find_mcp_tool_and_server(bot, state_item.label)
+
+        oauth_metadata, _ = await discover_and_register(
+            server.endpoint_url, MCP_OAUTH_REDIRECT_URI
+        )
+
         tokens = await exchange_code_for_tokens(
             oauth_metadata,
             _client_info_from_state(state_item),
@@ -99,30 +111,30 @@ async def complete_mcp_oauth_callback(
             code_verifier=state_item.code_verifier,
             redirect_uri=MCP_OAUTH_REDIRECT_URI,
         )
+
+        storage = SecretsManagerTokenStorage(
+            user_id=bot.owner_user_id,
+            bot_id=bot.id,
+            label=state_item.label,
+            oauth_secret_arn=tool.oauth_secret_arn,
+        )
+        await storage.set_client_info(_client_info_from_state(state_item))
+        await storage.set_tokens(tokens)
+        assert storage.oauth_secret_arn is not None  # set_tokens() always assigns it
+
+        tool_index = bot.agent.tools.index(tool)
+        update_bot_mcp_oauth_secret_arn(
+            owner_user_id=bot.owner_user_id,
+            bot_id=bot.id,
+            tool_index=tool_index,
+            oauth_secret_arn=storage.oauth_secret_arn,
+        )
     except Exception:
         logger.exception(
-            f"MCP OAuth token exchange failed for bot '{state_item.bot_id}' "
+            f"MCP OAuth callback failed for bot '{state_item.bot_id}' "
             f"label '{state_item.label}'"
         )
         return state_item.bot_id, state_item.label, False
-
-    storage = SecretsManagerTokenStorage(
-        user_id=bot.owner_user_id,
-        bot_id=bot.id,
-        label=state_item.label,
-        oauth_secret_arn=tool.oauth_secret_arn,
-    )
-    await storage.set_client_info(_client_info_from_state(state_item))
-    await storage.set_tokens(tokens)
-    assert storage.oauth_secret_arn is not None  # set_tokens() always assigns it
-
-    tool_index = bot.agent.tools.index(tool)
-    update_bot_mcp_oauth_secret_arn(
-        owner_user_id=bot.owner_user_id,
-        bot_id=bot.id,
-        tool_index=tool_index,
-        oauth_secret_arn=storage.oauth_secret_arn,
-    )
 
     return state_item.bot_id, state_item.label, True
 

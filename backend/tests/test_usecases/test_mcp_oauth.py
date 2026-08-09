@@ -170,6 +170,72 @@ class TestCompleteMcpOauthCallback(unittest.TestCase):
         with self.assertRaises(ValueError):
             asyncio.run(complete_mcp_oauth_callback(code="code-1", state="unknown"))
 
+    @patch("app.usecases.mcp_oauth.discover_and_register", new_callable=AsyncMock)
+    @patch("app.usecases.mcp_oauth.pop_mcp_oauth_state")
+    @patch("app.usecases.mcp_oauth.find_bot_by_id")
+    def test_returns_failure_when_unexpected_error_occurs_mid_flow(
+        self, mock_find_bot, mock_pop_state, mock_discover
+    ):
+        """An exception raised anywhere after the state is popped (e.g. a
+        network error during MCP server discovery, not just token exchange)
+        must still yield a clean failure tuple instead of propagating out of
+        this unauthenticated callback endpoint."""
+        from app.repositories.mcp_oauth_state import McpOAuthStateItem
+
+        bot, _ = _make_bot()
+        mock_find_bot.return_value = bot
+        mock_pop_state.return_value = McpOAuthStateItem(
+            bot_id="bot-1",
+            label="atlassian",
+            owner_user_id="user-1",
+            code_verifier="verifier-1",
+            client_id="client-1",
+        )
+        mock_discover.side_effect = RuntimeError("network boom")
+
+        import asyncio
+
+        with self.assertLogs("app.usecases.mcp_oauth", level="ERROR") as logs:
+            bot_id, label, succeeded = asyncio.run(
+                complete_mcp_oauth_callback(code="code-1", state="state-1")
+            )
+
+        self.assertEqual(bot_id, "bot-1")
+        self.assertEqual(label, "atlassian")
+        self.assertFalse(succeeded)
+        self.assertTrue(any("bot-1" in message for message in logs.output))
+        self.assertTrue(any("atlassian" in message for message in logs.output))
+        # Never leak the underlying exception message content is fine to log
+        # server-side, but the point of this test is only that we DID log
+        # and DID NOT propagate.
+
+    @patch("app.usecases.mcp_oauth.find_bot_by_id")
+    @patch("app.usecases.mcp_oauth.pop_mcp_oauth_state")
+    def test_returns_failure_when_find_bot_by_id_raises(
+        self, mock_pop_state, mock_find_bot
+    ):
+        from app.repositories.mcp_oauth_state import McpOAuthStateItem
+
+        mock_pop_state.return_value = McpOAuthStateItem(
+            bot_id="bot-1",
+            label="atlassian",
+            owner_user_id="user-1",
+            code_verifier="verifier-1",
+            client_id="client-1",
+        )
+        mock_find_bot.side_effect = Exception("bot not found")
+
+        import asyncio
+
+        with self.assertLogs("app.usecases.mcp_oauth", level="ERROR"):
+            bot_id, label, succeeded = asyncio.run(
+                complete_mcp_oauth_callback(code="code-1", state="state-1")
+            )
+
+        self.assertEqual(bot_id, "bot-1")
+        self.assertEqual(label, "atlassian")
+        self.assertFalse(succeeded)
+
 
 if __name__ == "__main__":
     unittest.main()
