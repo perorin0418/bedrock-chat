@@ -656,6 +656,9 @@ export class Embedding extends Construct {
           `arn:aws:secretsmanager:${Stack.of(this).region}:${
             Stack.of(this).account
           }:secret:mcp/*/*`,
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:mcp-oauth/*/*`,
         ],
       })
     );

@@ -268,6 +268,7 @@ export class BedrockChatStack extends cdk.Stack {
       envName: props.envName,
       envPrefix: props.envPrefix,
       database,
+      frontendUrl: frontend.getOrigin(),
       rateLimitFiveHourParam,
       rateLimitSevenDayParam,
       auth,
