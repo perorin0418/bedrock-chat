@@ -176,21 +176,24 @@ All Strands tools must return a dictionary with the following structure:
 
 ## MCPサーバーの登録(bot単位)
 
-bot作成/編集画面の「MCPサーバー」ツールで、外部のMCPサーバーを登録できる。サーバーごとに以下5つの認証方式から選択する:
+bot作成/編集画面の「MCPサーバー」ツールで、外部のMCPサーバーを登録できる。サーバーごとに以下6つの認証方式から選択する:
 
-| 認証方式 | 用途 | 必要な入力項目 |
-|---|---|---|
-| ボット間ナレッジ共有(Cognito) | 自社の他botが公開するナレッジベースMCPサーバーに接続する | Client ID, Client Secret |
-| 認証なし | 認証を要求しない公開MCPサーバーに接続する | (URLのみ) |
-| Bearerトークン | 固定トークンを`Authorization: Bearer <token>`で送るMCPサーバーに接続する | トークン |
-| Basic認証(ユーザー名+トークン) | `Authorization: Basic <base64>`を要求するMCPサーバーに接続する | ユーザー名, トークン |
-| APIキー(x-api-key) | Amazon API Gatewayのネイティブ「APIキー必須」機能等、`x-api-key`ヘッダーでAPIキーを要求するMCPサーバーに接続する | APIキー |
+| 認証方式                       | 用途                                                                                                             | 必要な入力項目                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| ボット間ナレッジ共有(Cognito)  | 自社の他botが公開するナレッジベースMCPサーバーに接続する                                                         | Client ID, Client Secret                       |
+| 認証なし                       | 認証を要求しない公開MCPサーバーに接続する                                                                        | (URLのみ)                                      |
+| Bearerトークン                 | 固定トークンを`Authorization: Bearer <token>`で送るMCPサーバーに接続する                                         | トークン                                       |
+| Basic認証(ユーザー名+トークン) | `Authorization: Basic <base64>`を要求するMCPサーバーに接続する                                                   | ユーザー名, トークン                           |
+| APIキー(x-api-key)             | Amazon API Gatewayのネイティブ「APIキー必須」機能等、`x-api-key`ヘッダーでAPIキーを要求するMCPサーバーに接続する | APIキー                                        |
+| OAuth 2.1(ブラウザ認可)        | 対話的なOAuth 2.1認可フロー(PKCE、Dynamic Client Registration)を要求するMCPサーバーに接続する                    | (フォーム入力なし。保存後に「接続」操作で認可) |
 
 ### 例: Atlassian Rovo MCP Serverを登録する
 
-Atlassian Rovo MCP Server(Jira/Confluence等に接続するAtlassian公式のMCPサーバー)は、組織管理者がAPIトークン認証を有効化していれば、以下のいずれかで登録できる:
+Atlassian Rovo MCP Server(Jira/Confluence等に接続するAtlassian公式のMCPサーバー)への接続方法は、組織のAtlassian管理者がAPIトークン認証を許可しているかどうかで変わる:
 
-- サービスアカウントAPIキーを使う場合: 認証方式に「Bearerトークン」を選択し、エンドポイントURLに`https://mcp.atlassian.com/v1/mcp`、トークンにサービスアカウントのAPIキーを入力する
-- 個人APIトークンを使う場合: 認証方式に「Basic認証」を選択し、エンドポイントURLに`https://mcp.atlassian.com/v1/mcp`、ユーザー名にAtlassianアカウントのメールアドレス、トークンに個人APIトークンを入力する
+- **OAuth 2.1が必須の組織の場合**: 認証方式に「OAuth 2.1(ブラウザ認可)」を選択し、エンドポイントURLに`https://mcp.atlassian.com/v1/mcp`を入力してbotを保存する。保存後に表示される「Atlassianに接続」ボタンを押し、表示されるAtlassianの同意画面で許可すると自動でトークンが取得され、以後は自動的にリフレッシュされる。
+- **APIトークン認証が許可されている組織の場合**: 以下のいずれかで登録できる。
+  - サービスアカウントAPIキーを使う場合: 認証方式に「Bearerトークン」を選択し、エンドポイントURLに`https://mcp.atlassian.com/v1/mcp`、トークンにサービスアカウントのAPIキーを入力する
+  - 個人APIトークンを使う場合: 認証方式に「Basic認証」を選択し、エンドポイントURLに`https://mcp.atlassian.com/v1/mcp`、ユーザー名にAtlassianアカウントのメールアドレス、トークンに個人APIトークンを入力する
 
-APIトークン認証で利用できないツール(Compass等)がある点、トークンがcloud IDに紐付いていないためツール呼び出し時にcloud IDを明示する必要がある点は、Atlassian公式ドキュメントを参照すること。OAuth 2.1による対話的な認可フローは本機能の対象外。
+APIトークン認証で利用できないツール(Compass等)がある点、トークンがcloud IDに紐付いていないためツール呼び出し時にcloud IDを明示する必要がある点は、Atlassian公式ドキュメントを参照すること。
