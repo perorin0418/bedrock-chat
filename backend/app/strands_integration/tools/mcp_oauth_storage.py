@@ -9,6 +9,8 @@ import asyncio
 import json
 import logging
 
+from botocore.exceptions import ClientError
+
 from app.utils import get_api_key_from_secret_manager, store_api_key_to_secret_manager
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
@@ -33,12 +35,14 @@ class SecretsManagerTokenStorage:
             return {}
         try:
             raw = get_api_key_from_secret_manager(self.oauth_secret_arn)
-            return json.loads(raw) if raw else {}
-        except Exception:
-            logger.warning(
-                f"No existing MCP oauth secret for bot '{self.bot_id}', starting empty"
-            )
-            return {}
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceNotFoundException":
+                logger.warning(
+                    f"No existing MCP oauth secret for bot '{self.bot_id}', starting empty"
+                )
+                return {}
+            raise
+        return json.loads(raw) if raw else {}
 
     def _save_blob(self, blob: dict[str, dict]) -> None:
         self.oauth_secret_arn = store_api_key_to_secret_manager(
