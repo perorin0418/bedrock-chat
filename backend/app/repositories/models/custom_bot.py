@@ -293,6 +293,7 @@ def _mcp_secret_field_name(auth_type: McpAuthType) -> str | None:
         McpAuthType.COGNITO_CLIENT_CREDENTIALS: "client_secret",
         McpAuthType.BEARER_TOKEN: "bearer_token",
         McpAuthType.BASIC_AUTH: "basic_auth_token",
+        McpAuthType.API_KEY: "api_key",
         McpAuthType.NONE: None,
     }[auth_type]
 
@@ -306,6 +307,7 @@ class McpConfigModel(BaseModel):
     bearer_token: SecureString | None = Field(None, repr=False)
     username: str | None = None
     basic_auth_token: SecureString | None = Field(None, repr=False)
+    api_key: SecureString | None = Field(None, repr=False)
 
     @classmethod
     def from_mcp_config(cls, config: McpConfig) -> Self:
@@ -320,6 +322,7 @@ class McpConfigModel(BaseModel):
             bearer_token=config.bearer_token,
             username=config.username,
             basic_auth_token=config.basic_auth_token,
+            api_key=config.api_key,
         )
 
 
@@ -511,6 +514,7 @@ class AgentModel(BaseModel):
                                 bearer_token=server.bearer_token,
                                 username=server.username,
                                 basic_auth_token=server.basic_auth_token,
+                                api_key=server.api_key,
                             )
                             for server in tool.mcpServers
                         ],
