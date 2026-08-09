@@ -39,6 +39,9 @@ class TestMcpSecretFieldNameOauth(unittest.TestCase):
 
 class TestMcpToolModelOauth(unittest.TestCase):
     def test_oauth_server_defaults_no_secret_arn(self):
+        # McpToolModel itself does NOT compute oauth_connected (that only
+        # happens in AgentModel.to_agent(), see below) -- constructing it
+        # directly must not touch Secrets Manager at all.
         tool = McpToolModel(
             tool_type="mcp",
             name="mcp",
@@ -55,39 +58,9 @@ class TestMcpToolModelOauth(unittest.TestCase):
         self.assertFalse(tool.mcpServers[0].oauth_connected)
 
     @patch("app.repositories.models.custom_bot.is_mcp_oauth_connected")
-    def test_oauth_connected_hydrated_from_secret(self, mock_is_connected):
-        mock_is_connected.return_value = True
-        tool = McpToolModel(
-            tool_type="mcp",
-            name="mcp",
-            description="d",
-            mcpServers=[
-                {
-                    "label": "atlassian",
-                    "endpoint_url": "https://mcp.atlassian.com/v1/mcp",
-                    "auth_type": McpAuthType.OAUTH,
-                }
-            ],
-            oauth_secret_arn="arn:aws:secretsmanager:...",
-        )
-        self.assertTrue(tool.mcpServers[0].oauth_connected)
-        mock_is_connected.assert_called_once_with(
-            "arn:aws:secretsmanager:...", "atlassian"
-        )
-
-    @patch("app.repositories.models.custom_bot.is_mcp_oauth_connected")
-    def test_to_agent_maps_oauth_connected(self, mock_is_connected):
-        # Regression note: the brief's original version of this test set
-        # `oauth_connected: True` directly in the input dict with no
-        # `oauth_secret_arn`. But `hydrate_oauth_connected_status` always
-        # recomputes `oauth_connected` from the real oauth secret (never
-        # trusting a pre-supplied value), so with no ARN it is legitimately
-        # recomputed to False via the real (unmocked)
-        # `is_mcp_oauth_connected(None, ...)` -- that version of the test
-        # failed for a reason unrelated to the `to_agent()` mapping it meant
-        # to check. Mocking `is_mcp_oauth_connected` and supplying an ARN
-        # here isolates the actual thing under test: that `to_agent()`'s
-        # `McpConfig(...)` call forwards `oauth_connected=server.oauth_connected`.
+    def test_to_agent_computes_oauth_connected_for_oauth_servers(
+        self, mock_is_connected
+    ):
         mock_is_connected.return_value = True
         tool = McpToolModel(
             tool_type="mcp",
@@ -105,7 +78,36 @@ class TestMcpToolModelOauth(unittest.TestCase):
         from app.repositories.models.custom_bot import AgentModel
 
         agent = AgentModel(tools=[tool]).to_agent()
+
         self.assertTrue(agent.tools[0].mcpServers[0].oauth_connected)  # type: ignore[union-attr]
+        mock_is_connected.assert_called_once_with(
+            "arn:aws:secretsmanager:...", "atlassian"
+        )
+
+    def test_to_agent_does_not_check_oauth_status_for_non_oauth_servers(self):
+        # Regression guard for the hot-path concern: a non-oauth server must
+        # never trigger is_mcp_oauth_connected (no Secrets Manager call).
+        tool = McpToolModel(
+            tool_type="mcp",
+            name="mcp",
+            description="d",
+            mcpServers=[
+                {
+                    "label": "svc",
+                    "endpoint_url": "https://example.com/mcp",
+                    "auth_type": McpAuthType.NONE,
+                }
+            ],
+        )
+        from app.repositories.models.custom_bot import AgentModel
+
+        with patch(
+            "app.repositories.models.custom_bot.is_mcp_oauth_connected"
+        ) as mock_is_connected:
+            agent = AgentModel(tools=[tool]).to_agent()
+
+        mock_is_connected.assert_not_called()
+        self.assertFalse(agent.tools[0].mcpServers[0].oauth_connected)  # type: ignore[union-attr]
 
 
 if __name__ == "__main__":

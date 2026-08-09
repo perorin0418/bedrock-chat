@@ -340,19 +340,6 @@ class McpToolModel(BaseModel):
     secret_arn: str | None = None
     oauth_secret_arn: str | None = None
 
-    @model_validator(mode="after")
-    def hydrate_oauth_connected_status(self) -> Self:
-        """For each `auth_type == oauth` server, set `oauth_connected` from
-        whether a token is stored in the oauth Secrets Manager entry. Runs
-        after normal field parsing/loading (unlike `load_mcp_secrets`, which
-        hydrates the 5 string-secret auth types before validation)."""
-        for server in self.mcpServers:
-            if server.auth_type == McpAuthType.OAUTH:
-                server.oauth_connected = is_mcp_oauth_connected(
-                    self.oauth_secret_arn, server.label
-                )
-        return self
-
     @model_validator(mode="before")
     @classmethod
     def load_mcp_secrets(cls, data):
@@ -532,7 +519,13 @@ class AgentModel(BaseModel):
                                 username=server.username,
                                 basic_auth_token=server.basic_auth_token,
                                 api_key=server.api_key,
-                                oauth_connected=server.oauth_connected,
+                                oauth_connected=(
+                                    is_mcp_oauth_connected(
+                                        tool.oauth_secret_arn, server.label
+                                    )
+                                    if server.auth_type == McpAuthType.OAUTH
+                                    else False
+                                ),
                             )
                             for server in tool.mcpServers
                         ],
