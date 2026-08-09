@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import secrets
@@ -12,6 +13,7 @@ from app.strands_integration.tools.mcp_oauth_flow import (
     exchange_code_for_tokens,
 )
 from app.strands_integration.tools.mcp_oauth_storage import SecretsManagerTokenStorage
+from app.utils import get_api_key_from_secret_manager, store_api_key_to_secret_manager
 from mcp.client.auth.oauth2 import PKCEParameters
 from mcp.shared.auth import OAuthClientInformationFull
 from app.user import User
@@ -153,4 +155,26 @@ def _client_info_from_state(state_item) -> OAuthClientInformationFull:
     return OAuthClientInformationFull(
         redirect_uris=[MCP_OAUTH_REDIRECT_URI],  # type: ignore[list-item]
         client_id=state_item.client_id,
+    )
+
+
+def disconnect_mcp_oauth(user: User, bot_id: str, label: str) -> None:
+    """Remove one MCP server's stored oauth client_info/tokens so it must be
+    reconnected (fresh DCR + consent) before it can be used again. The oauth
+    Secrets Manager entry itself (and other labels' data in it) is kept."""
+    bot = find_bot_by_id(bot_id)
+    if not bot.is_owned_by_user(user):
+        raise PermissionError(f"User {user.id} does not own bot {bot_id}")
+
+    tool, _ = _find_mcp_tool_and_server(bot, label)
+    if not tool.oauth_secret_arn:
+        return
+
+    blob = json.loads(get_api_key_from_secret_manager(tool.oauth_secret_arn) or "{}")
+    if label not in blob:
+        return
+
+    del blob[label]
+    store_api_key_to_secret_manager(
+        bot.owner_user_id, bot.id, "mcp-oauth", json.dumps(blob)
     )

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 sys.path.insert(0, ".")
 from app.usecases.mcp_oauth import (
     complete_mcp_oauth_callback,
+    disconnect_mcp_oauth,
     start_mcp_oauth_authorize,
 )
 from app.user import User
@@ -235,6 +236,48 @@ class TestCompleteMcpOauthCallback(unittest.TestCase):
         self.assertEqual(bot_id, "bot-1")
         self.assertEqual(label, "atlassian")
         self.assertFalse(succeeded)
+
+
+class TestDisconnectMcpOauth(unittest.TestCase):
+    @patch("app.usecases.mcp_oauth.store_api_key_to_secret_manager")
+    @patch("app.usecases.mcp_oauth.get_api_key_from_secret_manager")
+    @patch("app.usecases.mcp_oauth.find_bot_by_id")
+    def test_removes_only_target_label(self, mock_find_bot, mock_get, mock_store):
+        import json
+
+        bot, tool = _make_bot(oauth_secret_arn="arn:aws:secretsmanager:...")
+        mock_find_bot.return_value = bot
+        mock_get.return_value = json.dumps(
+            {
+                "atlassian": {"tokens": {"access_token": "a1"}},
+                "other_label": {"tokens": {"access_token": "a2"}},
+            }
+        )
+        user = User(id="user-1", name="n", email="e", groups=[])
+
+        disconnect_mcp_oauth(user, "bot-1", "atlassian")
+
+        stored_blob = json.loads(mock_store.call_args.args[3])
+        self.assertNotIn("atlassian", stored_blob)
+        self.assertIn("other_label", stored_blob)
+
+    @patch("app.usecases.mcp_oauth.find_bot_by_id")
+    def test_raises_when_not_owner(self, mock_find_bot):
+        bot, _ = _make_bot(oauth_secret_arn="arn:aws:secretsmanager:...")
+        bot.is_owned_by_user.return_value = False
+        mock_find_bot.return_value = bot
+        user = User(id="other-user", name="n", email="e", groups=[])
+
+        with self.assertRaises(PermissionError):
+            disconnect_mcp_oauth(user, "bot-1", "atlassian")
+
+    @patch("app.usecases.mcp_oauth.find_bot_by_id")
+    def test_noop_when_never_connected(self, mock_find_bot):
+        bot, _ = _make_bot(oauth_secret_arn=None)
+        mock_find_bot.return_value = bot
+        user = User(id="user-1", name="n", email="e", groups=[])
+
+        disconnect_mcp_oauth(user, "bot-1", "atlassian")  # must not raise
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ import os
 from app.routes.schemas.mcp_oauth import McpOauthAuthorizeOutput
 from app.usecases.mcp_oauth import (
     complete_mcp_oauth_callback,
+    disconnect_mcp_oauth,
     start_mcp_oauth_authorize,
 )
 from app.user import User
@@ -52,3 +53,10 @@ async def get_mcp_oauth_callback(
     return RedirectResponse(
         f"{FRONTEND_URL}/bot/edit/{bot_id}?mcpOauth={status}&label={label}"
     )
+
+
+@router.delete("/bot/{bot_id}/mcp-servers/{label}/oauth")
+def delete_mcp_oauth(request: Request, bot_id: str, label: str):
+    """Disconnect one MCP server's OAuth connection."""
+    current_user: User = request.state.current_user
+    disconnect_mcp_oauth(current_user, bot_id, label)
