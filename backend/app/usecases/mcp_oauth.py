@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 
@@ -14,6 +15,9 @@ from app.strands_integration.tools.mcp_oauth_storage import SecretsManagerTokenS
 from mcp.client.auth.oauth2 import PKCEParameters
 from mcp.shared.auth import OAuthClientInformationFull
 from app.user import User
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 MCP_OAUTH_REDIRECT_URI = os.environ.get("MCP_OAUTH_REDIRECT_URI", "")
 
@@ -96,6 +100,10 @@ async def complete_mcp_oauth_callback(
             redirect_uri=MCP_OAUTH_REDIRECT_URI,
         )
     except Exception:
+        logger.exception(
+            f"MCP OAuth token exchange failed for bot '{state_item.bot_id}' "
+            f"label '{state_item.label}'"
+        )
         return state_item.bot_id, state_item.label, False
 
     storage = SecretsManagerTokenStorage(
