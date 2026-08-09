@@ -24,7 +24,8 @@ export type McpAuthType =
   | 'cognito_client_credentials'
   | 'none'
   | 'bearer_token'
-  | 'basic_auth';
+  | 'basic_auth'
+  | 'api_key';
 
 export type McpConfig = {
   label: string;
@@ -35,6 +36,7 @@ export type McpConfig = {
   bearerToken?: string;
   username?: string;
   basicAuthToken?: string;
+  apiKey?: string;
 };
 
 export type InternetAgentTool = {

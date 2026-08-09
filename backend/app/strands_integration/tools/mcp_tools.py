@@ -89,8 +89,8 @@ def get_mcp_bearer_token(
 def _build_auth_headers(
     server: McpConfigModel, secret_arn: str | None
 ) -> dict[str, str]:
-    """Build the `Authorization` header (if any) for connecting to one MCP server,
-    based on that server's configured `auth_type`."""
+    """Build the authentication header(s) (if any) for connecting to one MCP
+    server, based on that server's configured `auth_type`."""
     if server.auth_type == McpAuthType.NONE:
         return {}
 
@@ -102,6 +102,9 @@ def _build_auth_headers(
             f"{server.username}:{server.basic_auth_token}".encode()
         ).decode()
         return {"Authorization": f"Basic {credentials}"}
+
+    if server.auth_type == McpAuthType.API_KEY:
+        return {"x-api-key": cast(str, server.api_key)}
 
     # McpAuthType.COGNITO_CLIENT_CREDENTIALS (existing behavior)
     token = get_mcp_bearer_token(

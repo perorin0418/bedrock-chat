@@ -620,6 +620,7 @@ const BotKbEditPage: React.FC = () => {
           none: [],
           bearer_token: ['bearerToken'],
           basic_auth: ['username', 'basicAuthToken'],
+          api_key: ['apiKey'],
         };
 
         const hasInvalidServer = tool.mcpServers.some(

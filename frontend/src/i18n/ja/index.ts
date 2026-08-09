@@ -298,6 +298,7 @@ const translation: typeof en = {
               none: '認証なし',
               bearer_token: 'Bearerトークン',
               basic_auth: 'Basic認証(ユーザー名+トークン)',
+              api_key: 'APIキー(x-api-key)',
             },
           },
           label: {
@@ -327,6 +328,10 @@ const translation: typeof en = {
           basicAuthToken: {
             label: 'トークン',
             placeholder: 'APIトークンを入力',
+          },
+          apiKey: {
+            label: 'APIキー',
+            placeholder: 'API Gatewayの使用量プラン等で発行されたAPIキーを入力',
           },
         },
       },

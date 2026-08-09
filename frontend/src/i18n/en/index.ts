@@ -297,6 +297,7 @@ const translation = {
               none: 'No authentication',
               bearer_token: 'Bearer token',
               basic_auth: 'Basic auth (username + token)',
+              api_key: 'API Key (x-api-key)',
             },
           },
           label: {
@@ -326,6 +327,11 @@ const translation = {
           basicAuthToken: {
             label: 'Token',
             placeholder: 'Enter the API token',
+          },
+          apiKey: {
+            label: 'API Key',
+            placeholder:
+              'Enter the API key (e.g. issued by an API Gateway usage plan)',
           },
         },
       },

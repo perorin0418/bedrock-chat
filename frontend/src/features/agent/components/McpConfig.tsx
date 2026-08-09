@@ -13,6 +13,7 @@ const AUTH_TYPES: McpAuthType[] = [
   'none',
   'bearer_token',
   'basic_auth',
+  'api_key',
 ];
 
 export const McpConfig = ({ config, onChange }: Props) => {
@@ -51,6 +52,7 @@ export const McpConfig = ({ config, onChange }: Props) => {
             bearerToken: undefined,
             username: undefined,
             basicAuthToken: undefined,
+            apiKey: undefined,
           })
         }
       />
@@ -96,6 +98,15 @@ export const McpConfig = ({ config, onChange }: Props) => {
             onChange={(value) => onChange({ ...config, basicAuthToken: value })}
           />
         </>
+      )}
+      {config.authType === 'api_key' && (
+        <InputText
+          type="password"
+          label={t('agent.tools.mcpConfig.apiKey.label')}
+          placeholder={t('agent.tools.mcpConfig.apiKey.placeholder')}
+          value={config.apiKey ?? ''}
+          onChange={(value) => onChange({ ...config, apiKey: value })}
+        />
       )}
     </div>
   );

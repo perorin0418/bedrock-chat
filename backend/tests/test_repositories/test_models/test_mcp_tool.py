@@ -190,6 +190,38 @@ class TestMcpToolModel(unittest.TestCase):
         )
 
     @patch("app.repositories.models.custom_bot.store_api_key_to_secret_manager")
+    def test_from_agent_input_stores_api_key_secret(self, mock_store):
+        mock_store.return_value = (
+            "arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/user1/bot1"
+        )
+
+        agent_input = AgentInput(
+            tools=[
+                McpTool(
+                    tool_type="mcp",
+                    name="mcp",
+                    description="MCP knowledge search",
+                    mcpServers=[
+                        McpConfig(
+                            label="gateway",
+                            endpoint_url="https://abc123.execute-api.ap-northeast-1.amazonaws.com/prod/mcp",
+                            auth_type="api_key",
+                            api_key="apigw-key-1",
+                        ),
+                    ],
+                )
+            ]
+        )
+
+        agent_model = AgentModel.from_agent_input(agent_input, "user1", "bot1")
+
+        tool = agent_model.tools[0]
+        self.assertEqual(tool.mcpServers[0].api_key, "apigw-key-1")
+        mock_store.assert_called_once_with(
+            "user1", "bot1", "mcp", json.dumps({"gateway": "apigw-key-1"})
+        )
+
+    @patch("app.repositories.models.custom_bot.store_api_key_to_secret_manager")
     def test_from_agent_input_none_auth_type_skips_secret_storage(self, mock_store):
         agent_input = AgentInput(
             tools=[
@@ -278,6 +310,33 @@ class TestMcpToolModel(unittest.TestCase):
 
         self.assertEqual(agent.tools[0].mcpServers[0].bearer_token, "rovo-token-1")
 
+    @patch("app.repositories.models.custom_bot.get_api_key_from_secret_manager")
+    def test_to_agent_round_trips_api_key(self, mock_get_secret):
+        mock_get_secret.return_value = json.dumps({"gateway": "apigw-key-1"})
+
+        agent_model = AgentModel(
+            tools=[
+                McpToolModel(
+                    tool_type="mcp",
+                    name="mcp",
+                    description="MCP knowledge search",
+                    secret_arn="arn:aws:secretsmanager:ap-northeast-1:111111111111:secret:mcp/user1/bot1",
+                    mcpServers=[
+                        McpConfigModel(
+                            label="gateway",
+                            endpoint_url="https://abc123.execute-api.ap-northeast-1.amazonaws.com/prod/mcp",
+                            auth_type="api_key",
+                            api_key="",
+                        ),
+                    ],
+                )
+            ]
+        )
+
+        agent = agent_model.to_agent()
+
+        self.assertEqual(agent.tools[0].mcpServers[0].api_key, "apigw-key-1")
+
     def test_to_agent_round_trips_none_auth_type_without_secret_lookup(self):
         agent_model = AgentModel(
             tools=[
@@ -330,6 +389,14 @@ class TestMcpToolModel(unittest.TestCase):
         )
         self.assertEqual(basic_model.model_dump()["basic_auth_token"], "")
         self.assertEqual(basic_model.model_dump()["username"], "me@example.com")
+
+        api_key_model = McpConfigModel(
+            label="gateway",
+            endpoint_url="https://abc123.execute-api.ap-northeast-1.amazonaws.com/prod/mcp",
+            auth_type="api_key",
+            api_key="do-not-leak-this-key",
+        )
+        self.assertEqual(api_key_model.model_dump()["api_key"], "")
 
 
 if __name__ == "__main__":
