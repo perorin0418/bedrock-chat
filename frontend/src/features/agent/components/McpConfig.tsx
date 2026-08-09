@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import InputText from '../../../components/InputText';
 import Select from '../../../components/Select';
+import Button from '../../../components/Button';
+import useBotApi from '../../../hooks/useBotApi';
+import useSnackbar from '../../../hooks/useSnackbar';
 import { McpAuthType, McpConfig as McpConfigType } from '../types';
 
 type Props = {
   config: McpConfigType;
   onChange: (config: McpConfigType) => void;
+  botId: string;
+  isNewBot: boolean;
 };
 
 const AUTH_TYPES: McpAuthType[] = [
@@ -14,15 +20,37 @@ const AUTH_TYPES: McpAuthType[] = [
   'bearer_token',
   'basic_auth',
   'api_key',
+  'oauth',
 ];
 
-export const McpConfig = ({ config, onChange }: Props) => {
+export const McpConfig = ({ config, onChange, botId, isNewBot }: Props) => {
   const { t } = useTranslation();
+  const { postMcpOauthAuthorize, deleteMcpOauth } = useBotApi();
+  const snackbar = useSnackbar();
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const authTypeOptions = AUTH_TYPES.map((authType) => ({
     value: authType,
     label: t(`agent.tools.mcpConfig.authType.options.${authType}`),
   }));
+
+  const handleConnect = () => {
+    setIsConnecting(true);
+    postMcpOauthAuthorize(botId, config.label)
+      .then(({ authorizationUrl }) => {
+        window.location.href = authorizationUrl;
+      })
+      .catch(() => {
+        snackbar.open(t('agent.tools.mcpConfig.oauth.connectError'));
+        setIsConnecting(false);
+      });
+  };
+
+  const handleDisconnect = () => {
+    deleteMcpOauth(botId, config.label).then(() =>
+      onChange({ ...config, oauthConnected: false })
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -107,6 +135,28 @@ export const McpConfig = ({ config, onChange }: Props) => {
           value={config.apiKey ?? ''}
           onChange={(value) => onChange({ ...config, apiKey: value })}
         />
+      )}
+      {config.authType === 'oauth' && (
+        <div className="flex items-center gap-2">
+          {isNewBot ? (
+            <div className="text-sm text-aws-font-color-gray">
+              {t('agent.tools.mcpConfig.oauth.saveFirst')}
+            </div>
+          ) : config.oauthConnected ? (
+            <>
+              <span className="text-sm text-green-700">
+                {t('agent.tools.mcpConfig.oauth.connected')}
+              </span>
+              <Button outlined onClick={handleDisconnect}>
+                {t('agent.tools.mcpConfig.oauth.disconnect')}
+              </Button>
+            </>
+          ) : (
+            <Button outlined loading={isConnecting} onClick={handleConnect}>
+              {t('agent.tools.mcpConfig.oauth.connect')}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

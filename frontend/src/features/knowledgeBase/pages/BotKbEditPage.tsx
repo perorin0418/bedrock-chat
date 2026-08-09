@@ -64,6 +64,7 @@ import {
 } from '../types';
 import { toCamelCase } from '../../../utils/StringUtils';
 import useGlobalConfig from '../../../hooks/useGlobalConfig';
+import useSnackbar from '../../../hooks/useSnackbar';
 
 const edgeGenerationParams = EDGE_GENERATION_PARAMS;
 
@@ -77,6 +78,20 @@ const BotKbEditPage: React.FC = () => {
   const { availableTools } = useAgent();
   const { getGlobalConfig } = useGlobalConfig();
   const { data: globalConfig } = getGlobalConfig();
+  const snackbar = useSnackbar();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mcpOauth = params.get('mcpOauth');
+    if (mcpOauth === 'success') {
+      snackbar.open(t('agent.tools.mcpConfig.oauth.connected'));
+      navigate(`/bot/edit/${paramsBotId}`, { replace: true });
+    } else if (mcpOauth === 'error') {
+      snackbar.open(t('agent.tools.mcpConfig.oauth.connectError'));
+      navigate(`/bot/edit/${paramsBotId}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -1268,6 +1283,8 @@ const BotKbEditPage: React.FC = () => {
                 tools={tools}
                 setTools={setTools}
                 errorMessages={errorMessages}
+                botId={botId}
+                isNewBot={isNewBot}
               />
 
               <div className="mt-3">
