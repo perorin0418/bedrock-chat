@@ -17,6 +17,7 @@ from app.config import DEFAULT_GENERATION_CONFIG
 from app.repositories.models.common import DynamicBaseModel, Float, SecureString
 from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
 from app.repositories.models.custom_bot_kb import BedrockKnowledgeBaseModel
+from app.repositories.models.mcp_oauth_secret import is_mcp_oauth_connected
 from app.routes.schemas.bot import (
     ActiveModelsOutput,
     Agent,
@@ -295,6 +296,7 @@ def _mcp_secret_field_name(auth_type: McpAuthType) -> str | None:
         McpAuthType.BASIC_AUTH: "basic_auth_token",
         McpAuthType.API_KEY: "api_key",
         McpAuthType.NONE: None,
+        McpAuthType.OAUTH: None,
     }[auth_type]
 
 
@@ -308,6 +310,7 @@ class McpConfigModel(BaseModel):
     username: str | None = None
     basic_auth_token: SecureString | None = Field(None, repr=False)
     api_key: SecureString | None = Field(None, repr=False)
+    oauth_connected: bool = False
 
     @classmethod
     def from_mcp_config(cls, config: McpConfig) -> Self:
@@ -335,6 +338,20 @@ class McpToolModel(BaseModel):
     description: str
     mcpServers: list[McpConfigModel] = []
     secret_arn: str | None = None
+    oauth_secret_arn: str | None = None
+
+    @model_validator(mode="after")
+    def hydrate_oauth_connected_status(self) -> Self:
+        """For each `auth_type == oauth` server, set `oauth_connected` from
+        whether a token is stored in the oauth Secrets Manager entry. Runs
+        after normal field parsing/loading (unlike `load_mcp_secrets`, which
+        hydrates the 5 string-secret auth types before validation)."""
+        for server in self.mcpServers:
+            if server.auth_type == McpAuthType.OAUTH:
+                server.oauth_connected = is_mcp_oauth_connected(
+                    self.oauth_secret_arn, server.label
+                )
+        return self
 
     @model_validator(mode="before")
     @classmethod
@@ -515,6 +532,7 @@ class AgentModel(BaseModel):
                                 username=server.username,
                                 basic_auth_token=server.basic_auth_token,
                                 api_key=server.api_key,
+                                oauth_connected=server.oauth_connected,
                             )
                             for server in tool.mcpServers
                         ],
