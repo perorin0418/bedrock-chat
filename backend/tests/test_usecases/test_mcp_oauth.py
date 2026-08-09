@@ -2,6 +2,8 @@ import sys
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from botocore.exceptions import ClientError
+
 sys.path.insert(0, ".")
 from app.usecases.mcp_oauth import (
     complete_mcp_oauth_callback,
@@ -10,6 +12,13 @@ from app.usecases.mcp_oauth import (
 )
 from app.user import User
 from mcp.shared.auth import OAuthClientInformationFull, OAuthMetadata
+
+
+def _client_error(code: str) -> ClientError:
+    return ClientError(
+        error_response={"Error": {"Code": code, "Message": f"{code} occurred"}},
+        operation_name="GetSecretValue",
+    )
 
 
 def _make_bot(auth_type="oauth"):
@@ -104,6 +113,49 @@ class TestStartMcpOauthAuthorize(unittest.TestCase):
         # offline_access must be requested so a refresh_token is issued.
         build_url_kwargs = mock_build_url.call_args.kwargs
         self.assertEqual(build_url_kwargs["scope"], "offline_access")
+
+    @patch("app.usecases.mcp_oauth.SecretsManagerTokenStorage")
+    @patch("app.usecases.mcp_oauth.save_mcp_oauth_state")
+    @patch("app.usecases.mcp_oauth.build_authorization_url")
+    @patch("app.usecases.mcp_oauth.discover_and_register", new_callable=AsyncMock)
+    @patch("app.usecases.mcp_oauth.find_bot_by_id")
+    def test_offline_access_is_added_without_dropping_registered_scope(
+        self,
+        mock_find_bot,
+        mock_discover,
+        mock_build_url,
+        mock_save_state,
+        mock_storage_cls,
+    ):
+        # A provider-granted scope from DCR (e.g. Atlassian's
+        # `read:jira-work`) must survive alongside `offline_access`, not be
+        # replaced by it -- otherwise the resulting token would have no
+        # usable API scope at all.
+        bot, _ = _make_bot()
+        mock_find_bot.return_value = bot
+        metadata = OAuthMetadata(
+            issuer="https://auth.atlassian.com",
+            authorization_endpoint="https://auth.atlassian.com/authorize",
+            token_endpoint="https://auth.atlassian.com/oauth/token",
+        )
+        client_info = OAuthClientInformationFull(
+            redirect_uris=["https://api.example.com/mcp/oauth/callback"],
+            client_id="client-1",
+            scope="read:jira-work offline_access",
+        )
+        mock_discover.return_value = (metadata, client_info)
+        mock_build_url.return_value = "https://auth.atlassian.com/authorize?..."
+        mock_storage = MagicMock()
+        mock_storage.set_client_info = AsyncMock()
+        mock_storage_cls.return_value = mock_storage
+        user = User(id="user-1", name="n", email="e", groups=[])
+
+        import asyncio
+
+        asyncio.run(start_mcp_oauth_authorize(user, "bot-1", "atlassian"))
+
+        build_url_kwargs = mock_build_url.call_args.kwargs
+        self.assertEqual(build_url_kwargs["scope"], "read:jira-work offline_access")
 
     @patch("app.usecases.mcp_oauth.find_bot_by_id")
     def test_raises_when_label_not_oauth(self, mock_find_bot):
@@ -341,10 +393,30 @@ class TestDisconnectMcpOauth(unittest.TestCase):
     def test_noop_when_never_connected(self, mock_find_bot, mock_get, mock_store):
         bot, _ = _make_bot()
         mock_find_bot.return_value = bot
-        mock_get.side_effect = Exception("secret not found")
+        mock_get.side_effect = _client_error("ResourceNotFoundException")
         user = User(id="user-1", name="n", email="e", groups=[])
 
         disconnect_mcp_oauth(user, "bot-1", "atlassian")  # must not raise
+
+        mock_store.assert_not_called()
+
+    @patch("app.usecases.mcp_oauth.store_api_key_to_secret_manager")
+    @patch("app.usecases.mcp_oauth.get_api_key_from_secret_manager")
+    @patch("app.usecases.mcp_oauth.find_bot_by_id")
+    def test_raises_on_transient_secrets_manager_error(
+        self, mock_find_bot, mock_get, mock_store
+    ):
+        # A real/transient Secrets Manager error (throttling, permissions,
+        # ...) must not be silently treated as "never connected" -- doing
+        # so would report a successful disconnect while the connection (and
+        # its refresh token) is still live.
+        bot, _ = _make_bot()
+        mock_find_bot.return_value = bot
+        mock_get.side_effect = _client_error("ThrottlingException")
+        user = User(id="user-1", name="n", email="e", groups=[])
+
+        with self.assertRaises(ClientError):
+            disconnect_mcp_oauth(user, "bot-1", "atlassian")
 
         mock_store.assert_not_called()
 

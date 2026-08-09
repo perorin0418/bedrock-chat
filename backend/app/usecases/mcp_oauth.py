@@ -3,6 +3,8 @@ import logging
 import os
 import secrets
 
+from botocore.exceptions import ClientError
+
 from app.repositories.custom_bot import find_bot_by_id
 from app.repositories.mcp_oauth_state import pop_mcp_oauth_state, save_mcp_oauth_state
 from app.repositories.models.custom_bot import BotModel
@@ -45,7 +47,7 @@ async def start_mcp_oauth_authorize(user: User, bot_id: str, label: str) -> str:
     if not bot.is_owned_by_user(user):
         raise PermissionError(f"User {user.id} does not own bot {bot_id}")
 
-    tool, server = _find_mcp_tool_and_server(bot, label)
+    _tool, server = _find_mcp_tool_and_server(bot, label)
     if server.auth_type != McpAuthType.OAUTH:
         raise ValueError(f"MCP server '{label}' auth_type is not 'oauth'")
 
@@ -64,13 +66,23 @@ async def start_mcp_oauth_authorize(user: User, bot_id: str, label: str) -> str:
     pkce = PKCEParameters.generate()
     state = secrets.token_urlsafe(32)
 
+    # Augment (never replace) whatever scope DCR's client_info already
+    # carries -- dropping a provider-granted scope (e.g. Atlassian's
+    # `read:jira-work`) here would trade a ~1h token expiry for a token
+    # with no usable API scope at all.
+    requested_scope = " ".join(
+        dict.fromkeys(
+            filter(None, (client_info.scope or "").split() + [MCP_OAUTH_SCOPE])
+        )
+    )
+
     authorization_url = build_authorization_url(
         oauth_metadata,
         client_info,
         redirect_uri=MCP_OAUTH_REDIRECT_URI,
         code_challenge=pkce.code_challenge,
         state=state,
-        scope=MCP_OAUTH_SCOPE,
+        scope=requested_scope,
     )
 
     save_mcp_oauth_state(
@@ -165,9 +177,11 @@ def disconnect_mcp_oauth(user: User, bot_id: str, label: str) -> None:
     secret_name = f"mcp-oauth/{bot.owner_user_id}/{bot.id}"
     try:
         raw = get_api_key_from_secret_manager(secret_name)
-    except Exception:
-        # Never connected / secret doesn't exist yet: nothing to disconnect.
-        return
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            # Never connected / secret doesn't exist yet: nothing to disconnect.
+            return
+        raise
 
     blob = json.loads(raw or "{}")
     if label not in blob:
