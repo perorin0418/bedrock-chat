@@ -25,7 +25,8 @@ export type McpAuthType =
   | 'none'
   | 'bearer_token'
   | 'basic_auth'
-  | 'api_key';
+  | 'api_key'
+  | 'oauth';
 
 export type McpConfig = {
   label: string;
@@ -37,6 +38,7 @@ export type McpConfig = {
   username?: string;
   basicAuthToken?: string;
   apiKey?: string;
+  oauthConnected?: boolean;
 };
 
 export type InternetAgentTool = {

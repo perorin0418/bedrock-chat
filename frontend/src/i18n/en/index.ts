@@ -298,7 +298,15 @@ const translation = {
               bearer_token: 'Bearer token',
               basic_auth: 'Basic auth (username + token)',
               api_key: 'API Key (x-api-key)',
+              oauth: 'OAuth 2.1 (Browser Authorization)',
             },
+          },
+          oauth: {
+            connect: 'Connect to Atlassian',
+            disconnect: 'Disconnect',
+            connected: 'Connected',
+            saveFirst: 'Save the bot first',
+            connectError: 'Failed to start the OAuth connection.',
           },
           label: {
             label: 'Server Label',
