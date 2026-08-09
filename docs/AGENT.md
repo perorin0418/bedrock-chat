@@ -176,7 +176,7 @@ All Strands tools must return a dictionary with the following structure:
 
 ## MCPサーバーの登録(bot単位)
 
-bot作成/編集画面の「MCPサーバー」ツールで、外部のMCPサーバーを登録できる。サーバーごとに以下4つの認証方式から選択する:
+bot作成/編集画面の「MCPサーバー」ツールで、外部のMCPサーバーを登録できる。サーバーごとに以下5つの認証方式から選択する:
 
 | 認証方式 | 用途 | 必要な入力項目 |
 |---|---|---|
@@ -184,6 +184,7 @@ bot作成/編集画面の「MCPサーバー」ツールで、外部のMCPサー�
 | 認証なし | 認証を要求しない公開MCPサーバーに接続する | (URLのみ) |
 | Bearerトークン | 固定トークンを`Authorization: Bearer <token>`で送るMCPサーバーに接続する | トークン |
 | Basic認証(ユーザー名+トークン) | `Authorization: Basic <base64>`を要求するMCPサーバーに接続する | ユーザー名, トークン |
+| APIキー(x-api-key) | Amazon API Gatewayのネイティブ「APIキー必須」機能等、`x-api-key`ヘッダーでAPIキーを要求するMCPサーバーに接続する | APIキー |
 
 ### 例: Atlassian Rovo MCP Serverを登録する
 
