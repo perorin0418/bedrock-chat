@@ -27,6 +27,7 @@ import { DEFAULT_FIRECRAWL_CONFIG } from '../constants';
 type Props = {
   availableTools: AgentTool[] | undefined;
   tools: AgentTool[];
+  savedTools?: AgentTool[];
   setTools: Dispatch<React.SetStateAction<AgentTool[]>>;
   errorMessages?: Record<string, string>;
   botId: string;
@@ -36,6 +37,7 @@ type Props = {
 export const AvailableTools = ({
   availableTools,
   tools,
+  savedTools = [],
   setTools,
   errorMessages,
   botId,
@@ -366,6 +368,11 @@ export const AvailableTools = ({
                   <McpServersConfig
                     servers={
                       tools.find(
+                        (t): t is McpAgentTool => t.name === 'mcp' && isMcpTool(t)
+                      )?.mcpServers || []
+                    }
+                    savedServers={
+                      savedTools.find(
                         (t): t is McpAgentTool => t.name === 'mcp' && isMcpTool(t)
                       )?.mcpServers || []
                     }

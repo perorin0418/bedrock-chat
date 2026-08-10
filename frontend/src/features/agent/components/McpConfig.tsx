@@ -9,6 +9,7 @@ import { McpAuthType, McpConfig as McpConfigType } from '../types';
 
 type Props = {
   config: McpConfigType;
+  savedConfig?: McpConfigType;
   onChange: (config: McpConfigType) => void;
   botId: string;
   isNewBot: boolean;
@@ -23,7 +24,13 @@ const AUTH_TYPES: McpAuthType[] = [
   'oauth',
 ];
 
-export const McpConfig = ({ config, onChange, botId, isNewBot }: Props) => {
+export const McpConfig = ({
+  config,
+  savedConfig,
+  onChange,
+  botId,
+  isNewBot,
+}: Props) => {
   const { t } = useTranslation();
   const { postMcpOauthAuthorize, deleteMcpOauth } = useBotApi();
   const snackbar = useSnackbar();
@@ -138,7 +145,7 @@ export const McpConfig = ({ config, onChange, botId, isNewBot }: Props) => {
       )}
       {config.authType === 'oauth' && (
         <div className="flex items-center gap-2">
-          {isNewBot ? (
+          {isNewBot || savedConfig?.authType !== 'oauth' ? (
             <div className="text-sm text-aws-font-color-gray">
               {t('agent.tools.mcpConfig.oauth.saveFirst')}
             </div>
