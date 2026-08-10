@@ -6,6 +6,7 @@ import Alert from '../../../components/Alert';
 
 type Props = {
   servers: McpConfigType[];
+  savedServers: McpConfigType[];
   onChange: (servers: McpConfigType[]) => void;
   errorMessage?: string;
   botId: string;
@@ -20,6 +21,7 @@ const EMPTY_SERVER: McpConfigType = {
 
 export const McpServersConfig = ({
   servers,
+  savedServers,
   onChange,
   errorMessage,
   botId,
@@ -53,6 +55,7 @@ export const McpServersConfig = ({
           <div className="flex-1">
             <McpConfigComponent
               config={server}
+              savedConfig={savedServers[index]}
               onChange={(config) => handleServerChange(index, config)}
               botId={botId}
               isNewBot={isNewBot}

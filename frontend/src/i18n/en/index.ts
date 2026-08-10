@@ -302,7 +302,7 @@ const translation = {
             },
           },
           oauth: {
-            connect: 'Connect to Atlassian',
+            connect: 'Connect',
             disconnect: 'Disconnect',
             connected: 'Connected',
             saveFirst: 'Save the bot first',

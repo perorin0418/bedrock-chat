@@ -130,6 +130,12 @@ const BotKbEditPage: React.FC = () => {
   );
   const [promptCachingEnabled, setPromptCachingEnabled] = useState<boolean>(false);
   const [tools, setTools] = useState<AgentTool[]>([]);
+  // Snapshot of the tools as last returned by the backend -- used to tell
+  // whether an in-progress edit (e.g. switching an MCP server's authType to
+  // 'oauth') has actually been saved yet. A successful create/update always
+  // navigates away from this page, so this never needs to be refreshed
+  // mid-session.
+  const [savedTools, setSavedTools] = useState<AgentTool[]>([]);
   const [conversationQuickStarters, setConversationQuickStarters] = useState<
     ConversationQuickStarter[]
   >([
@@ -307,6 +313,7 @@ const BotKbEditPage: React.FC = () => {
       getMyBot(botId)
         .then((bot) => {
           setTools(bot.agent.tools);
+          setSavedTools(bot.agent.tools);
           setTitle(bot.title);
           setDescription(bot.description);
           setInstruction(bot.instruction);
@@ -1291,6 +1298,7 @@ const BotKbEditPage: React.FC = () => {
               <AvailableTools
                 availableTools={availableTools}
                 tools={tools}
+                savedTools={savedTools}
                 setTools={setTools}
                 errorMessages={errorMessages}
                 botId={botId}

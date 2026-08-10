@@ -303,7 +303,7 @@ const translation: typeof en = {
             },
           },
           oauth: {
-            connect: 'Atlassianに接続',
+            connect: '接続',
             disconnect: '切断',
             connected: '接続済み',
             saveFirst: '先にボットを保存してください',
