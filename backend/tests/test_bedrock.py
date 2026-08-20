@@ -150,8 +150,16 @@ class TestGrokModelId(unittest.TestCase):
             "global.xai.grok-4.6",
         )
 
-    def test_grok_uses_geo_profile_when_global_disabled(self):
-        # US regions support the geo (us.) profile as well.
+    def test_grok_ignores_geo_profile_and_stays_global(self):
+        # us-west-2 supports a geo (us.) profile for grok-4.6 too — AWS
+        # confirms `us.xai.grok-4.6` is ACTIVE there — but Grok deliberately
+        # never uses it, even when cross-region is enabled and a geo profile
+        # would otherwise be picked. PROFILE_REQUIRED_MODELS forces the global
+        # profile unconditionally so that billing (calculate_price, which
+        # keys off deployment region, not the resolved profile) always maps
+        # to the single `default`/global BEDROCK_PRICING entry. If this
+        # assertion ever starts failing because someone "fixed" the ordering
+        # back, that is the regression this test exists to catch.
         self.assertEqual(
             get_model_id(
                 "grok-4.6",
@@ -159,7 +167,7 @@ class TestGrokModelId(unittest.TestCase):
                 enable_cross_region=True,
                 bedrock_region="us-west-2",
             ),
-            "us.xai.grok-4.6",
+            "global.xai.grok-4.6",
         )
 
     def test_grok_forces_global_profile_when_both_flags_disabled(self):

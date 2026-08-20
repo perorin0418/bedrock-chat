@@ -751,7 +751,7 @@ PROFILE_REQUIRED_MODELS: set[type_model_name] = {"grok-4.6"}
 # depth is configurable via the model-specific `reasoning.effort` field.
 # Accepted values: "low", "medium", "high", "xhigh". "low" matches the
 # Bedrock-side default.
-GROK_REASONING_EFFORT = "low"
+GROK_REASONING_EFFORT: Literal["low", "medium", "high", "xhigh"] = "low"
 
 client = get_bedrock_runtime_client()
 
@@ -789,7 +789,19 @@ def is_gpt_oss_model(model: type_model_name) -> bool:
 
 
 def is_grok_model(model: type_model_name) -> bool:
-    """Check if the model is an xAI Grok model"""
+    """Check if the model is an xAI Grok model.
+
+    This substring match auto-routes any future Grok key into
+    `_prepare_grok_model_params` for free. `PROFILE_REQUIRED_MODELS` and the
+    four sampling-support exclusion lists below (`is_top_k_supported`,
+    `is_top_p_supported`, `is_temperature_supported`,
+    `is_specify_both_temperature_and_top_p_supported`) are NOT keyed off this
+    helper — each is a per-model-key list that a new Grok entry must be added
+    to explicitly, or it will silently keep the wrong sampling/throughput
+    behavior. This asymmetry is easy to miss and will cost someone a
+    debugging session if a new Grok model is added without updating those
+    lists too.
+    """
     return "grok" in model
 
 
@@ -1703,30 +1715,19 @@ def get_model_id(
     if not base_model_id:
         raise ValueError(f"Unsupported model: {model}")
 
-    # 1. First, try to use global inference profile if enabled and available
-    if enable_global:
-        global_profile_id = get_global_inference_profile_id(model, bedrock_region)
-        if global_profile_id:
-            logger.info(
-                f"Using global inference profile: {global_profile_id} for model '{model}'"
-            )
-            return global_profile_id
-
-    # 2. Fallback to regional cross-region inference profile if enabled and available
-    if enable_cross_region:
-        regional_profile_id = get_regional_inference_profile_id(model, bedrock_region)
-        if regional_profile_id:
-            logger.info(
-                f"Using regional cross-region model ID: {regional_profile_id} for model '{model}' in region '{bedrock_region}'"
-            )
-            return regional_profile_id
-        else:
-            logger.warning(
-                f"Region '{bedrock_region}' does not support cross-region inference for model '{model}'."
-            )
-
-    # 3. Some models cannot be invoked with on-demand throughput, so falling
-    #    back to the bare model ID would always fail. Force the global profile.
+    # 1. Some models cannot be invoked with on-demand throughput, so falling back
+    #    to the bare model ID would always fail. Force the global profile for
+    #    these, unconditionally and ahead of both the enable_global check below
+    #    and the cross-region attempt that follows it — deliberately with no
+    #    geo-profile fallback of its own, even in regions where one exists.
+    #    `calculate_price` (see below) keys pricing purely off the deployment
+    #    region, not off which profile actually served the request, and
+    #    BEDROCK_PRICING carries only a single `default` entry for these
+    #    models. Global is the only profile these models may resolve to, so
+    #    that single pricing entry stays unambiguous; if a geo fallback were
+    #    added here, a second possible profile would reintroduce exactly the
+    #    "which profile did we bill for?" ambiguity this ordering exists to
+    #    remove. Do not "fix" this back to a fallback.
     if model in PROFILE_REQUIRED_MODELS:
         forced_profile_id = get_global_inference_profile_id(model, bedrock_region)
         if forced_profile_id:
@@ -1740,6 +1741,28 @@ def get_model_id(
             f"Model '{model}' requires an inference profile, but region "
             f"'{bedrock_region}' has no global inference profile for it."
         )
+
+    # 2. Next, try to use global inference profile if enabled and available
+    if enable_global:
+        global_profile_id = get_global_inference_profile_id(model, bedrock_region)
+        if global_profile_id:
+            logger.info(
+                f"Using global inference profile: {global_profile_id} for model '{model}'"
+            )
+            return global_profile_id
+
+    # 3. Fallback to regional cross-region inference profile if enabled and available
+    if enable_cross_region:
+        regional_profile_id = get_regional_inference_profile_id(model, bedrock_region)
+        if regional_profile_id:
+            logger.info(
+                f"Using regional cross-region model ID: {regional_profile_id} for model '{model}' in region '{bedrock_region}'"
+            )
+            return regional_profile_id
+        else:
+            logger.warning(
+                f"Region '{bedrock_region}' does not support cross-region inference for model '{model}'."
+            )
 
     # 4. Use standalone model (no global or cross-region inference)
     logger.info(f"Using local model ID: {base_model_id} for model '{model}'")
