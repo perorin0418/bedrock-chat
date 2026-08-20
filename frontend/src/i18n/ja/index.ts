@@ -195,6 +195,11 @@ const translation: typeof en = {
         description:
           '128Kコンテキストウィンドウと高度な推論機能を持つオープンウェイト120Bパラメータモデル',
       },
+      'grok-4.6': {
+        label: 'Grok 4.6',
+        description:
+          '500Kトークンコンテキストウィンドウを持つxAIのフロンティアモデル。コーディングと長時間動作するエージェントタスク向けに構築。',
+      },
     },
     agent: {
       label: 'エージェント',
