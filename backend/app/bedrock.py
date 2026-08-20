@@ -91,6 +91,10 @@ BASE_MODEL_IDS = {
     # OpenAI GPT-OSS models
     "gpt-oss-20b": "openai.gpt-oss-20b-1:0",
     "gpt-oss-120b": "openai.gpt-oss-120b-1:0",
+    # xAI models
+    # NOTE: This bare ID cannot be invoked directly — Grok does not support
+    # on-demand throughput. See PROFILE_REQUIRED_MODELS below.
+    "grok-4.6": "xai.grok-4.6",
 }
 
 # Global inference profiles
@@ -376,6 +380,42 @@ GLOBAL_INFERENCE_PROFILES = {
             "ap-northeast-3",
             "ap-northeast-2",
             "ap-northeast-1",
+        ]
+    },
+    "grok-4.6": {
+        "supported_regions": [
+            "us-west-2",
+            "us-west-1",
+            "us-east-2",
+            "us-east-1",
+            "sa-east-1",
+            "me-south-1",
+            "me-central-1",
+            "il-central-1",
+            "eu-west-3",
+            "eu-west-2",
+            "eu-west-1",
+            "eu-south-2",
+            "eu-south-1",
+            "eu-north-1",
+            "eu-central-2",
+            "eu-central-1",
+            "ca-west-1",
+            "ca-central-1",
+            "ap-southeast-7",
+            "ap-southeast-6",
+            "ap-southeast-5",
+            "ap-southeast-4",
+            "ap-southeast-3",
+            "ap-southeast-2",
+            "ap-southeast-1",
+            "ap-south-2",
+            "ap-south-1",
+            "ap-northeast-3",
+            "ap-northeast-2",
+            "ap-northeast-1",
+            "ap-east-2",
+            "af-south-1",
         ]
     },
 }
@@ -692,7 +732,26 @@ REGIONAL_INFERENCE_PROFILES = {
     "llama3-2-90b-instruct": {
         "supported_regions": {"us-east-1": "us", "us-east-2": "us", "us-west-2": "us"}
     },
+    "grok-4.6": {
+        "supported_regions": {
+            "us-east-1": "us",
+            "us-east-2": "us",
+            "us-west-1": "us",
+            "us-west-2": "us",
+        }
+    },
 }
+
+# Models that cannot be invoked with on-demand throughput. These must always be
+# called through an inference profile, regardless of the
+# ENABLE_BEDROCK_GLOBAL_INFERENCE / ENABLE_BEDROCK_CROSS_REGION_INFERENCE flags.
+PROFILE_REQUIRED_MODELS: set[type_model_name] = {"grok-4.6"}
+
+# Default reasoning effort for xAI Grok models. Grok always reasons; only the
+# depth is configurable via the model-specific `reasoning.effort` field.
+# Accepted values: "low", "medium", "high", "xhigh". "low" matches the
+# Bedrock-side default.
+GROK_REASONING_EFFORT: Literal["low", "medium", "high", "xhigh"] = "low"
 
 client = get_bedrock_runtime_client()
 
@@ -727,6 +786,23 @@ def is_mistral(model: type_model_name) -> bool:
 def is_gpt_oss_model(model: type_model_name) -> bool:
     """Check if the model is an OpenAI GPT-OSS model"""
     return "gpt-oss" in model
+
+
+def is_grok_model(model: type_model_name) -> bool:
+    """Check if the model is an xAI Grok model.
+
+    This substring match auto-routes any future Grok key into
+    `_prepare_grok_model_params` for free. `PROFILE_REQUIRED_MODELS` and the
+    four sampling-support exclusion lists below (`is_top_k_supported`,
+    `is_top_p_supported`, `is_temperature_supported`,
+    `is_specify_both_temperature_and_top_p_supported`) are NOT keyed off this
+    helper — each is a per-model-key list that a new Grok entry must be added
+    to explicitly, or it will silently keep the wrong sampling/throughput
+    behavior. This asymmetry is easy to miss and will cost someone a
+    debugging session if a new Grok model is added without updating those
+    lists too.
+    """
+    return "grok" in model
 
 
 def is_tooluse_supported(model: type_model_name) -> bool:
@@ -775,36 +851,43 @@ def is_specify_both_temperature_and_top_p_supported(model: type_model_name) -> b
         "claude-v5-sonnet",
         "claude-v4.5-haiku",
         "claude-v5-fable",
+        "grok-4.6",
     ]
 
 
 def is_top_k_supported(model: type_model_name) -> bool:
-    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate top_k."""
+    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate top_k.
+    xAI Grok does not support top_k either."""
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
         "claude-v5-sonnet",
         "claude-v5-fable",
+        "grok-4.6",
     ]
 
 
 def is_top_p_supported(model: type_model_name) -> bool:
-    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate top_p."""
+    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate top_p.
+    xAI Grok rejects topP outright."""
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
         "claude-v5-sonnet",
         "claude-v5-fable",
+        "grok-4.6",
     ]
 
 
 def is_temperature_supported(model: type_model_name) -> bool:
-    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate temperature."""
+    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate temperature.
+    xAI Grok rejects temperature outright."""
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
         "claude-v5-sonnet",
         "claude-v5-fable",
+        "grok-4.6",
     ]
 
 
@@ -1011,6 +1094,32 @@ def _prepare_gpt_oss_model_params(
 
     return {
         "inferenceConfig": inference_config,
+    }
+
+
+def _prepare_grok_model_params(
+    model: type_model_name, generation_params: Optional[GenerationParamsModel] = None
+) -> ConverseConfiguration:
+    """
+    Prepare inference configuration for xAI Grok models.
+
+    Grok rejects temperature, topP and stopSequences outright, so only maxTokens
+    is passed. Reasoning is always active and its depth is controlled through
+    the model-specific `reasoning.effort` field.
+    """
+    inference_config: InferenceConfiguration = {
+        "maxTokens": (
+            generation_params.max_tokens
+            if generation_params
+            else DEFAULT_GENERATION_CONFIG["max_tokens"]
+        ),
+    }
+
+    return {
+        "inferenceConfig": inference_config,
+        "additionalModelRequestFields": {
+            "reasoning": {"effort": GROK_REASONING_EFFORT},
+        },
     }
 
 
@@ -1222,6 +1331,10 @@ def generation_params_to_converse_configuration(
     elif is_gpt_oss_model(model):
         # Special handling for GPT-OSS models
         converse_configuration = _prepare_gpt_oss_model_params(model, generation_params)
+
+    elif is_grok_model(model):
+        # Special handling for xAI Grok models
+        converse_configuration = _prepare_grok_model_params(model, generation_params)
 
     else:
         # Standard handling for non-Nova models
@@ -1602,7 +1715,34 @@ def get_model_id(
     if not base_model_id:
         raise ValueError(f"Unsupported model: {model}")
 
-    # 1. First, try to use global inference profile if enabled and available
+    # 1. Some models cannot be invoked with on-demand throughput, so falling back
+    #    to the bare model ID would always fail. Force the global profile for
+    #    these, unconditionally and ahead of both the enable_global check below
+    #    and the cross-region attempt that follows it — deliberately with no
+    #    geo-profile fallback of its own, even in regions where one exists.
+    #    `calculate_price` (see below) keys pricing purely off the deployment
+    #    region, not off which profile actually served the request, and
+    #    BEDROCK_PRICING carries only a single `default` entry for these
+    #    models. Global is the only profile these models may resolve to, so
+    #    that single pricing entry stays unambiguous; if a geo fallback were
+    #    added here, a second possible profile would reintroduce exactly the
+    #    "which profile did we bill for?" ambiguity this ordering exists to
+    #    remove. Do not "fix" this back to a fallback.
+    if model in PROFILE_REQUIRED_MODELS:
+        forced_profile_id = get_global_inference_profile_id(model, bedrock_region)
+        if forced_profile_id:
+            logger.info(
+                f"Model '{model}' requires an inference profile. "
+                f"Using global inference profile: {forced_profile_id}"
+            )
+            return forced_profile_id
+
+        raise ValueError(
+            f"Model '{model}' requires an inference profile, but region "
+            f"'{bedrock_region}' has no global inference profile for it."
+        )
+
+    # 2. Next, try to use global inference profile if enabled and available
     if enable_global:
         global_profile_id = get_global_inference_profile_id(model, bedrock_region)
         if global_profile_id:
@@ -1611,7 +1751,7 @@ def get_model_id(
             )
             return global_profile_id
 
-    # 2. Fallback to regional cross-region inference profile if enabled and available
+    # 3. Fallback to regional cross-region inference profile if enabled and available
     if enable_cross_region:
         regional_profile_id = get_regional_inference_profile_id(model, bedrock_region)
         if regional_profile_id:
@@ -1624,6 +1764,6 @@ def get_model_id(
                 f"Region '{bedrock_region}' does not support cross-region inference for model '{model}'."
             )
 
-    # 3. Use standalone model (no global or cross-region inference)
+    # 4. Use standalone model (no global or cross-region inference)
     logger.info(f"Using local model ID: {base_model_id} for model '{model}'")
     return base_model_id

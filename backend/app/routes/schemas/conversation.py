@@ -43,6 +43,8 @@ type_model_name = Literal[
     "llama3-2-90b-instruct",
     "gpt-oss-20b",
     "gpt-oss-120b",
+    # xAI models
+    "grok-4.6",
 ]
 
 

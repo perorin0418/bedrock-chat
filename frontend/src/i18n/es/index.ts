@@ -94,6 +94,11 @@ const translation = {
         description:
           'Modelo de peso abierto de 120B parámetros con ventana de contexto de 128K y capacidades avanzadas de razonamiento.',
       },
+      'grok-4.6': {
+        label: 'Grok 4.6',
+        description:
+          'Modelo de frontera de xAI con ventana de contexto de 500K tokens, diseñado para programación y tareas de agentes de larga duración.',
+      },
     },
     agent: {
       label: 'Agente',

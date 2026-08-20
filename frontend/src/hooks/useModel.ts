@@ -31,6 +31,13 @@ const LLAMA_SUPPORTED_MEDIA_TYPES = [
   'image/webp',
 ];
 
+const GROK_SUPPORTED_MEDIA_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+
 const useModelState = create<{
   modelId: Model | undefined;
   setModelId: (m: Model) => void;
@@ -290,6 +297,15 @@ const useModel = (
         supportMediaType: [],
         supportReasoning: true,
         forceReasoningEnabled: true, // GPT-OSS always return reasoning contents.
+      },
+      // xAI
+      {
+        modelId: 'grok-4.6',
+        label: t('model.grok-4.6.label'),
+        description: t('model.grok-4.6.description'),
+        supportMediaType: GROK_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+        forceReasoningEnabled: true, // Grok always returns reasoning contents.
       },
       // Mistral
       {

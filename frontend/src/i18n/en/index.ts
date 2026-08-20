@@ -194,6 +194,11 @@ const translation = {
         description:
           'Open-weight 120B parameter model with 128K context window and advanced reasoning capabilities.',
       },
+      'grok-4.6': {
+        label: 'Grok 4.6',
+        description:
+          "xAI's frontier model with a 500K context window, built for coding and long-running agentic tasks.",
+      },
     },
     agent: {
       label: 'Agent',

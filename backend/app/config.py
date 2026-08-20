@@ -422,6 +422,8 @@ BEDROCK_PRICING = {
         # OpenAI GPT-OSS models
         "gpt-oss-20b": {"input": 0.00015, "output": 0.00030},
         "gpt-oss-120b": {"input": 0.00030, "output": 0.00060},
+        # xAI models (Global cross-region inference pricing)
+        "grok-4.6": {"input": 0.002, "output": 0.006},
     },
     # EU regions (eu-central-1, eu-west-1, eu-west-3)
     "eu-central-1": {
