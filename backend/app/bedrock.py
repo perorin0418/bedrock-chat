@@ -747,6 +747,12 @@ REGIONAL_INFERENCE_PROFILES = {
 # ENABLE_BEDROCK_GLOBAL_INFERENCE / ENABLE_BEDROCK_CROSS_REGION_INFERENCE flags.
 PROFILE_REQUIRED_MODELS: set[type_model_name] = {"grok-4.6"}
 
+# Default reasoning effort for xAI Grok models. Grok always reasons; only the
+# depth is configurable via the model-specific `reasoning.effort` field.
+# Accepted values: "low", "medium", "high", "xhigh". "low" matches the
+# Bedrock-side default.
+GROK_REASONING_EFFORT = "low"
+
 client = get_bedrock_runtime_client()
 
 
@@ -833,36 +839,43 @@ def is_specify_both_temperature_and_top_p_supported(model: type_model_name) -> b
         "claude-v5-sonnet",
         "claude-v4.5-haiku",
         "claude-v5-fable",
+        "grok-4.6",
     ]
 
 
 def is_top_k_supported(model: type_model_name) -> bool:
-    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate top_k."""
+    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate top_k.
+    xAI Grok does not support top_k either."""
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
         "claude-v5-sonnet",
         "claude-v5-fable",
+        "grok-4.6",
     ]
 
 
 def is_top_p_supported(model: type_model_name) -> bool:
-    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate top_p."""
+    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate top_p.
+    xAI Grok rejects topP outright."""
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
         "claude-v5-sonnet",
         "claude-v5-fable",
+        "grok-4.6",
     ]
 
 
 def is_temperature_supported(model: type_model_name) -> bool:
-    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate temperature."""
+    """Claude Opus 4.7+ and Claude 5 models (always-on adaptive thinking) deprecate temperature.
+    xAI Grok rejects temperature outright."""
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
         "claude-v5-sonnet",
         "claude-v5-fable",
+        "grok-4.6",
     ]
 
 
@@ -1069,6 +1082,32 @@ def _prepare_gpt_oss_model_params(
 
     return {
         "inferenceConfig": inference_config,
+    }
+
+
+def _prepare_grok_model_params(
+    model: type_model_name, generation_params: Optional[GenerationParamsModel] = None
+) -> ConverseConfiguration:
+    """
+    Prepare inference configuration for xAI Grok models.
+
+    Grok rejects temperature, topP and stopSequences outright, so only maxTokens
+    is passed. Reasoning is always active and its depth is controlled through
+    the model-specific `reasoning.effort` field.
+    """
+    inference_config: InferenceConfiguration = {
+        "maxTokens": (
+            generation_params.max_tokens
+            if generation_params
+            else DEFAULT_GENERATION_CONFIG["max_tokens"]
+        ),
+    }
+
+    return {
+        "inferenceConfig": inference_config,
+        "additionalModelRequestFields": {
+            "reasoning": {"effort": GROK_REASONING_EFFORT},
+        },
     }
 
 
@@ -1280,6 +1319,10 @@ def generation_params_to_converse_configuration(
     elif is_gpt_oss_model(model):
         # Special handling for GPT-OSS models
         converse_configuration = _prepare_gpt_oss_model_params(model, generation_params)
+
+    elif is_grok_model(model):
+        # Special handling for xAI Grok models
+        converse_configuration = _prepare_grok_model_params(model, generation_params)
 
     else:
         # Standard handling for non-Nova models

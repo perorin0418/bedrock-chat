@@ -15,8 +15,21 @@ import unittest
 from pprint import pprint
 from unittest.mock import patch
 
-from app.bedrock import call_converse_api, compose_args_for_converse_api, get_model_id
+from app.bedrock import (
+    call_converse_api,
+    compose_args_for_converse_api,
+    generation_params_to_converse_configuration,
+    get_model_id,
+    is_prompt_caching_supported,
+    is_temperature_supported,
+    is_top_k_supported,
+    is_top_p_supported,
+)
 from app.repositories.models.conversation import SimpleMessageModel, TextContentModel
+from app.repositories.models.custom_bot import (
+    GenerationParamsModel,
+    ReasoningParamsModel,
+)
 from app.repositories.models.custom_bot_guardrails import BedrockGuardrailsModel
 from app.routes.schemas.conversation import type_model_name
 
@@ -172,6 +185,61 @@ class TestGrokModelId(unittest.TestCase):
                 enable_cross_region=True,
                 bedrock_region="us-gov-west-1",
             )
+
+
+class TestGrokConverseConfiguration(unittest.TestCase):
+    def _generation_params(self) -> GenerationParamsModel:
+        return GenerationParamsModel(
+            max_tokens=2000,
+            top_k=250,
+            top_p=0.9,
+            temperature=0.7,
+            stop_sequences=["Human: ", "Assistant: "],
+            reasoning_params=ReasoningParamsModel(budget_tokens=1024),
+        )
+
+    def test_grok_config_omits_unsupported_inference_params(self):
+        # Grok rejects temperature, topP and stopSequences outright.
+        config = generation_params_to_converse_configuration(
+            model="grok-4.6",
+            generation_params=self._generation_params(),
+        )
+        self.assertEqual(config["inferenceConfig"], {"maxTokens": 2000})
+
+    def test_grok_config_sets_reasoning_effort(self):
+        config = generation_params_to_converse_configuration(
+            model="grok-4.6",
+            generation_params=self._generation_params(),
+        )
+        self.assertEqual(
+            config["additionalModelRequestFields"],
+            {"reasoning": {"effort": "low"}},
+        )
+
+    def test_grok_config_ignores_enable_reasoning_flag(self):
+        # Reasoning is always on for Grok, so the flag must not change the shape.
+        enabled = generation_params_to_converse_configuration(
+            model="grok-4.6",
+            generation_params=self._generation_params(),
+            enable_reasoning=True,
+        )
+        disabled = generation_params_to_converse_configuration(
+            model="grok-4.6",
+            generation_params=self._generation_params(),
+            enable_reasoning=False,
+        )
+        self.assertEqual(enabled, disabled)
+
+    def test_grok_sampling_params_reported_unsupported(self):
+        self.assertFalse(is_temperature_supported("grok-4.6"))
+        self.assertFalse(is_top_p_supported("grok-4.6"))
+        self.assertFalse(is_top_k_supported("grok-4.6"))
+
+    def test_grok_prompt_caching_reported_unsupported(self):
+        # Verified against the live API: cachePoint returns AccessDeniedException.
+        self.assertFalse(is_prompt_caching_supported("grok-4.6", target="system"))
+        self.assertFalse(is_prompt_caching_supported("grok-4.6", target="message"))
+        self.assertFalse(is_prompt_caching_supported("grok-4.6", target="tool"))
 
 
 class TestCallConverseApi(unittest.TestCase):
