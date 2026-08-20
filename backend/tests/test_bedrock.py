@@ -125,6 +125,55 @@ class TestGetModelId(unittest.TestCase):
         )
 
 
+class TestGrokModelId(unittest.TestCase):
+    def test_grok_uses_global_profile(self):
+        self.assertEqual(
+            get_model_id(
+                "grok-4.6",
+                enable_global=True,
+                enable_cross_region=True,
+                bedrock_region="ap-northeast-1",
+            ),
+            "global.xai.grok-4.6",
+        )
+
+    def test_grok_uses_geo_profile_when_global_disabled(self):
+        # US regions support the geo (us.) profile as well.
+        self.assertEqual(
+            get_model_id(
+                "grok-4.6",
+                enable_global=False,
+                enable_cross_region=True,
+                bedrock_region="us-west-2",
+            ),
+            "us.xai.grok-4.6",
+        )
+
+    def test_grok_forces_global_profile_when_both_flags_disabled(self):
+        # Grok cannot be invoked with on-demand throughput, so the bare model
+        # ID must never be returned even when both flags are off.
+        self.assertEqual(
+            get_model_id(
+                "grok-4.6",
+                enable_global=False,
+                enable_cross_region=False,
+                bedrock_region="ap-northeast-1",
+            ),
+            "global.xai.grok-4.6",
+        )
+
+    def test_grok_raises_on_region_without_global_profile(self):
+        # Match the message so this test cannot pass on the unrelated
+        # "Unsupported model" ValueError raised before the model is registered.
+        with self.assertRaisesRegex(ValueError, "requires an inference profile"):
+            get_model_id(
+                "grok-4.6",
+                enable_global=True,
+                enable_cross_region=True,
+                bedrock_region="us-gov-west-1",
+            )
+
+
 class TestCallConverseApi(unittest.TestCase):
     def test_call_converse_api_with_global_inference(self):
         """Actual LLM call using global inference profile"""

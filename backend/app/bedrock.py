@@ -91,6 +91,10 @@ BASE_MODEL_IDS = {
     # OpenAI GPT-OSS models
     "gpt-oss-20b": "openai.gpt-oss-20b-1:0",
     "gpt-oss-120b": "openai.gpt-oss-120b-1:0",
+    # xAI models
+    # NOTE: This bare ID cannot be invoked directly — Grok does not support
+    # on-demand throughput. See PROFILE_REQUIRED_MODELS below.
+    "grok-4.6": "xai.grok-4.6",
 }
 
 # Global inference profiles
@@ -376,6 +380,42 @@ GLOBAL_INFERENCE_PROFILES = {
             "ap-northeast-3",
             "ap-northeast-2",
             "ap-northeast-1",
+        ]
+    },
+    "grok-4.6": {
+        "supported_regions": [
+            "us-west-2",
+            "us-west-1",
+            "us-east-2",
+            "us-east-1",
+            "sa-east-1",
+            "me-south-1",
+            "me-central-1",
+            "il-central-1",
+            "eu-west-3",
+            "eu-west-2",
+            "eu-west-1",
+            "eu-south-2",
+            "eu-south-1",
+            "eu-north-1",
+            "eu-central-2",
+            "eu-central-1",
+            "ca-west-1",
+            "ca-central-1",
+            "ap-southeast-7",
+            "ap-southeast-6",
+            "ap-southeast-5",
+            "ap-southeast-4",
+            "ap-southeast-3",
+            "ap-southeast-2",
+            "ap-southeast-1",
+            "ap-south-2",
+            "ap-south-1",
+            "ap-northeast-3",
+            "ap-northeast-2",
+            "ap-northeast-1",
+            "ap-east-2",
+            "af-south-1",
         ]
     },
 }
@@ -692,7 +732,20 @@ REGIONAL_INFERENCE_PROFILES = {
     "llama3-2-90b-instruct": {
         "supported_regions": {"us-east-1": "us", "us-east-2": "us", "us-west-2": "us"}
     },
+    "grok-4.6": {
+        "supported_regions": {
+            "us-east-1": "us",
+            "us-east-2": "us",
+            "us-west-1": "us",
+            "us-west-2": "us",
+        }
+    },
 }
+
+# Models that cannot be invoked with on-demand throughput. These must always be
+# called through an inference profile, regardless of the
+# ENABLE_BEDROCK_GLOBAL_INFERENCE / ENABLE_BEDROCK_CROSS_REGION_INFERENCE flags.
+PROFILE_REQUIRED_MODELS: set[type_model_name] = {"grok-4.6"}
 
 client = get_bedrock_runtime_client()
 
@@ -727,6 +780,11 @@ def is_mistral(model: type_model_name) -> bool:
 def is_gpt_oss_model(model: type_model_name) -> bool:
     """Check if the model is an OpenAI GPT-OSS model"""
     return "gpt-oss" in model
+
+
+def is_grok_model(model: type_model_name) -> bool:
+    """Check if the model is an xAI Grok model"""
+    return "grok" in model
 
 
 def is_tooluse_supported(model: type_model_name) -> bool:
@@ -1624,6 +1682,22 @@ def get_model_id(
                 f"Region '{bedrock_region}' does not support cross-region inference for model '{model}'."
             )
 
-    # 3. Use standalone model (no global or cross-region inference)
+    # 3. Some models cannot be invoked with on-demand throughput, so falling
+    #    back to the bare model ID would always fail. Force the global profile.
+    if model in PROFILE_REQUIRED_MODELS:
+        forced_profile_id = get_global_inference_profile_id(model, bedrock_region)
+        if forced_profile_id:
+            logger.info(
+                f"Model '{model}' requires an inference profile. "
+                f"Using global inference profile: {forced_profile_id}"
+            )
+            return forced_profile_id
+
+        raise ValueError(
+            f"Model '{model}' requires an inference profile, but region "
+            f"'{bedrock_region}' has no global inference profile for it."
+        )
+
+    # 4. Use standalone model (no global or cross-region inference)
     logger.info(f"Using local model ID: {base_model_id} for model '{model}'")
     return base_model_id
