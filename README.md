@@ -1,745 +1,512 @@
-<h1 align="center">Bedrock Chat (BrChat)</h1>
+<h1 align="center">Acrocity Chat</h1>
 
-<p align="center">
-  <img src="https://img.shields.io/github/v/release/aws-samples/bedrock-chat?style=flat-square" />
-  <img src="https://img.shields.io/github/license/aws-samples/bedrock-chat?style=flat-square" />
-  <img src="https://img.shields.io/github/actions/workflow/status/aws-samples/bedrock-chat/cdk.yml?style=flat-square" />
-  <a href="https://github.com/aws-samples/bedrock-chat/issues?q=is%3Aissue%20state%3Aopen%20label%3Aroadmap">
-    <img src="https://img.shields.io/badge/roadmap-view-blue?style=flat-square" />
-  </a>
-</p>
+<p align="center">社内向け生成AIチャットサービス — 利用者ガイド</p>
 
-[English](https://github.com/aws-samples/bedrock-chat/blob/v3/README.md) | [日本語](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_ja-JP.md) | [한국어](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_ko-KR.md) | [中文](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_zh-CN.md) | [Français](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_fr-FR.md) | [Deutsch](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_de-DE.md) | [Español](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_es-ES.md) | [Italian](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_it-IT.md) | [Norsk](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_nb-NO.md) | [ไทย](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_th-TH.md) | [Bahasa Indonesia](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_id-ID.md) | [Bahasa Melayu](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_ms-MY.md) | [Tiếng Việt](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_vi-VN.md) | [Polski](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_pl-PL.md) | [Português Brasil](https://github.com/aws-samples/bedrock-chat/blob/v3/docs/README_pt-BR.md)
+このドキュメントは **Acrocity Chat を使う方** に向けた案内です。
+セットアップや内部構成の説明は含みません。使い方だけを順番にまとめています。
 
-A multilingual generative AI platform powered by [Amazon Bedrock](https://aws.amazon.com/bedrock/).
-Supports chat, custom bots with knowledge (RAG), bot sharing via a bot store, and task automation using agents.
+> [!NOTE]
+> このガイドのコマンドは **Windows 端末（PowerShell）** を前提に記載しています。
 
-![](./docs/imgs/demo.gif)
+## 目次
 
-> [!Warning]
->
-> **V3 released. To update, please carefully review the [migration guide](./docs/migration/V2_TO_V3.md).** Without any care, **BOTS FROM V2 WILL BECOME UNUSABLE.**
+1. [Acrocity Chat とは](#1-acrocity-chat-とは)
+2. [接続する方法](#2-接続する方法)
+3. [アカウント登録方法](#3-アカウント登録方法)
+4. [チャットの開始方法](#4-チャットの開始方法)
+5. [公開APIの使用方法](#5-公開apiの使用方法)
+6. [Claude Code on Bedrock の使用方法](#6-claude-code-on-bedrock-の使用方法)
+7. [困ったときは](#7-困ったときは)
 
-### Bot Personalization / Bot store
+---
 
-Add your own instruction and knowledge (a.k.a [RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/). The bot can be shared among application users via bot store market place. The customized bot also can be published as stand-alone API (See the [detail](./docs/PUBLISH_API.md)).
+## 1. Acrocity Chat とは
 
-<details>
-<summary>Screenshots</summary>
+Acrocity Chat は、**社内利用のために用意された生成AIチャットサービス**です。
+ブラウザを開いてメッセージを送るだけで、Claude シリーズのAIモデルと日本語で対話できます。
 
-![](./docs/imgs/customized_bot_creation.png)
-![](./docs/imgs/fine_grained_permission.png)
-![](./docs/imgs/bot_store.png)
-![](./docs/imgs/bot_api_publish_screenshot3.png)
+### できること
 
-You can also import existing [Amazon Bedrock's KnowledgeBase](https://aws.amazon.com/bedrock/knowledge-bases/).
+| できること | 概要 |
+|---|---|
+| チャット | 質問・要約・文章作成・翻訳・コード相談などをAIと対話しながら進められます |
+| ファイルを渡して相談 | PDF・Word・Excel・テキスト・ソースコードなどを添付して、その内容について質問できます |
+| 画像について質問 | 画像を貼り付けて、内容の説明や読み取りを依頼できます（画像対応モデル選択時） |
+| モデルの切り替え | 用途に応じて、応答が速いモデルと、じっくり考える高性能モデルを選べます |
+| 「深い思考」モード | 複雑な問題では、AIが考える過程を経てから回答するモードを有効にできます |
+| チャット履歴 | 過去のやりとりが自動で保存され、あとから検索・再開できます |
+| ボット | 用途ごとに設定済みのAI（ボット）が共有されている場合、それを選んで会話できます |
 
-![](./docs/imgs/import_existing_kb.png)
+### 3つの利用形態
 
-</details>
+用途に応じて、次の3通りの使い方があります。
 
-> [!Important]
-> For governance reasons, only allowed users are able to create customized bots. To allow the creation of customized bots, the user must be a member of group called `CreatingBotAllowed`, which can be set up via the management console > Amazon Cognito User pools or aws cli. Note that the user pool id can be referred by accessing CloudFormation > BedrockChatStack > Outputs > `AuthUserPoolIdxxxx`.
+| 利用形態 | 向いている用途 | 必要なもの |
+|---|---|---|
+| **チャット画面**（→ [4章](#4-チャットの開始方法)） | 日常的な質問・作業相談 | アカウントのみ |
+| **公開API**（→ [5章](#5-公開apiの使用方法)） | 自作ツールや業務システムからAIを呼び出す | 管理者から受け取るAPIキー |
+| **Claude Code on Bedrock**（→ [6章](#6-claude-code-on-bedrock-の使用方法)） | 手元の端末でコーディングをAIに任せる | 管理者から受け取るアクセスキー |
 
-### Multi-Tenant Usage of Knowledge Base
+### 利用上の注意
 
-In Amazon Bedrock Knowledge Bases, by default, the number of Knowledge Bases that can be created in a single AWS account is limited to 100. To work around this limitation, you can use 'multi-tenant' mode, where a Knowledge Base with common settings is shared among multiple bots, and files uploaded by each bot are filtered by attaching the Bot ID as metadata.
+- 会社のルールで取り扱いが制限されている情報（個人情報・顧客の機密情報など）の入力可否は、社内の利用規程に従ってください。
+- 利用量には **5時間** と **7日間** の上限があります。上限に達すると一時的に利用できなくなり、時間の経過とともに自動的に回復します。現在の消費状況は画面左下に表示されます。
 
-Newly created bots will have multi-tenant mode enabled by default. To migrate existing bots to multi-tenant mode, change the bot's knowledge settings to "Create a tenant in a shared Knowledge Base."
+  ![利用状況の表示](./docs/imgs/user/16-rate-limit-status.png)
 
-To migrate multiple bots to multi-tenant mode in bulk, execute commands like the following:
+- AIの回答は誤りを含むことがあります。重要な判断に使う内容は必ず裏付けを確認してください。
 
-```bash
-aws dynamodb execute-statement --statement "UPDATE \"$BotTableNameV3\" SET BedrockKnowledgeBase.type='shared' SET SyncStatus='QUEUED' WHERE PK='$UserID' AND SK='BOT#$BotID'"
-# Execute for all target bots
+---
 
-aws stepfunctions start-execution --state-machine-arn $EmbeddingStateMachineArn
+## 2. 接続する方法
+
+### アクセス先
+
+ブラウザで、管理者から案内されているURLを開きます。
+
+```
+https://<管理者から案内されたURL>/
 ```
 
-### Administrative features
+> [!NOTE]
+> URLが分からない場合は、社内の管理者にお問い合わせください。ブックマークしておくと便利です。
 
-API Management, Mark bots as essential, Analyze usage for bots. [detail](./docs/ADMINISTRATOR.md)
+### 必要な環境
 
-<details>
-<summary>Screenshots</summary>
+- **OS**: Windows 10 / Windows 11
+- **ブラウザ**: Microsoft Edge または Google Chrome（いずれも最新版）
+- **ネットワーク**: 通常のインターネット接続（専用のVPNやクライアント証明書は不要です）
+- インストールが必要なソフトウェアはありません
 
-![](./docs/imgs/admin_bot_menue.png)
-![](./docs/imgs/bot_store.png)
-![](./docs/imgs/admn_api_management.png)
-![](./docs/imgs/admin_bot_analytics.png))
+スマートフォン・タブレットのブラウザからも同じURLで利用できます。
 
-</details>
+### アプリとしてインストールする（任意）
 
-### Agent
+Acrocity Chat はブラウザからアプリとしてインストールできます。タブを探さずにデスクトップから起動できるようになります。
 
-By using the [Agent functionality](./docs/AGENT.md), your chatbot can automatically handle more complex tasks. For example, to answer a user's question, the Agent can retrieve necessary information from external tools or break down the task into multiple steps for processing.
+- **Microsoft Edge**: アドレスバー右側のインストールアイコン、または「…」→「アプリ」→「このサイトをアプリとしてインストール」
+- **Google Chrome**: アドレスバー右側のインストールアイコン、または「⋮」メニューからインストールを選択
 
-<details>
-<summary>Screenshots</summary>
+---
 
-![](./docs/imgs/agent1.png)
-![](./docs/imgs/agent2.png)
+## 3. アカウント登録方法
 
-</details>
+初回のみ、自分でアカウントを作成します。所要時間は5分程度です。
 
-## 🎓Workshop
+### 手順
 
-A comprehensive workshop is available [here](https://catalog.us-east-1.prod.workshops.aws/workshops/4bf8d30b-f7c9-440a-a853-9394a41909d2/en-US).
+1. アクセス先のURLを開き、サインイン画面の **「アカウントを作る」** タブを選びます。
 
-<details>
-<summary>Screenshot</summary>
+   ![サインイン画面](./docs/imgs/user/01-signin.png)
 
-![](./docs/imgs/workshop.png)
+2. 会社のメールアドレスとパスワードを入力し、**「アカウントを作る」** を押します。
 
-</details>
+   ![アカウント作成フォーム](./docs/imgs/user/02-signup-form.png)
 
-## 🚀 Super-easy Deployment
+   - **ユーザー名**: 会社のメールアドレスを入力します。`@gyoseiq.co.jp` のアドレスのみ登録できます。他のドメインのアドレスではエラーになります。
+   - **パスワード** / **パスワードの確認**: 同じパスワードを2回入力します。パスワードは次の条件をすべて満たす必要があります。
+     - 8文字以上
+     - 英大文字を含む
+     - 数字を含む
+     - 記号を含む
 
-- In the us-east-1 region, open [Bedrock Model access](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess) > `Manage model access` > Check all of models you wish to use and then `Save changes`.
+3. 入力したメールアドレスに **確認コード** が届きます。「確認コード」欄にコードを入力し、**「確定」** を押して登録を完了します。
 
-<details>
-<summary>Screenshot</summary>
+   ![確認コードの入力](./docs/imgs/user/03-confirm-code.png)
 
-![](./docs/imgs/model_screenshot.png)
+   数分待っても届かない場合は、迷惑メールフォルダを確認してください。届いていなければ **「コードを再送信」** を押します。
 
-</details>
+4. **管理者の承認を待ちます。**
 
-### Supported regions
+   確認コードの入力が終わった時点では、まだサインインできません。この状態でサインインすると次のメッセージが表示されます。
 
-Please make sure that you deploy Bedrock Chat in a region [where OpenSearch Serverless and Ingestion APIs are available](https://docs.aws.amazon.com/general/latest/gr/opensearch-service.html), if you want to use bots and create knowledge bases (OpenSearch Serverless is the default choice). As of August 2025, the following regions are supported: us-east-1, us-east-2, us-west-1, us-west-2, ap-south-1, ap-northeast-1, ap-northeast-2, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-west-1, eu-west-2, eu-south-2, eu-north-1, sa-east-1
+   > アカウントは管理者の承認待ちです。管理者が承認するまでお待ちください。
 
-For the **bedrock-region** parameter you need to choose a region [where Bedrock is available](https://docs.aws.amazon.com/general/latest/gr/bedrock.html).
+   ![承認待ちのメッセージ](./docs/imgs/user/04-pending-approval.png)
 
-- Open [CloudShell](https://console.aws.amazon.com/cloudshell/home) at the region where you want to deploy
-- Run deployment via following commands. If you want to specify the version to deploy or need to apply security policies, please specify the appropriate parameters from [Optional Parameters](#optional-parameters).
+   管理者に登録した旨を連絡し、承認されるまでお待ちください。
 
-```sh
-git clone https://github.com/aws-samples/bedrock-chat.git
-cd bedrock-chat
-chmod +x bin.sh
-./bin.sh
+5. 承認後、登録したメールアドレスとパスワードで **サインイン** できます。
+
+### パスワードを忘れた場合
+
+サインイン画面の **「パスワードを忘れましたか？」** から、メールアドレスを入力して再設定します。確認コードがメールで届きます。
+
+### 追加の権限が必要な場合
+
+標準のアカウントでチャットはすべて利用できます。次のことをしたい場合は管理者に依頼してください。
+
+| やりたいこと | 依頼内容 |
+|---|---|
+| 自分専用のボット（社内文書を読ませたボットなど）を作る | ボット作成権限（`CreatingBotAllowed`）の付与を依頼 |
+| 外部のツールやシステムからAPIで呼び出す | ボットのAPI公開とAPIキーの発行を依頼（→ [5章](#5-公開apiの使用方法)） |
+| Claude Code を使う | Bedrock用アクセスキーの払い出しを依頼（→ [6章](#6-claude-code-on-bedrock-の使用方法)） |
+
+---
+
+## 4. チャットの開始方法
+
+### 画面の構成
+
+サインインすると、左側にサイドメニュー、右側にチャット画面が表示されます。
+
+![サインイン後の画面](./docs/imgs/user/05-app-overview.png)
+
+サイドメニューの主な項目:
+
+![サイドメニュー](./docs/imgs/user/06-sidebar.png)
+
+- **共有されているボット** — 社内で共有されているボットの一覧。用途に合ったボットを選んで会話を始められます。
+- **チャット履歴** — 過去のチャットの一覧。ここから会話を再開したり、キーワードで検索したりできます。
+- **ピン留めボット** — よく使うボットが上部に表示されます。
+- **ユーザーマニュアル** — アプリ内で読める利用ガイド（このドキュメントの要約版）。
+- **利用状況** — 5時間制限／7日間制限の消費状況。
+- **メニュー（画面左下）** — 言語の切替、すべての会話のクリア、サインアウトなど。
+
+### 会話を始める
+
+1. **新しいチャットを開く**
+
+   サイドメニュー上部の **ロゴをクリック** すると、いつでも新しいチャットが開きます。「チャット履歴」ページの **「新しいチャット」** ボタンからも開始できます。
+   特定のボットと話したい場合は、「共有されているボット」から選択してください。
+
+   ![共有されているボット](./docs/imgs/user/12-shared-bots.png)
+
+2. **モデルを選ぶ（任意）**
+
+   画面上部でAIモデルを切り替えられます。迷った場合は初期選択のままで問題ありません。
+
+   ![モデルの切り替え](./docs/imgs/user/07-model-switch.png)
+
+   - 速さ重視の軽いモデル: 短い質問、定型的な作業
+   - 高性能モデル: 長文の読解、複雑な調査・設計・コーディング
+
+3. **メッセージを入力して送信する**
+
+   画面下部の入力欄に文章を入力し、送信します。
+
+   - **Enter** で送信
+   - **Shift + Enter** で改行
+
+4. **回答を受け取る**
+
+   回答は生成されながら順次表示されます。生成が途中で止まった場合は **「生成を続ける」**、回答が気に入らない場合は **「再生成」** を使えます。
+
+   ![質問と回答](./docs/imgs/user/08-chat-response.png)
+
+### ファイルを添付して質問する
+
+入力欄のファイル選択ボタンから、またはファイルを画面に **ドラッグ＆ドロップ** して添付できます。
+
+![ファイルの添付](./docs/imgs/user/09-attach-file.png)
+
+- **添付できる形式**: PDF / Word（.doc, .docx）/ Excel（.xls, .xlsx）/ テキスト（.txt, .md, .csv, .log など）/ 各種ソースコード・設定ファイル（.py, .ts, .java, .json, .yaml など）
+- **上限**: 1回のメッセージで **5ファイルまで**、1ファイル **4.5MBまで**
+- **画像**: 画像対応モデルを選択している場合、画像ファイルの添付やクリップボードからの貼り付けができます
+
+### 「深い思考」を使う
+
+入力欄付近の **「深い思考」** を有効にすると、AIが回答前に考える過程を挟みます。難しい推論や設計の相談に向いています。回答後は「思考過程」から、その内容を確認できます。
+（対応しているモデルを選択している場合に表示されます）
+
+![思考過程とツールの実行内容](./docs/imgs/user/10-reasoning.png)
+
+### 履歴の管理
+
+![チャット履歴](./docs/imgs/user/11-conversation-history.png)
+
+- チャットのタイトルは自動で付きます。
+- 「チャット履歴」ページの検索欄から、過去のやりとりをキーワードで探せます。
+- 個別のチャットは一覧から削除できます。
+- すべての履歴を消したい場合は、画面左下のメニューから「すべての会話をクリア」を選びます。
+
+---
+
+## 5. 公開APIの使用方法
+
+自作のツールや業務システムから、Acrocity Chat のボットをHTTP経由で呼び出せます。
+以下のコマンド例は **Windows PowerShell** 用です。
+
+### 全体の流れ
+
+```
+① 管理者にAPIキーの発行を依頼
+        ↓
+② 管理者から エンドポイントURL / APIキー を受け取る
+        ↓
+③ PowerShell やプログラムから呼び出す
 ```
 
-- You will be asked if a new user or using v3. If you are not a continuing user from v0, please enter `y`.
+### ① 管理者にAPIキーの発行を依頼する
 
-### Optional Parameters
+APIとして呼び出せるのは、**管理者がAPI公開の設定を行ったボット** のみです。公開の操作とAPIキーの発行は管理者が行うため、利用したい場合は管理者に依頼してください。
 
-You can specify the following parameters during deployment to enhance security and customization:
+依頼するときは、次の内容を伝えるとスムーズです。
 
-- **--disable-self-register**: Disable self-registration (default: enabled). If this flag is set, you will need to create all users on cognito and it will not allow users to self register their accounts.
-- **--enable-lambda-snapstart**: Enable [Lambda SnapStart](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html) (default: disabled). If this flag is set, improves cold start times for Lambda functions, providing faster response times for better user experience.
-- **--ipv4-ranges**: Comma-separated list of allowed IPv4 ranges. (default: allow all ipv4 addresses)
-- **--ipv6-ranges**: Comma-separated list of allowed IPv6 ranges. (default: allow all ipv6 addresses)
-- **--disable-ipv6**: Disable connections over IPv6. (default: enabled)
-- **--allowed-signup-email-domains**: Comma-separated list of allowed email domains for sign-up. (default: no domain restriction)
-- **--bedrock-region**: Define the region where bedrock is available. (default: us-east-1)
-- **--repo-url**: The custom repo of Bedrock Chat to deploy, if forked or custom source control. (default: https://github.com/aws-samples/bedrock-chat.git)
-- **--version**: The version of Bedrock Chat to deploy. (default: latest version in development)
-- **--cdk-json-override**: You can override any CDK context values during deployment using the override JSON block. This allows you to modify the configuration without editing the cdk.json file directly.
+- 利用したいボット（または「通常のチャットと同じ動作でよい」など）
+- 用途（どのシステム・ツールから呼び出すか）
+- 想定する呼び出し頻度（管理者がレート上限を設定する際の参考になります）
+- 利用者（自分のアカウントのメールアドレス）
 
-Example usage:
+### ② エンドポイントURLとAPIキーを受け取る
 
-```bash
-./bin.sh --cdk-json-override '{
-  "context": {
-    "selfSignUpEnabled": false,
-    "enableLambdaSnapStart": true,
-    "allowedIpV4AddressRanges": ["192.168.1.0/24"],
-    "allowedCountries": ["US", "CA"],
-    "allowedSignUpEmailDomains": ["example.com"],
-    "globalAvailableModels": [
-      "claude-v3.7-sonnet",
-      "claude-v3.5-sonnet",
-      "amazon-nova-pro",
-      "amazon-nova-lite",
-      "llama3-3-70b-instruct"
-    ]
+管理者から次の情報を受け取ります。
+
+- **エンドポイントURL**（例: `https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/api`）
+- **APIキー**
+
+> [!IMPORTANT]
+> APIキーはパスワードと同じ扱いです。メールやチャットに貼ったまま放置せず、社内のシークレット管理ルールに従って保管してください。漏えいの可能性がある場合は、ただちに管理者に連絡してキーの無効化を依頼してください。
+
+### ③ 呼び出しの準備
+
+PowerShell を開き、取得した情報を変数に入れておきます。APIキーはリクエストヘッダー `x-api-key` で渡します。
+
+```powershell
+$ApiEndpoint = "https://xxxxxxxxxx.execute-api.<region>.amazonaws.com/api"
+$ApiKey      = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+$Headers     = @{ "x-api-key" = $ApiKey }
+```
+
+> [!NOTE]
+> 業務システムに組み込む場合は、APIキーをソースコードに直接書かず、環境変数やシークレット管理の仕組みから読み込むようにしてください。
+
+### 呼び出せるAPI
+
+#### 1. メッセージを送信する（`POST /conversation`）
+
+このAPIは **非同期** です。回答の生成には時間がかかるため、リクエストは即座に `conversationId` と `messageId` だけを返し、回答は裏側で生成されます。
+
+```powershell
+$Payload = @{
+  message = @{
+    content = @(
+      @{ contentType = "text"; body = "こんにちは" }
+    )
+    model = "claude-v5-sonnet"
   }
-}'
+} | ConvertTo-Json -Depth 5
+
+$Requested = Invoke-RestMethod -Method Post `
+  -Uri "$ApiEndpoint/conversation" `
+  -Headers $Headers `
+  -ContentType "application/json" `
+  -Body ([System.Text.Encoding]::UTF8.GetBytes($Payload))
+
+$Requested
 ```
 
-The override JSON must follow the same structure as cdk.json. You can override any context values including:
-
-- `selfSignUpEnabled`
-- `enableLambdaSnapStart`
-- `allowedIpV4AddressRanges`
-- `allowedIpV6AddressRanges`
-- `allowedCountries`
-- `allowedSignUpEmailDomains`
-- `bedrockRegion`
-- `enableRagReplicas`
-- `enableBedrockCrossRegionInference`
-- `globalAvailableModels`: accepts a list of model IDs to enable. The default value is an empty list, which enables all models.
-- `logoPath`: relative path to the logo asset within the frontend `public/` directory that appears at the top of the navigation drawer.
-- And other context values defined in cdk.json
-
-> [!Note]
-> The override values will be merged with the existing cdk.json configuration during the deployment time in the AWS code build. Values specified in the override will take precedence over the values in cdk.json.
-
-#### Example command with parameters:
-
-```sh
-./bin.sh --disable-self-register --ipv4-ranges "192.0.2.0/25,192.0.2.128/25" --ipv6-ranges "2001:db8:1:2::/64,2001:db8:1:3::/64" --allowed-signup-email-domains "example.com,anotherexample.com" --bedrock-region "us-west-2" --version "v1.2.6"
-```
-
-- After about 35 minutes, you will get the following output, which you can access from your browser
+出力例:
 
 ```
-Frontend URL: https://xxxxxxxxx.cloudfront.net
+conversationId messageId
+-------------- ---------
+01J...         01J...
 ```
 
-![](./docs/imgs/signin.png)
+> [!NOTE]
+> 日本語を送るときは、上の例のように本文を `[System.Text.Encoding]::UTF8.GetBytes(...)` でUTF-8のバイト列に変換して渡してください。文字列のまま渡すと文字化けする場合があります。
 
-The sign-up screen will appear as shown above, where you can register your email and log in.
+`model` に指定できるモデルは次の3つです。
 
-> [!Important]
-> Without setting the optional parameter, this deployment method allows anyone who knows the URL to sign up. For production use, it is strongly recommended to add IP address restrictions and disable self-signup to mitigate security risks (you can define allowed-signup-email-domains to restrict users so that only email addresses from your company's domain can sign up). Use both ipv4-ranges and ipv6-ranges for IP address restrictions, and disable self-signup by using disable-self-register when executing ./bin.
+| 指定する値 | 特徴 |
+|---|---|
+| `claude-v5-opus` | 最も高性能。複雑な調査・設計・コーディングなど、難易度の高い依頼向け |
+| `claude-v5-sonnet` | 性能と速度のバランス型。日常的な依頼はこれで十分 |
+| `grok-4.6` | 上記とは別系統のモデル。用途に応じて使い分け |
 
-> [!TIP]
-> If the `Frontend URL` does not appear or Bedrock Chat does not work properly, it may be a problem with the latest version. In this case, please add `--version "v3.0.0"` to the parameters and try deployment again.
+#### 2. 回答を取得する（`GET /conversation/{conversationId}/{messageId}`）
 
-## Architecture
+メッセージ送信で返ったIDを使って、生成が完了するまで一定間隔でポーリングします。
 
-It's an architecture built on AWS managed services, eliminating the need for infrastructure management. Utilizing Amazon Bedrock, there's no need to communicate with APIs outside of AWS. This enables deploying scalable, reliable, and secure applications.
+```powershell
+$ConversationId = $Requested.conversationId
+$MessageId      = $Requested.messageId
 
-- [Amazon DynamoDB](https://aws.amazon.com/dynamodb/): NoSQL database for conversation history storage
-- [Amazon API Gateway](https://aws.amazon.com/api-gateway/) + [AWS Lambda](https://aws.amazon.com/lambda/): Backend API endpoint ([AWS Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter), [FastAPI](https://fastapi.tiangolo.com/))
-- [Amazon CloudFront](https://aws.amazon.com/cloudfront/) + [S3](https://aws.amazon.com/s3/): Frontend application delivery ([React](https://react.dev/), [Tailwind CSS](https://tailwindcss.com/))
-- [AWS WAF](https://aws.amazon.com/waf/): IP address restriction
-- [Amazon Cognito](https://aws.amazon.com/cognito/): User authentication
-- [Amazon Bedrock](https://aws.amazon.com/bedrock/): Managed service to utilize foundational models via APIs
-- [Amazon Bedrock Knowledge Bases](https://aws.amazon.com/bedrock/knowledge-bases/): Provides a managed interface for Retrieval-Augmented Generation ([RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/)), offering services for embedding and parsing documents
-- [Amazon EventBridge Pipes](https://aws.amazon.com/eventbridge/pipes/): Receiving deletion event of bots from DynamoDB stream and delete CloudFormation stack related to the bot
-- [AWS Step Functions](https://aws.amazon.com/step-functions/): Orchestrating ingestion pipeline to embed external knowledge into Bedrock Knowledge Bases
-- [Amazon OpenSearch Serverless](https://aws.amazon.com/opensearch-service/features/serverless/): Serves as the backend database for Bedrock Knowledge Bases, providing full-text search and vector search capabilities, enabling accurate retrieval of relevant information
-- [Amazon Athena](https://aws.amazon.com/athena/): Query service to analyze S3 bucket
-
-![](docs/imgs/arch.png)
-
-## Deploy using CDK
-
-Super-easy Deployment uses [AWS CodeBuild](https://aws.amazon.com/codebuild/) to perform deployment by CDK internally. This section describes the procedure for deploying directly with CDK.
-
-- Please have UNIX, Docker and a Node.js runtime environment.
-
-> [!Important]
-> If there is insufficient storage space in the local environment during deployment, CDK bootstrapping may result in an error. We recommend expanding the volume size of the instance before deploying.
-
-- Clone this repository
-
-```
-git clone https://github.com/aws-samples/bedrock-chat
+Invoke-RestMethod -Method Get `
+  -Uri "$ApiEndpoint/conversation/$ConversationId/$MessageId" `
+  -Headers $Headers
 ```
 
-- Install npm packages
+生成が完了するまで待ってから取得する例（5秒間隔で最大30回リトライ）:
 
-```
-cd bedrock-chat
-cd cdk
-npm ci
-```
-
-- If necessary, edit the following entries in [cdk.json](./cdk/cdk.json).
-
-  - `bedrockRegion`: Region where Bedrock is available. **NOTE: Bedrock does NOT support all regions for now.**
-  - `allowedIpV4AddressRanges`, `allowedIpV6AddressRanges`: Allowed IP Address range.
-  - `enableLambdaSnapStart`: Defaults to true. Set to false if deploying to a [region that doesn't support Lambda SnapStart for Python functions](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html#snapstart-supported-regions).
-  - `globalAvailableModels`: Defaults to all. If set (list of model IDs), allows to globally control which models appear in dropdown menus across chats for all users and during bot creation in the Bedrock Chat application.
-  - `logoPath`: Relative path under `frontend/public` that points to the image displayed at the top of the application drawer.
-  - `enableClaudeCodeProvisioning`: Defaults to true. Provisions a per-employee IAM user/access key at Cognito sign-up so Claude Code CLI usage against Bedrock counts against the same rate limits as in-app chat. Requires deploying a second, independent CDK app. See [Claude Code Cost Sync](./docs/CLAUDE_CODE_COST_SYNC.md) for deployment steps.
-  - `claudeCodeNotificationEmail`: Optional email subscribed to failure/Deny notifications for the above feature.
-    The following model IDs are supported (please make sure that they are also enabled in the Bedrock console under Model access in your deployment region):
-
-- **Claude Models:** `claude-v4-opus`, `claude-v4.1-opus`, `claude-v4.5-opus`, `claude-v4.6-opus`, `claude-v4.7-opus`, `claude-v5-opus`, `claude-v4-sonnet`, `claude-v4.5-sonnet`, `claude-v4.6-sonnet`, `claude-v5-sonnet`, `claude-v5-fable`, `claude-v3.5-sonnet`, `claude-v3.5-sonnet-v2`, `claude-v3.7-sonnet`, `claude-v3.5-haiku`, `claude-v3-haiku`, `claude-v3-opus`
-- **Amazon Nova Models:** `amazon-nova-pro`, `amazon-nova-lite`, `amazon-nova-micro`
-- **Mistral Models:** `mistral-7b-instruct`, `mixtral-8x7b-instruct`, `mistral-large`, `mistral-large-2`
-- **DeepSeek Models:** `deepseek-r1`
-- **Meta Llama Models:** `llama3-3-70b-instruct`, `llama3-2-1b-instruct`, `llama3-2-3b-instruct`, `llama3-2-11b-instruct`, `llama3-2-90b-instruct`
-
-The full list can be found in [index.ts](./frontend/src/constants/index.ts).
-
-- Before deploying the CDK, you will need to work with Bootstrap once for the region you are deploying to.
-
-```
-npx cdk bootstrap
-```
-
-- Deploy this sample project
-
-```
-npx cdk deploy --require-approval never --all
-```
-
-- You will get output similar to the following. The URL of the web app will be output in `BedrockChatStack.FrontendURL`, so please access it from your browser.
-
-```sh
- ✅  BedrockChatStack
-
-✨  Deployment time: 78.57s
-
-Outputs:
-BedrockChatStack.AuthUserPoolClientIdXXXXX = xxxxxxx
-BedrockChatStack.AuthUserPoolIdXXXXXX = ap-northeast-1_XXXX
-BedrockChatStack.BackendApiBackendApiUrlXXXXX = https://xxxxx.execute-api.ap-northeast-1.amazonaws.com
-BedrockChatStack.FrontendURL = https://xxxxx.cloudfront.net
-```
-
-### Defining Parameters
-
-You can define parameters for your deployment in two ways: using `cdk.json` or using the type-safe `parameter.ts` file.
-
-#### Using cdk.json (Traditional Method)
-
-The traditional way to configure parameters is by editing the `cdk.json` file. This approach is simple but lacks type checking:
-
-```json
-{
-  "app": "npx ts-node --prefer-ts-exts bin/bedrock-chat.ts",
-  "context": {
-    "bedrockRegion": "us-east-1",
-    "allowedIpV4AddressRanges": ["0.0.0.0/1", "128.0.0.0/1"],
-    "selfSignUpEnabled": true,
-    "globalAvailableModels": [
-      "claude-v3.7-sonnet",
-      "claude-v3.5-sonnet",
-      "amazon-nova-pro",
-      "amazon-nova-lite",
-      "llama3-3-70b-instruct"
-    ]
-  }
-}
-```
-
-#### Using parameter.ts (Recommended Type-Safe Method)
-
-For better type safety and developer experience, you can use the `parameter.ts` file to define your parameters:
-
-```typescript
-// Define parameters for the default environment
-bedrockChatParams.set("default", {
-  bedrockRegion: "us-east-1",
-  allowedIpV4AddressRanges: ["192.168.0.0/16"],
-  selfSignUpEnabled: true,
-  globalAvailableModels: [
-    "claude-v3.7-sonnet",
-    "claude-v3.5-sonnet",
-    "amazon-nova-pro",
-    "amazon-nova-lite",
-    "llama3-3-70b-instruct",
-  ],
-});
-
-// Define parameters for additional environments
-bedrockChatParams.set("dev", {
-  bedrockRegion: "us-west-2",
-  allowedIpV4AddressRanges: ["10.0.0.0/8"],
-  enableRagReplicas: false, // Cost-saving for dev environment
-  enableBotStoreReplicas: false, // Cost-saving for dev environment
-});
-
-bedrockChatParams.set("prod", {
-  bedrockRegion: "us-east-1",
-  allowedIpV4AddressRanges: ["172.16.0.0/12"],
-  enableLambdaSnapStart: true,
-  enableRagReplicas: true, // Enhanced availability for production
-  enableBotStoreReplicas: true, // Enhanced availability for production
-});
-```
-
-> [!Note]
-> Existing users can continue using `cdk.json` without any changes. The `parameter.ts` approach is recommended for new deployments or when you need to manage multiple environments.
-
-### Deploying Multiple Environments
-
-You can deploy multiple environments from the same codebase using the `parameter.ts` file and the `-c envName` option.
-
-#### Prerequisites
-
-1. Define your environments in `parameter.ts` as shown above
-2. Each environment will have its own set of resources with environment-specific prefixes
-
-#### Deployment Commands
-
-To deploy a specific environment:
-
-```bash
-# Deploy the dev environment
-npx cdk deploy --all -c envName=dev
-
-# Deploy the prod environment
-npx cdk deploy --all -c envName=prod
-```
-
-If no environment is specified, the "default" environment is used:
-
-```bash
-# Deploy the default environment
-npx cdk deploy --all
-```
-
-#### Important Notes
-
-1. **Stack Naming**:
-
-   - The main stacks for each environment will be prefixed with the environment name (e.g., `dev-BedrockChatStack`, `prod-BedrockChatStack`)
-   - However, custom bot stacks (`BrChatKbStack*`) and API publishing stacks (`ApiPublishmentStack*`) do not receive environment prefixes as they are created dynamically at runtime
-
-2. **Resource Naming**:
-
-   - Only some resources receive environment prefixes in their names (e.g., `dev_ddb_export` table, `dev-FrontendWebAcl`)
-   - Most resources maintain their original names but are isolated by being in different stacks
-
-3. **Environment Identification**:
-
-   - All resources are tagged with a `CDKEnvironment` tag containing the environment name
-   - You can use this tag to identify which environment a resource belongs to
-   - Example: `CDKEnvironment: dev` or `CDKEnvironment: prod`
-
-4. **Default Environment Override**: If you define a "default" environment in `parameter.ts`, it will override the settings in `cdk.json`. To continue using `cdk.json`, don't define a "default" environment in `parameter.ts`.
-
-5. **Environment Requirements**: To create environments other than "default", you must use `parameter.ts`. The `-c envName` option alone is not sufficient without corresponding environment definitions.
-
-6. **Resource Isolation**: Each environment creates its own set of resources, allowing you to have development, testing, and production environments in the same AWS account without conflicts.
-
-## Others
-
-You can define parameters for your deployment in two ways: using `cdk.json` or using the type-safe `parameter.ts` file.
-
-#### Using cdk.json (Traditional Method)
-
-The traditional way to configure parameters is by editing the `cdk.json` file. This approach is simple but lacks type checking:
-
-```json
-{
-  "app": "npx ts-node --prefer-ts-exts bin/bedrock-chat.ts",
-  "context": {
-    "bedrockRegion": "us-east-1",
-    "allowedIpV4AddressRanges": ["0.0.0.0/1", "128.0.0.0/1"],
-    "selfSignUpEnabled": true
+```powershell
+for ($i = 0; $i -lt 30; $i++) {
+  try {
+    $Answer = Invoke-RestMethod -Method Get `
+      -Uri "$ApiEndpoint/conversation/$ConversationId/$MessageId" `
+      -Headers $Headers
+    $Answer.message.content.body
+    break
+  } catch {
+    Start-Sleep -Seconds 5
   }
 }
 ```
 
-#### Using parameter.ts (Recommended Type-Safe Method)
+#### 3. 会話全体を取得する（`GET /conversation/{conversationId}`）
 
-For better type safety and developer experience, you can use the `parameter.ts` file to define your parameters:
-
-```typescript
-// Define parameters for the default environment
-bedrockChatParams.set("default", {
-  bedrockRegion: "us-east-1",
-  allowedIpV4AddressRanges: ["192.168.0.0/16"],
-  selfSignUpEnabled: true,
-});
-
-// Define parameters for additional environments
-bedrockChatParams.set("dev", {
-  bedrockRegion: "us-west-2",
-  allowedIpV4AddressRanges: ["10.0.0.0/8"],
-  enableRagReplicas: false, // Cost-saving for dev environment
-});
-
-bedrockChatParams.set("prod", {
-  bedrockRegion: "us-east-1",
-  allowedIpV4AddressRanges: ["172.16.0.0/12"],
-  enableLambdaSnapStart: true,
-  enableRagReplicas: true, // Enhanced availability for production
-});
+```powershell
+Invoke-RestMethod -Method Get `
+  -Uri "$ApiEndpoint/conversation/$ConversationId" `
+  -Headers $Headers
 ```
 
-> [!Note]
-> Existing users can continue using `cdk.json` without any changes. The `parameter.ts` approach is recommended for new deployments or when you need to manage multiple environments.
+### 注意点
 
-### Deploying Multiple Environments
+- APIキーが特定の利用者に紐づけて発行されている場合、その利用者の利用量上限（5時間／7日間）が適用されます。
+- 管理者が設定したスロットリング（呼び出しレートの上限）を超えると、リクエストが拒否されます。上限を上げたい場合は管理者に相談してください。
+- APIキーの追加・無効化も管理者の操作となります。
 
-You can deploy multiple environments from the same codebase using the `parameter.ts` file and the `-c envName` option.
+---
 
-#### Prerequisites
+## 6. Claude Code on Bedrock の使用方法
 
-1. Define your environments in `parameter.ts` as shown above
-2. Each environment will have its own set of resources with environment-specific prefixes
+**Claude Code** は、ターミナルからAIにコーディングを任せられるコマンドラインツールです。
+Acrocity Chat の環境では、社内のAmazon Bedrock経由で Claude Code を利用できます。
+以下の手順は **Windows 端末（PowerShell）** 向けです。
 
-#### Deployment Commands
+### 全体の流れ
 
-To deploy a specific environment:
-
-```bash
-# Deploy the dev environment
-npx cdk deploy --all -c envName=dev
-
-# Deploy the prod environment
-npx cdk deploy --all -c envName=prod
+```
+① 管理者にアクセスキーの発行を依頼
+        ↓
+② 管理者から AccessKeyId / SecretAccessKey を受け取る
+        ↓
+③ Claude Code をインストール
+        ↓
+④ 環境変数を設定して起動
 ```
 
-If no environment is specified, the "default" environment is used:
+### ① アクセスキーを受け取る
 
-```bash
-# Deploy the default environment
-npx cdk deploy --all
+アカウント登録時に、Bedrockを呼び出すための専用のアクセスキーが自動で発行され、社内のAWS環境に安全に保管されています。
+
+このキーは長期間有効な認証情報のため、**自分で画面から取得することはできません。管理者に依頼して受け取ってください。**
+受け取ったキーは他人と共有せず、社内のシークレット管理ルールに従って保管してください。
+
+管理者から受け取る情報:
+
+- `AccessKeyId`
+- `SecretAccessKey`
+- 利用するリージョン（例: `us-east-1`）
+- 指定するモデルID
+
+### ② Claude Code をインストールする
+
+Windows では次のいずれか1つの方法でインストールします。**PowerShell を開いて** 実行してください（管理者権限は不要です）。
+
+**方法A: 公式インストーラー（推奨）**
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
 ```
 
-#### Important Notes
+**方法B: WinGet**
 
-1. **Stack Naming**:
-
-   - The main stacks for each environment will be prefixed with the environment name (e.g., `dev-BedrockChatStack`, `prod-BedrockChatStack`)
-   - However, custom bot stacks (`BrChatKbStack*`) and API publishing stacks (`ApiPublishmentStack*`) do not receive environment prefixes as they are created dynamically at runtime
-
-2. **Resource Naming**:
-
-   - Only some resources receive environment prefixes in their names (e.g., `dev_ddb_export` table, `dev-FrontendWebAcl`)
-   - Most resources maintain their original names but are isolated by being in different stacks
-
-3. **Environment Identification**:
-
-   - All resources are tagged with a `CDKEnvironment` tag containing the environment name
-   - You can use this tag to identify which environment a resource belongs to
-   - Example: `CDKEnvironment: dev` or `CDKEnvironment: prod`
-
-4. **Default Environment Override**: If you define a "default" environment in `parameter.ts`, it will override the settings in `cdk.json`. To continue using `cdk.json`, don't define a "default" environment in `parameter.ts`.
-
-5. **Environment Requirements**: To create environments other than "default", you must use `parameter.ts`. The `-c envName` option alone is not sufficient without corresponding environment definitions.
-
-6. **Resource Isolation**: Each environment creates its own set of resources, allowing you to have development, testing, and production environments in the same AWS account without conflicts.
-
-## Others
-
-### Remove resources
-
-If using cli and CDK, please `npx cdk destroy`. If not, access [CloudFormation](https://console.aws.amazon.com/cloudformation/home) and then delete `BedrockChatStack` and `FrontendWafStack` manually. Please note that `FrontendWafStack` is in `us-east-1` region.
-
-### Language Settings
-
-This asset automatically detects the language using [i18next-browser-languageDetector](https://github.com/i18next/i18next-browser-languageDetector). You can switch languages from the application menu. Alternatively, you can use Query String to set the language as shown below.
-
-> `https://example.com?lng=ja`
-
-### Disable self sign up
-
-This sample has self sign up enabled by default. To disable self sign up, open [cdk.json](./cdk/cdk.json) and switch `selfSignUpEnabled` as `false`. If you configure [external identity provider](#external-identity-provider), the value will be ignored and automatically disabled.
-
-### Restrict Domains for Sign-Up Email Addresses
-
-By default, this sample does not restrict the domains for sign-up email addresses. To allow sign-ups only from specific domains, open `cdk.json` and specify the domains as a list in `allowedSignUpEmailDomains`.
-
-```ts
-"allowedSignUpEmailDomains": ["example.com"],
+```powershell
+winget install Anthropic.ClaudeCode
 ```
 
-### External Identity Provider
+**方法C: npm（Node.js 22以降が入っている場合）**
 
-This sample supports external identity provider. Currently we support [Google](./docs/idp/SET_UP_GOOGLE.md) and [custom OIDC provider](./docs/idp/SET_UP_CUSTOM_OIDC.md).
-
-### Optional Frontend WAF
-
-For CloudFront distributions, AWS WAF WebACLs must be created in the us-east-1 region. In some organizations, creating resources outside the primary region is restricted by policy. In such environments, CDK deployment can fail when attempting to provision the Frontend WAF in us-east-1.
-
-To accommodate these restrictions, the Frontend WAF stack is optional. When disabled, the CloudFront distribution is deployed without a WebACL. This means you won’t have IP allow/deny controls at the frontend edge. Authentication and all other application controls continue to work as usual. Note that this setting only affects the Frontend WAF (CloudFront scope); the Published API WAF (regional) remains unaffected.
-
-To disable the Frontend WAF set the following in `parameter.ts` (Recommended Type-Safe Method):
-
-```ts
-bedrockChatParams.set("default", {
-  enableFrontendWaf: false,
-});
+```powershell
+npm install -g @anthropic-ai/claude-code
 ```
 
-Or if using the legacy `cdk/cdk.json` set the following:
+インストールできたか確認します。バージョン番号が表示されればOKです。
 
-```json
-"enableFrontendWaf": false
+```powershell
+claude --version
 ```
 
-### Add new users to groups automatically
+> [!NOTE]
+> - `claude` が見つからないと表示される場合は、PowerShell を一度閉じて開き直してください。
+> - [Git for Windows](https://git-scm.com/downloads/win) を入れておくと、Claude Code が Git Bash を使えるようになります（未インストールでも PowerShell で動作します）。
 
-This sample has the following groups to give permissions to users:
+### ③ 環境変数を設定する
 
-- [`Admin`](./docs/ADMINISTRATOR.md)
-- [`CreatingBotAllowed`](#bot-personalization)
-- [`PublishAllowed`](./docs/PUBLISH_API.md)
+受け取ったキーとリージョン、モデルIDを環境変数に設定します。
 
-If you want newly created users to automatically join groups, you can specify them in [cdk.json](./cdk/cdk.json).
+**開いている PowerShell だけで有効にする場合**
 
-```json
-"autoJoinUserGroups": ["CreatingBotAllowed"],
+```powershell
+$env:AWS_ACCESS_KEY_ID     = "<受け取ったAccessKeyId>"
+$env:AWS_SECRET_ACCESS_KEY = "<受け取ったSecretAccessKey>"
+$env:AWS_REGION="ap-northeast-1"
+$env:CLAUDE_CODE_USE_BEDROCK=1
+$env:ANTHROPIC_DEFAULT_FABLE_MODEL='global.anthropic.claude-fable-5'
+$env:ANTHROPIC_DEFAULT_OPUS_MODEL='global.anthropic.claude-opus-5'
+$env:ANTHROPIC_DEFAULT_SONNET_MODEL='global.anthropic.claude-sonnet-5'
+$env:ANTHROPIC_DEFAULT_HAIKU_MODEL='global.anthropic.claude-haiku-4-5-20251001-v1:0'
 ```
 
-By default, newly created users will be joined to the `CreatingBotAllowed` group.
+**次回以降も自動で有効にする場合（ユーザー環境変数として保存）**
 
-### Configure RAG Replicas
-
-`enableRagReplicas` is an option in [cdk.json](./cdk/cdk.json) that controls the replica settings for the RAG database, specifically the Knowledge Bases using Amazon OpenSearch Serverless.
-
-- **Default**: true
-- **true**: Enhances availability by enabling additional replicas, making it suitable for production environments but increasing costs.
-- **false**: Reduces costs by using fewer replicas, making it suitable for development and testing.
-
-This is an account/region-level setting, affecting the entire application rather than individual bots.
-
-> [!Note]
-> As of June 2024, Amazon OpenSearch Serverless supports 0.5 OCU, lowering entry costs for small-scale workloads. Production deployments can start with 2 OCUs, while dev/test workloads can use 1 OCU. OpenSearch Serverless automatically scales based on workload demands. For more detail, visit [announcement](https://aws.amazon.com/jp/about-aws/whats-new/2024/06/amazon-opensearch-serverless-entry-cost-half-collection-types/).
-
-### Configure Bot Store
-
-The bot store feature allows users to share and discover custom bots. You can configure the bot store through the following settings in [cdk.json](./cdk/cdk.json):
-
-```json
-{
-  "context": {
-    "enableBotStore": true,
-    "enableBotStoreReplicas": false,
-    "botStoreLanguage": "en"
-  }
-}
+```powershell
+[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "<受け取ったAccessKeyId>", "User")
+[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "<受け取ったSecretAccessKey>", "User")
+[Environment]::SetEnvironmentVariable("AWS_REGION", "ap-northeast-1", "User")
+[Environment]::SetEnvironmentVariable("CLAUDE_CODE_USE_BEDROCK", "1", "User")
+[Environment]::SetEnvironmentVariable("ANTHROPIC_DEFAULT_FABLE_MODEL", "global.anthropic.claude-fable-5", "User")
+[Environment]::SetEnvironmentVariable("ANTHROPIC_DEFAULT_OPUS_MODEL", "global.anthropic.claude-opus-5", "User")
+[Environment]::SetEnvironmentVariable("ANTHROPIC_DEFAULT_SONNET_MODEL", "global.anthropic.claude-sonnet-5", "User")
+[Environment]::SetEnvironmentVariable("ANTHROPIC_DEFAULT_HAIKU_MODEL", "global.anthropic.claude-haiku-4-5-20251001-v1:0", "User")
 ```
 
-- **enableBotStore**: Controls whether the bot store feature is enabled (default: `true`)
-- **botStoreLanguage**: Sets the primary language for bot search and discovery (default: `"en"`). This affects how bots are indexed and searched in the bot store, optimizing text analysis for the specified language.
-- **enableBotStoreReplicas**: Controls whether standby replicas are enabled for the OpenSearch Serverless collection used by bot store (default: `false`). Setting it to `true` improves availability but increases costs, while `false` reduces costs but may affect availability.
-  > **Important**: You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
+保存した内容は、**PowerShell を開き直してから** 有効になります。設定できたか確認する例:
 
-### Cross-region and Global inference
-
-[Cross-region and Global inference](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html)
-allows Amazon Bedrock to dynamically route model inference requests across
-multiple AWS regions, enhancing throughput and resilience during peak demand
-periods. Global inference routes the requests to the optimal region based on
-latency and availability anywhere in the world, while cross-region inference
-routes requests within the same AWS region, for example, within the US. Some
-SCPs may restrict on or the other or both and therefore you can configure them
-independently. By default both are enabled.
-
-To configure change the following settings in `cdk.json` or `parameters.ts`:
-
-```json
-"enableBedrockGlobalInference": false,
-"enableBedrockCrossRegionInference": false,
+```powershell
+$env:AWS_REGION
+$env:CLAUDE_CODE_USE_BEDROCK
 ```
 
-### Configure Default Models
+> [!NOTE]
+> - ユーザー環境変数に保存すると、その端末にサインインしている間はキーが保存されたままになります。共有端末では保存せず、都度設定する方法を使ってください。
 
-By default, the application uses `claude-v3.7-sonnet` as the default model for new chat conversations and `claude-v3-haiku` for generating conversation titles. However, some AWS accounts may not have access to these specific models, or you may prefer to use different models as defaults.
+### ④ 起動する
 
-You can configure the default models using the following parameters in `parameter.ts`:
+作業したいプロジェクトのフォルダに移動して、`claude` を実行します。
 
-```typescript
-bedrockChatParams.set("default", {
-  // Model selected by default when users start a new chat
-  defaultModel: "claude-v3.7-sonnet",
-  
-  // Model used for generating conversation titles (cost optimization)
-  titleModel: "claude-v3-haiku",
-});
+```powershell
+cd C:\work\my-project
+claude
 ```
 
-- **defaultModel** (optional): The model pre-selected in the chat UI when users start a new conversation. If not set, defaults to `claude-v3.7-sonnet`.
-- **titleModel** (optional): The model used to automatically generate conversation titles. If not set, falls back to `defaultModel`, then to `claude-v3-haiku`.
+![Claude Code の起動](./docs/imgs/user/14-claude-code-powershell.png)
 
-**When to configure these settings:**
+うまく動かない場合は、次のコマンドで設定状態を確認できます。
 
-- Your AWS account doesn't have access to the default models (`claude-v3.7-sonnet` or `claude-v3-haiku`)
-- You want to use a different model as the default for your users
-- You want to optimize costs by using a cheaper model (like `claude-v3-haiku` or `amazon-nova-lite`) for title generation
-- You want to use the same model for both chat and title generation for consistency
-
-> [!Note]
-> The `titleModel` is only used internally for generating short conversation titles. Using a smaller, cheaper model for this purpose is recommended as it reduces costs without affecting the user's chat experience.
-
-### Lambda SnapStart
-
-[Lambda SnapStart](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html) improves cold start times for Lambda functions, providing faster response times for better user experience. On the other hand, for Python functions, there is a [charge depending on cache size](https://aws.amazon.com/lambda/pricing/#SnapStart_Pricing) and [not available in some regions](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html#snapstart-supported-regions) currently. To disable SnapStart, edit `cdk.json`.
-
-```json
-"enableLambdaSnapStart": false
+```powershell
+claude doctor
 ```
 
-### Configure Custom Domain
+### 利用上の注意
 
-You can configure a custom domain for the CloudFront distribution by setting the following parameters in [cdk.json](./cdk/cdk.json):
+- Claude Code の利用コストも、チャット画面の利用と **合算** されて同じ上限（5時間／7日間）で管理されます。合計が上限を超えると、Bedrockの呼び出しが自動的に拒否されるようになります。
+- Claude Code 側の利用量の集計は1時間ごとのバッチ処理で行われるため、チャット画面と違って **反映までに時間差** があります（最大で1日程度）。
+- アクセスキーが漏えいした可能性がある場合は、ただちに管理者に連絡してください。
 
-```json
-{
-  "alternateDomainName": "chat.example.com",
-  "hostedZoneId": "Z0123456789ABCDEF"
-}
-```
+---
 
-- `alternateDomainName`: The custom domain name for your chat application (e.g., chat.example.com)
-- `hostedZoneId`: The ID of your Route 53 hosted zone where the domain records will be created
+## 7. 困ったときは
 
-When these parameters are provided, the deployment will automatically:
+| 症状 | 対応 |
+|---|---|
+| サインインすると「管理者の承認待ちです」と表示される | 管理者の承認が完了していません。管理者に連絡してください（→ [3章](#3-アカウント登録方法)） |
+| アカウント作成でメールアドレスが弾かれる | `@gyoseiq.co.jp` のアドレスのみ登録できます |
+| 確認コードのメールが届かない | 迷惑メールフォルダを確認し、数分待っても届かない場合は管理者に連絡してください |
+| パスワードが分からない | サインイン画面の「パスワードを忘れましたか？」から再設定してください |
+| メッセージを送っても応答が返らない／エラーになる | 利用量の上限に達していないか、画面左下の利用状況を確認してください。時間の経過で回復します |
+| ファイルが添付できない | 対応形式・5ファイルまで・1ファイル4.5MBまでの制限を満たしているか確認してください |
+| 画像を貼り付けられない | 選択中のモデルが画像に対応していない可能性があります。モデルを切り替えてください |
+| ボットを作りたい | 権限の付与が必要です。管理者に依頼してください（→ [3章](#3-アカウント登録方法)） |
+| APIで呼び出したい／APIキーが欲しい | 管理者に発行を依頼してください（→ [5章](#5-公開apiの使用方法)） |
+| PowerShell で `claude` が見つからない | PowerShell を開き直してください。それでも解決しない場合は再インストールしてください（→ [6章](#6-claude-code-on-bedrock-の使用方法)） |
+| Claude Code のアクセスキーが欲しい | 管理者に依頼してください（→ [6章](#6-claude-code-on-bedrock-の使用方法)） |
 
-- Create an ACM certificate with DNS validation in us-east-1 region
-- Create the necessary DNS records in your Route 53 hosted zone
-- Configure CloudFront to use your custom domain
+上記で解決しない場合は、社内の管理者にお問い合わせください。
 
-> [!Note]
-> The domain must be managed by Route 53 in your AWS account. The hosted zone ID can be found in the Route 53 console.
+<br>
 
-### Configure allowed countries (geo restriction)
-
-You can restrict access to Bedrock-Chat based on the country the client is accessing it from.
-Use the `allowedCountries` parameter in [cdk.json](./cdk/cdk.json) which takes a list of [ISO-3166 Country Codes](https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes).
-For example a New Zealand based business may decide that only IP addresses from New Zealand (NZ) and Australia (AU) can access the portal and everyone else should be denied access.
-To configure this behaviour use the following setting in [cdk.json](./cdk/cdk.json):
-
-```json
-{
-  "allowedCountries": ["NZ", "AU"]
-}
-```
-
-Or, using `parameter.ts` (Recommended Type-Safe Method):
-
-```ts
-// Define parameters for the default environment
-bedrockChatParams.set("default", {
-  allowedCountries: ["NZ", "AU"],
-});
-```
-
-### Disable IPv6 support
-
-The frontend gets both IP and IPv6 addresses by default. In some rare
-circumstances, you may need to disable IPv6 support explicitly. To do this, set
-the following parameter in [parameter.ts](./cdk/parameter.ts) or similarly in [cdk.json](./cdk/cdk.json):
-
-```ts
-"enableFrontendIpv6": false
-```
-
-If left unset the IPv6 support will be enabled by default.
-
-### Local Development
-
-See [LOCAL DEVELOPMENT](./docs/LOCAL_DEVELOPMENT.md).
-
-### Contribution
-
-Thank you for considering contributing to this repository! We welcome bug fixes, language translations (i18n), feature enhancements, [agent tools](./docs/AGENT.md#how-to-develop-your-own-tools), and other improvements.
-
-For feature enhancements and other improvements, **before creating a Pull Request, we would greatly appreciate it if you could create a Feature Request Issue to discuss the implementation approach and details. For bug fixes and language translations (i18n), proceed with creating a Pull Request directly.**
-
-Please also take a look at the following guidelines before contributing:
-
-- [Local Development](./docs/LOCAL_DEVELOPMENT.md)
-- [CONTRIBUTING](./CONTRIBUTING.md)
-
-## Contacts
-
-- [Takehiro Suzuki](https://github.com/statefb)
-- [Yusuke Wada](https://github.com/wadabee)
-- [Yukinobu Mine](https://github.com/Yukinobu-Mine)
-
-## 🏆 Significant Contributors
-
-- [fsatsuki](https://github.com/fsatsuki)
-- [k70suK3-k06a7ash1](https://github.com/k70suK3-k06a7ash1)
-
-## Contributors
-
-[![bedrock chat contributors](https://contrib.rocks/image?repo=aws-samples/bedrock-chat&max=1000)](https://github.com/aws-samples/bedrock-chat/graphs/contributors)
-
-## License
-
-This library is licensed under the MIT-0 License. See [the LICENSE file](./LICENSE).
+<sub>※ 管理・運用担当者向けの情報は <a href="./docs/ADMINISTRATOR_ja-JP.md">docs/ADMINISTRATOR_ja-JP.md</a> を参照してください。</sub>
