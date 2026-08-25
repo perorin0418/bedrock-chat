@@ -23,6 +23,7 @@ export class Database extends Construct {
   readonly claudeCodeIamUserTable: Table;
   readonly claudeCodeCostSyncRole: Role;
   readonly mcpOAuthStateTable: Table;
+  readonly claudeTeamsTokenTable: Table;
 
   constructor(scope: Construct, id: string, props?: DatabaseProps) {
     super(scope, id);
@@ -177,6 +178,23 @@ export class Database extends Construct {
     });
     mcpOAuthStateTable.grantReadWriteData(tableAccessRole);
 
+    // Claude Teams plan OAuth token pool. PK: TokenId. Metadata only —
+    // the actual OAuth token string lives in Secrets Manager
+    // (`claude-teams-token/{TokenId}`), never in this table.
+    // `CooldownUntil` doubles as the DynamoDB TTL attribute: once a token's
+    // rate-limit cooldown time passes, the item's cooldown marker expires
+    // and DynamoDB best-effort-deletes stale cooldown state (the item
+    // itself, including `Enabled`, persists — TTL here only prunes the
+    // cooldown timestamp's staleness for cleanliness, actual cooldown
+    // checks compare `CooldownUntil` against current time in application
+    // code, not by relying on the item having been deleted).
+    const claudeTeamsTokenTable = new Table(this, "ClaudeTeamsTokenTable", {
+      partitionKey: { name: "TokenId", type: AttributeType.STRING },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      encryption: TableEncryption.AWS_MANAGED,
+    });
+
     this.conversationTable = conversationTable;
     this.botTable = botTable;
     this.tableAccessRole = tableAccessRole;
@@ -186,6 +204,7 @@ export class Database extends Construct {
     this.claudeCodeIamUserTable = claudeCodeIamUserTable;
     this.claudeCodeCostSyncRole = claudeCodeCostSyncRole;
     this.mcpOAuthStateTable = mcpOAuthStateTable;
+    this.claudeTeamsTokenTable = claudeTeamsTokenTable;
 
     new CfnOutput(this, "ConversationTableName", {
       value: conversationTable.tableName,
@@ -204,6 +223,9 @@ export class Database extends Construct {
     });
     new CfnOutput(this, "McpOAuthStateTableName", {
       value: mcpOAuthStateTable.tableName,
+    });
+    new CfnOutput(this, "ClaudeTeamsTokenTableName", {
+      value: claudeTeamsTokenTable.tableName,
     });
   }
 }
