@@ -251,6 +251,9 @@ export class Api extends Construct {
           `arn:aws:secretsmanager:${Stack.of(this).region}:${
             Stack.of(this).account
           }:secret:mcp-oauth/*/*`,
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:claude-teams-token/*`,
         ],
       })
     );
@@ -259,6 +262,7 @@ export class Api extends Construct {
     props.largeMessageBucket.grantReadWrite(handlerRole);
     props.rateLimitFiveHourParam.grantRead(handlerRole);
     props.rateLimitSevenDayParam.grantRead(handlerRole);
+    database.claudeTeamsTokenTable.grantReadWriteData(handlerRole);
 
     const api = new HttpApi(this, "Default", {
       description: `Main API for ${Stack.of(this).stackName}`,
@@ -306,6 +310,7 @@ export class Api extends Construct {
         USAGE_LEDGER_TABLE_NAME: database.usageLedgerTable.tableName,
         API_KEY_OWNER_TABLE_NAME: database.apiKeyOwnerTable.tableName,
         MCP_OAUTH_STATE_TABLE_NAME: database.mcpOAuthStateTable.tableName,
+        CLAUDE_TEAMS_TOKEN_TABLE_NAME: database.claudeTeamsTokenTable.tableName,
         MCP_OAUTH_REDIRECT_URI: `${api.apiEndpoint}/mcp/oauth/callback`,
         FRONTEND_URL: props.frontendUrl,
         RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
