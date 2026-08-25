@@ -19,6 +19,10 @@ from app.routes.global_config import router as global_config_router
 from app.routes.mcp_oauth import router as mcp_oauth_router
 from app.routes.published_api import router as published_api_router
 from app.routes.user import router as user_router
+from app.claude_teams.errors import (
+    ClaudeTeamsAllTokensUnavailableError,
+    ClaudeTeamsExecutionError,
+)
 from app.user import User
 from app.utils import is_running_on_lambda
 from fastapi import Depends, FastAPI, Request
@@ -101,6 +105,8 @@ app.add_exception_handler(PermissionError, error_handler_factory(403))
 app.add_exception_handler(ValidationError, error_handler_factory(422))
 app.add_exception_handler(ResourceConflictError, error_handler_factory(409))
 app.add_exception_handler(RateLimitExceededError, error_handler_factory(429))
+app.add_exception_handler(ClaudeTeamsAllTokensUnavailableError, error_handler_factory(429))
+app.add_exception_handler(ClaudeTeamsExecutionError, error_handler_factory(502))
 app.add_exception_handler(Exception, error_handler_factory(500))
 
 
