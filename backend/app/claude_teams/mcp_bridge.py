@@ -79,7 +79,7 @@ def _wrap_strands_tool_as_sdk_tool(strands_agent_tool: Any):
 
 def build_claude_teams_mcp_servers(
     bot: BotModel | None, model_name: type_model_name
-) -> tuple[dict[str, Any], list[str], contextlib.AbstractContextManager]:
+) -> tuple[dict[str, Any], list[str], contextlib.ExitStack]:
     """Return (mcp_servers dict for ClaudeAgentOptions, the matching
     allowed_tools list, a context manager to close when the chat turn
     finishes).
