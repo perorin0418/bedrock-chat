@@ -1,5 +1,5 @@
 import { Construct } from "constructs";
-import { CfnOutput, CfnResource, Duration, Size } from "aws-cdk-lib";
+import { CfnOutput, CfnResource, Duration } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
@@ -293,7 +293,6 @@ export class Api extends Construct {
       architecture: Architecture.X86_64,
       memorySize: 1024,
       timeout: Duration.minutes(15),
-      ephemeralStorageSize: Size.mebibytes(1024),
       environment: {
         CONVERSATION_TABLE_NAME: database.conversationTable.tableName,
         BOT_TABLE_NAME: database.botTable.tableName,
