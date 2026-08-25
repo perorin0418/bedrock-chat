@@ -118,6 +118,26 @@ const translation = {
         label: 'Claude 3 (Opus)',
         description: 'Powerful model for highly complex tasks.',
       },
+      'claude-teams-opus': {
+        label: 'Claude Opus 5 (Teams Plan)',
+        description:
+          'Claude Opus 5 running through the Claude Code CLI, billed against a pooled Claude Teams/Pro/Max flat-rate quota instead of Bedrock on-demand pricing.',
+      },
+      'claude-teams-sonnet': {
+        label: 'Claude Sonnet 5 (Teams Plan)',
+        description:
+          'Claude Sonnet 5 running through the Claude Code CLI, billed against a pooled Claude Teams/Pro/Max flat-rate quota instead of Bedrock on-demand pricing.',
+      },
+      'claude-teams-haiku': {
+        label: 'Claude Haiku 4.5 (Teams Plan)',
+        description:
+          'Claude Haiku 4.5 running through the Claude Code CLI, billed against a pooled Claude Teams/Pro/Max flat-rate quota instead of Bedrock on-demand pricing.',
+      },
+      'claude-teams-fable': {
+        label: 'Claude Fable 5 (Teams Plan)',
+        description:
+          'Claude Fable 5 running through the Claude Code CLI, billed against a pooled Claude Teams/Pro/Max flat-rate quota instead of Bedrock on-demand pricing.',
+      },
       'mistral-7b-instruct': {
         label: 'Mistral 7B',
         description:

@@ -119,6 +119,26 @@ const translation: typeof en = {
         label: 'Claude 3 (Opus)',
         description: '非常に複雑なタスクに対応するパワフルなモデル',
       },
+      'claude-teams-opus': {
+        label: 'Claude Opus 5（Teamsプラン経由）',
+        description:
+          'Claude Code CLI経由で動作するClaude Opus 5。Bedrockの従量課金ではなく、Claude Teams/Pro/Maxプランの定額枠（プール管理）を消費します。',
+      },
+      'claude-teams-sonnet': {
+        label: 'Claude Sonnet 5（Teamsプラン経由）',
+        description:
+          'Claude Code CLI経由で動作するClaude Sonnet 5。Bedrockの従量課金ではなく、Claude Teams/Pro/Maxプランの定額枠（プール管理）を消費します。',
+      },
+      'claude-teams-haiku': {
+        label: 'Claude Haiku 4.5（Teamsプラン経由）',
+        description:
+          'Claude Code CLI経由で動作するClaude Haiku 4.5。Bedrockの従量課金ではなく、Claude Teams/Pro/Maxプランの定額枠（プール管理）を消費します。',
+      },
+      'claude-teams-fable': {
+        label: 'Claude Fable 5（Teamsプラン経由）',
+        description:
+          'Claude Code CLI経由で動作するClaude Fable 5。Bedrockの従量課金ではなく、Claude Teams/Pro/Maxプランの定額枠（プール管理）を消費します。',
+      },
       'mistral-7b-instruct': {
         label: 'Mistral 7B',
         description:

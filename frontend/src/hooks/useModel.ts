@@ -214,6 +214,35 @@ const useModel = (
         supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
         supportReasoning: false,
       },
+      // Claude Teams plan (via Claude Code CLI OAuth token pool)
+      {
+        modelId: 'claude-teams-opus',
+        label: t('model.claude-teams-opus.label'),
+        description: t('model.claude-teams-opus.description'),
+        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+      },
+      {
+        modelId: 'claude-teams-sonnet',
+        label: t('model.claude-teams-sonnet.label'),
+        description: t('model.claude-teams-sonnet.description'),
+        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+      },
+      {
+        modelId: 'claude-teams-haiku',
+        label: t('model.claude-teams-haiku.label'),
+        description: t('model.claude-teams-haiku.description'),
+        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+      },
+      {
+        modelId: 'claude-teams-fable',
+        label: t('model.claude-teams-fable.label'),
+        description: t('model.claude-teams-fable.description'),
+        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+      },
       // New Amazon Nova models
       {
         modelId: 'amazon-nova-pro',
