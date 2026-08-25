@@ -751,6 +751,19 @@ How would you categorize this email?`,
           failApprove: 'Failed to approve the user.',
         },
       },
+      claudeTeamsTokens: {
+        label: {
+          pageTitle: 'Claude Teams Tokens',
+          noTokens: 'No tokens registered.',
+          displayName: 'Display Name',
+          tokenValue: 'OAuth Token',
+          coolingDown: 'Cooling down',
+        },
+        button: {
+          register: 'Register',
+          delete: 'Delete',
+        },
+      },
       validationError: {
         period: 'Enter both From and To',
       },

@@ -755,6 +755,19 @@ const translation: typeof en = {
           failApprove: 'ユーザーの承認に失敗しました。',
         },
       },
+      claudeTeamsTokens: {
+        label: {
+          pageTitle: 'Claude Teamsトークン',
+          noTokens: '登録されたトークンがありません。',
+          displayName: '表示名',
+          tokenValue: 'OAuthトークン',
+          coolingDown: 'クールダウン中',
+        },
+        button: {
+          register: '登録',
+          delete: '削除',
+        },
+      },
       validationError: {
         period: 'FromとToを両方入力してください。',
       },
