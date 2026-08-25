@@ -14,10 +14,13 @@ class _FakeStrandsTool:
     def __init__(self, tool_name: str):
         self.tool_name = tool_name
 
-    async def invoke_async(self, tool_use, invocation_state):
+    async def stream(self, tool_use, invocation_state, **kwargs):
         yield {
-            "status": "success",
-            "content": [{"text": f"result for {self.tool_name}"}],
+            "tool_result": {
+                "status": "success",
+                "content": [{"text": f"result for {self.tool_name}"}],
+                "toolUseId": tool_use["toolUseId"],
+            }
         }
 
 

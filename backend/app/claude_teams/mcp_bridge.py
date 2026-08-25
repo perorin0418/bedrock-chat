@@ -14,6 +14,7 @@ place.
 """
 
 import contextlib
+import json
 import logging
 from typing import Any
 
@@ -44,9 +45,8 @@ def _wrap_strands_tool_as_sdk_tool(strands_agent_tool: Any):
     the tool."""
 
     async def _handler(args: dict) -> dict:
-        result_content: list[dict] = []
-        status = "success"
-        async for tool_result in strands_agent_tool.invoke_async(
+        last_event = None
+        async for event in strands_agent_tool.stream(
             tool_use={
                 "toolUseId": "claude-teams-bridge",
                 "name": strands_agent_tool.tool_name,
@@ -54,16 +54,18 @@ def _wrap_strands_tool_as_sdk_tool(strands_agent_tool: Any):
             },
             invocation_state={},
         ):
-            status = tool_result.get("status", status)
-            for content in tool_result.get("content", []):
-                if "text" in content:
-                    result_content.append({"type": "text", "text": content["text"]})
-                elif "json" in content:
-                    import json as _json
+            last_event = event
 
-                    result_content.append(
-                        {"type": "text", "text": _json.dumps(content["json"])}
-                    )
+        tool_result = last_event["tool_result"] if last_event is not None else {}
+        status = tool_result.get("status", "success")
+        result_content: list[dict] = []
+        for content in tool_result.get("content", []):
+            if "text" in content:
+                result_content.append({"type": "text", "text": content["text"]})
+            elif "json" in content:
+                result_content.append(
+                    {"type": "text", "text": json.dumps(content["json"])}
+                )
         if not result_content:
             result_content = [{"type": "text", "text": ""}]
         return {"content": result_content, "is_error": status == "error"}
