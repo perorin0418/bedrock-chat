@@ -95,6 +95,11 @@ class TestExchangeCodeForToken(unittest.TestCase):
         self.assertEqual(result["access_token"], "sk-ant-oat01-full")
         request = mock_urlopen.call_args[0][0]
         self.assertEqual(request.full_url, oauth_script.TOKEN_URL)
+        # console.anthropic.com is behind Cloudflare, which blocks the
+        # default `Python-urllib/x.y` User-Agent outright with a generic
+        # "error code: 1010" before the request ever reaches Anthropic's
+        # own API logic -- a browser-like User-Agent must be sent.
+        self.assertIn("Chrome", request.get_header("User-agent"))
         sent_body = json.loads(request.data.decode("utf-8"))
         self.assertEqual(sent_body["grant_type"], "authorization_code")
         self.assertEqual(sent_body["code"], "auth-code")

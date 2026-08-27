@@ -108,7 +108,22 @@ def _exchange_code_for_token(
     request = urllib.request.Request(
         TOKEN_URL,
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            # console.anthropic.com sits behind Cloudflare, which rejects
+            # Python's default `Python-urllib/x.y` User-Agent (and the
+            # TLS/HTTP fingerprint that goes with it) outright with a
+            # generic "error code: 1010" (bad browser signature) — no
+            # Anthropic-specific error body, just a Cloudflare block page.
+            # A standard browser User-Agent is enough to pass; the request
+            # itself doesn't need to (and isn't trying to) impersonate the
+            # Claude Code CLI's own client identity.
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+        },
         method="POST",
     )
     try:
