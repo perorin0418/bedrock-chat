@@ -1,14 +1,12 @@
 import { Construct } from "constructs";
-import { CfnOutput, CfnResource, Duration } from "aws-cdk-lib";
+import { CfnOutput, Duration } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import {
-  Architecture,
+  DockerImageCode,
+  DockerImageFunction,
   IFunction,
-  LayerVersion,
-  Runtime,
-  SnapStartConf,
 } from "aws-cdk-lib/aws-lambda";
 import {
   CorsHttpMethod,
@@ -25,9 +23,10 @@ import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import { UsageAnalysis } from "./usage-analysis";
 import { excludeDockerImage } from "../constants/docker";
-import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
+import { Platform } from "aws-cdk-lib/aws-ecr-assets";
 import { Database } from "./database";
 import * as ssm from "aws-cdk-lib/aws-ssm";
+
 
 export interface ApiProps {
   readonly database: Database;
@@ -263,6 +262,7 @@ export class Api extends Construct {
     props.rateLimitFiveHourParam.grantRead(handlerRole);
     props.rateLimitSevenDayParam.grantRead(handlerRole);
     database.claudeTeamsTokenTable.grantReadWriteData(handlerRole);
+    database.claudeTeamsUsageHistoryTable.grantReadData(handlerRole);
 
     const api = new HttpApi(this, "Default", {
       description: `Main API for ${Stack.of(this).stackName}`,
@@ -282,15 +282,24 @@ export class Api extends Construct {
       },
     });
 
-    const handler = new PythonFunction(this, "HandlerV2", {
-      entry: path.join(__dirname, "../../../backend"),
-      index: "app/main.py",
-      bundling: {
-        assetExcludes: [...excludeDockerImage],
-        buildArgs: { POETRY_VERSION: "1.8.5" },
-      },
-      runtime: Runtime.PYTHON_3_13,
-      architecture: Architecture.X86_64,
+    // Packaged as a container image (not a zip) because claude-agent-sdk
+    // bundles the Claude Code CLI binary (~230MB), which alone exceeds the
+    // 250MiB unzipped-size limit for zip-based Lambda functions once combined
+    // with the rest of the backend's dependencies. Container images support
+    // up to 10GB. backend/Dockerfile installs the Lambda Web Adapter as a
+    // Lambda Extension (/opt/extensions/lambda-adapter), so unlike the
+    // zip+layer approach this needs no AWS_LAMBDA_EXEC_WRAPPER or Handler
+    // override. Trade-off: SnapStart is zip/managed-runtime only, so it is
+    // not available here (see enableLambdaSnapStart handling below).
+    const handler = new DockerImageFunction(this, "HandlerV2", {
+      code: DockerImageCode.fromImageAsset(
+        path.join(__dirname, "../../../backend"),
+        {
+          platform: Platform.LINUX_AMD64,
+          file: "Dockerfile",
+          exclude: [...excludeDockerImage],
+        }
+      ),
       memorySize: 1024,
       timeout: Duration.minutes(15),
       environment: {
@@ -311,6 +320,8 @@ export class Api extends Construct {
         API_KEY_OWNER_TABLE_NAME: database.apiKeyOwnerTable.tableName,
         MCP_OAUTH_STATE_TABLE_NAME: database.mcpOAuthStateTable.tableName,
         CLAUDE_TEAMS_TOKEN_TABLE_NAME: database.claudeTeamsTokenTable.tableName,
+        CLAUDE_TEAMS_USAGE_HISTORY_TABLE_NAME:
+          database.claudeTeamsUsageHistoryTable.tableName,
         MCP_OAUTH_REDIRECT_URI: `${api.apiEndpoint}/mcp/oauth/callback`,
         FRONTEND_URL: props.frontendUrl,
         RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
@@ -335,30 +346,11 @@ export class Api extends Construct {
         OPENSEARCH_DOMAIN_ENDPOINT: props.openSearchEndpoint || "",
         LOGO_PATH: props.logoPath || "",
         USE_STRANDS: "true",
-        AWS_LAMBDA_EXEC_WRAPPER: "/opt/bootstrap",
         PORT: "8000",
       },
       role: handlerRole,
       logRetention: logs.RetentionDays.THREE_MONTHS,
-      snapStart: props.enableLambdaSnapStart
-        ? SnapStartConf.ON_PUBLISHED_VERSIONS
-        : undefined,
-      layers: [
-        LayerVersion.fromLayerVersionArn(
-          this,
-          "LwaLayer",
-          // https://github.com/awslabs/aws-lambda-web-adapter?tab=readme-ov-file#lambda-functions-packaged-as-zip-package-for-aws-managed-runtimes
-          `arn:aws:lambda:${
-            Stack.of(this).region
-          }:753240598075:layer:LambdaAdapterLayerX86:23`
-        ),
-      ],
     });
-    // https://github.com/awslabs/aws-lambda-web-adapter/tree/main/examples/fastapi-zip
-    (handler.node.defaultChild as CfnResource).addPropertyOverride(
-      "Handler",
-      "run.sh"
-    );
 
     const integration = new HttpLambdaIntegration(
       "Integration",

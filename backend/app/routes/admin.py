@@ -17,20 +17,24 @@ from app.routes.schemas.admin import (
 from app.routes.schemas.bot import Knowledge
 from app.routes.schemas.claude_teams import (
     ClaudeTeamsTokenOutput,
+    ClaudeTeamsUsageSnapshotOutput,
     CreateClaudeTeamsTokenInput,
     UpdateClaudeTeamsTokenInput,
 )
 from app.usecases.bot import modify_pinning_status
 from app.usecases.claude_teams_admin import (
+    build_claude_teams_usage_history_csv,
     create_claude_teams_token,
     delete_claude_teams_token_usecase,
+    get_claude_teams_token_latest_usage,
     list_claude_teams_tokens,
     update_claude_teams_token,
 )
 from app.usecases.user import approve_pending_user, list_users_pending_approval
 from app.user import User, UserWithoutGroups
 from app.utils import get_current_time
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 
 router = APIRouter(tags=["admin"])
 
@@ -181,6 +185,23 @@ def approve_user(
         raise HTTPException(status_code=404, detail="User Not Found.")
 
 
+def _to_claude_teams_usage_snapshot_output(
+    snapshot,
+) -> ClaudeTeamsUsageSnapshotOutput | None:
+    if snapshot is None:
+        return None
+    return ClaudeTeamsUsageSnapshotOutput(
+        sampled_at=snapshot.sampled_at_ms,
+        fetch_status=snapshot.fetch_status,
+        fetch_error_message=snapshot.fetch_error_message,
+        five_hour_utilization=snapshot.five_hour_utilization,
+        five_hour_resets_at=snapshot.five_hour_resets_at,
+        seven_day_utilization=snapshot.seven_day_utilization,
+        seven_day_resets_at=snapshot.seven_day_resets_at,
+        is_token_expired=snapshot.fetch_status == "auth_error",
+    )
+
+
 def _to_claude_teams_token_output(token) -> ClaudeTeamsTokenOutput:
     now_s = get_current_time() // 1000
     return ClaudeTeamsTokenOutput(
@@ -190,6 +211,9 @@ def _to_claude_teams_token_output(token) -> ClaudeTeamsTokenOutput:
         is_cooling_down=token.cooldown_until is not None and token.cooldown_until > now_s,
         created_at=token.created_at,
         last_used_at=token.last_used_at,
+        latest_usage=_to_claude_teams_usage_snapshot_output(
+            get_claude_teams_token_latest_usage(token.token_id)
+        ),
     )
 
 
@@ -212,6 +236,35 @@ def list_claude_teams_tokens_route(admin_check=Depends(check_admin)):
     is never included in the response."""
     tokens = list_claude_teams_tokens()
     return [_to_claude_teams_token_output(token) for token in tokens]
+
+
+@router.get("/admin/claude-teams-tokens/usage-history/csv")
+def download_claude_teams_usage_history_csv_route(
+    start: int = Query(..., description="Range start, epoch milliseconds (inclusive)."),
+    end: int = Query(..., description="Range end, epoch milliseconds (inclusive)."),
+    token_id: str | None = Query(
+        None, description="Limit to one token. Omit for all registered tokens."
+    ),
+    admin_check=Depends(check_admin),
+):
+    """Download hourly usage-limit / token-validity snapshots as CSV for
+    the given time range (epoch milliseconds, inclusive on both ends)."""
+    if end < start:
+        raise HTTPException(
+            status_code=400, detail="`end` must not be before `start`."
+        )
+    csv_text = build_claude_teams_usage_history_csv(
+        since_ms=start, until_ms=end, token_id=token_id
+    )
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="claude-teams-usage-history-{start}-{end}.csv"'
+            )
+        },
+    )
 
 
 @router.patch("/admin/claude-teams-tokens/{token_id}")

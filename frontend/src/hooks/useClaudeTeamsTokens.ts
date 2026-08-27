@@ -29,12 +29,32 @@ const useClaudeTeamsTokens = () => {
     await mutate();
   };
 
+  const downloadUsageHistoryCsv = async (params: {
+    start: number;
+    end: number;
+    tokenId?: string;
+  }) => {
+    const response = await http.getBlob(
+      '/admin/claude-teams-tokens/usage-history/csv',
+      params
+    );
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `claude-teams-usage-history-${params.start}-${params.end}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   return {
     tokens: data,
     isLoading,
     createToken,
     updateToken,
     deleteToken,
+    downloadUsageHistoryCsv,
   };
 };
 

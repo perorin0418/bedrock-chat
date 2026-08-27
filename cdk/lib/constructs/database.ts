@@ -24,6 +24,8 @@ export class Database extends Construct {
   readonly claudeCodeCostSyncRole: Role;
   readonly mcpOAuthStateTable: Table;
   readonly claudeTeamsTokenTable: Table;
+  readonly claudeTeamsUsageHistoryTable: Table;
+  readonly claudeTeamsUsageSyncRole: Role;
 
   constructor(scope: Construct, id: string, props?: DatabaseProps) {
     super(scope, id);
@@ -194,6 +196,45 @@ export class Database extends Construct {
       removalPolicy: RemovalPolicy.DESTROY,
       encryption: TableEncryption.AWS_MANAGED,
     });
+    // Accessed via tableAccessRole (see _get_aws_resource in
+    // backend/app/repositories/common.py): every DynamoDB call assumes this
+    // role and scopes down with a session policy, so the base role's
+    // identity-based policy must already include this table or the session
+    // policy has nothing to narrow and every call fails with AccessDenied.
+    claudeTeamsTokenTable.grantReadWriteData(tableAccessRole);
+
+    // Hourly-sampled 5-hour/7-day usage-limit snapshots per Claude Teams
+    // OAuth token (see claude_teams_usage_sync Lambda). PK: TokenId, SK:
+    // SampledAtMs (epoch milliseconds of the sample). Kept separate from
+    // claudeTeamsTokenTable (which holds only current/mutable state) since
+    // this is an append-only time series read both for the admin screen's
+    // "current status" view (latest item per token) and for the CSV export
+    // (range query per token). TTL prunes samples older than the retention
+    // window so the table doesn't grow unbounded.
+    const claudeTeamsUsageHistoryTable = new Table(
+      this,
+      "ClaudeTeamsUsageHistoryTable",
+      {
+        partitionKey: { name: "TokenId", type: AttributeType.STRING },
+        sortKey: { name: "SampledAtMs", type: AttributeType.NUMBER },
+        billingMode: BillingMode.PAY_PER_REQUEST,
+        removalPolicy: RemovalPolicy.DESTROY,
+        timeToLiveAttribute: "expire",
+        encryption: TableEncryption.AWS_MANAGED,
+      }
+    );
+    claudeTeamsUsageHistoryTable.grantReadWriteData(tableAccessRole);
+
+    // Assumed once per run by the claude-teams-usage-sync Lambda (a
+    // standalone batch job, same pattern as claudeCodeCostSyncRole): reads
+    // every registered token's OAuth secret and writes one usage-history
+    // row per token per hour, so a single non-row-scoped role fits better
+    // than tableAccessRole's per-user LeadingKeys session policy.
+    const claudeTeamsUsageSyncRole = new Role(this, "ClaudeTeamsUsageSyncRole", {
+      assumedBy: new AccountPrincipal(Stack.of(this).account),
+    });
+    claudeTeamsTokenTable.grantReadWriteData(claudeTeamsUsageSyncRole);
+    claudeTeamsUsageHistoryTable.grantWriteData(claudeTeamsUsageSyncRole);
 
     this.conversationTable = conversationTable;
     this.botTable = botTable;
@@ -205,6 +246,8 @@ export class Database extends Construct {
     this.claudeCodeCostSyncRole = claudeCodeCostSyncRole;
     this.mcpOAuthStateTable = mcpOAuthStateTable;
     this.claudeTeamsTokenTable = claudeTeamsTokenTable;
+    this.claudeTeamsUsageHistoryTable = claudeTeamsUsageHistoryTable;
+    this.claudeTeamsUsageSyncRole = claudeTeamsUsageSyncRole;
 
     new CfnOutput(this, "ConversationTableName", {
       value: conversationTable.tableName,
@@ -226,6 +269,9 @@ export class Database extends Construct {
     });
     new CfnOutput(this, "ClaudeTeamsTokenTableName", {
       value: claudeTeamsTokenTable.tableName,
+    });
+    new CfnOutput(this, "ClaudeTeamsUsageHistoryTableName", {
+      value: claudeTeamsUsageHistoryTable.tableName,
     });
   }
 }

@@ -13,6 +13,7 @@ import { Api } from "./constructs/api";
 import { Database } from "./constructs/database";
 import { Frontend } from "./constructs/frontend";
 import { WebSocket } from "./constructs/websocket";
+import { ClaudeTeamsUsageSync } from "./constructs/claude-teams-usage-sync";
 import * as cdk from "aws-cdk-lib";
 import { Embedding } from "./constructs/embedding";
 import { UsageAnalysis } from "./constructs/usage-analysis";
@@ -351,6 +352,10 @@ export class BedrockChatStack extends cdk.Stack {
       idp,
     });
 
+    // Hourly sampling of each Claude Teams OAuth token's 5h/7d usage-limit
+    // status + validity, for the admin screen and CSV export.
+    new ClaudeTeamsUsageSync(this, "ClaudeTeamsUsageSync", { database });
+
     const cloudFrontWebDistribution = frontend.cloudFrontWebDistribution.node
       .defaultChild as Distribution;
     props.documentBucket.addCorsRule({
@@ -429,6 +434,18 @@ export class BedrockChatStack extends cdk.Stack {
     new CfnOutput(this, "ClaudeCodeNotificationTopicArnExport", {
       value: auth.claudeCodeNotificationTopic.topicArn,
       exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeCodeNotificationTopicArn`,
+    });
+    new CfnOutput(this, "ClaudeTeamsTokenTableNameExport", {
+      value: database.claudeTeamsTokenTable.tableName,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeTeamsTokenTableName`,
+    });
+    new CfnOutput(this, "ClaudeTeamsUsageHistoryTableNameExport", {
+      value: database.claudeTeamsUsageHistoryTable.tableName,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeTeamsUsageHistoryTableName`,
+    });
+    new CfnOutput(this, "ClaudeTeamsUsageSyncRoleArnExport", {
+      value: database.claudeTeamsUsageSyncRole.roleArn,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeTeamsUsageSyncRoleArn`,
     });
     new CfnOutput(this, 'EmbeddingStateMachineArn', {
       value: embedding.stateMachine.stateMachineArn,
