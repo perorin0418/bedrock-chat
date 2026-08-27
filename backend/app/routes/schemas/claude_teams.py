@@ -1,3 +1,5 @@
+from pydantic import field_validator
+
 from app.routes.schemas.base import BaseSchema
 
 
@@ -31,6 +33,18 @@ class ClaudeTeamsTokenOutput(BaseSchema):
 class CreateClaudeTeamsTokenInput(BaseSchema):
     display_name: str
     token_value: str
+
+    @field_validator("token_value")
+    @classmethod
+    def strip_token_value(cls, value: str) -> str:
+        """Strip all whitespace (leading/trailing/embedded) from the pasted
+        OAuth token. Anthropic's `sk-ant-oat...` tokens never legitimately
+        contain whitespace, but copy/paste from a terminal or browser can
+        silently introduce a stray space or line break in the middle of the
+        string (e.g. from word-wrapping), producing a token string that
+        looks right at a glance but fails every API call with
+        `authentication_error: OAuth access token is invalid.`"""
+        return "".join(value.split())
 
 
 class UpdateClaudeTeamsTokenInput(BaseSchema):

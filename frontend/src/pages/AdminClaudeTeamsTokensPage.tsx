@@ -52,9 +52,14 @@ const UsageBadge: React.FC<{
   }
 
   if (usage.fetchStatus === 'error') {
+    const isScopeError = usage.fetchErrorMessage
+      ?.toLowerCase()
+      .includes('user:profile');
     return (
       <span className="text-xs text-aws-font-color-gray">
-        {t('admin.claudeTeamsTokens.label.fetchError')}
+        {isScopeError
+          ? t('admin.claudeTeamsTokens.label.fetchErrorScope')
+          : t('admin.claudeTeamsTokens.label.fetchError')}
       </span>
     );
   }

@@ -768,6 +768,7 @@ const translation: typeof en = {
           resetsAt: 'リセット',
           noUsageData: '未取得',
           fetchError: '取得エラー',
+          fetchErrorScope: 'スコープ不足（要 user:profile）',
           csvDownload: 'CSVダウンロード',
           csvFrom: '開始日時',
           csvTo: '終了日時',
