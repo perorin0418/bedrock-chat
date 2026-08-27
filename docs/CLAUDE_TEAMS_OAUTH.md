@@ -23,12 +23,10 @@ subprocess for every chat turn.
    - **Chat only** (no usage-limit tracking): run `claude setup-token` on
      a machine with an authenticated Claude Code CLI session. This grants
      the `user:inference` scope only.
-   - **Chat + 5h/7d usage-limit tracking** (recommended): on Windows,
-     double-click `scripts/get_full_scope_oauth_token.bat` (no Python/
-     Node/etc. install needed — it runs the PowerShell script bundled
-     with every supported Windows version). On macOS/Linux, or if you
-     prefer, run `python scripts/get_full_scope_oauth_token.py` — same
-     flow, same output. Either way, follow the printed instructions. This
+   - **Chat + 5h/7d usage-limit tracking** (recommended): double-click
+     `scripts/get_full_scope_oauth_token.bat` (no runtime install
+     needed — it runs the PowerShell script bundled with every
+     supported Windows version). Follow the printed instructions. This
      requests the broader `org:create_api_key user:profile user:inference`
      scope, which additionally allows the admin screen to show live
      5-hour/7-day usage and expiry status for the token (see "Usage-limit
@@ -73,8 +71,7 @@ Two independent, unrelated signals are recorded — do not conflate them:
 Because `/api/oauth/usage` requires `user:profile`, a token minted with
 plain `claude setup-token` (`user:inference` only) will always show
 `fetch_status: "error"` here even though chat requests work fine. Use
-`scripts/get_full_scope_oauth_token.bat` (Windows) or
-`scripts/get_full_scope_oauth_token.py` (see Setup) to register a token
+`scripts/get_full_scope_oauth_token.bat` (see Setup) to register a token
 that also has `user:profile` if you want live usage-limit tracking.
 
 ## Behavior
