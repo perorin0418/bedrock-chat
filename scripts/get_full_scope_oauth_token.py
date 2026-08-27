@@ -4,6 +4,13 @@ token (including the `user:profile` scope needed by Anthropic's
 `/api/oauth/usage` endpoint) and print it for registration in the
 bedrock-chat "Claude Teams Tokens" admin page.
 
+On Windows, prefer `get_full_scope_oauth_token.bat` /
+`get_full_scope_oauth_token.ps1` in this same directory instead -- they do
+the exact same thing with no Python (or any other runtime) install
+required, since PowerShell ships with every supported Windows version.
+This Python version remains here for macOS/Linux/CI use, or if you
+already have Python set up and prefer it.
+
 Background
 ----------
 `claude setup-token` (Anthropic's official CLI command) only requests the
