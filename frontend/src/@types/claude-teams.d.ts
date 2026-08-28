@@ -22,9 +22,9 @@ export type ClaudeTeamsToken = {
   latestUsage: ClaudeTeamsUsageSnapshot | null;
 };
 
-// Only present in the response to createToken (registration time) and
-// regenerateIngestSecret. Never returned by the list endpoint -- the
-// admin must copy it out immediately, since it isn't shown again.
+// Only present in the response to createToken (registration time).
+// Never returned again -- the admin must copy it out immediately, since
+// it isn't shown by the list endpoint.
 export type ClaudeTeamsTokenWithIngestSecret = ClaudeTeamsToken & {
   ingestSecret: string;
 };

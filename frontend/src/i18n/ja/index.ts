@@ -784,10 +784,14 @@ const translation: typeof en = {
           register: '登録',
           delete: '削除',
           download: 'ダウンロード',
-          regenerateIngestSecret: 'シークレット再発行',
           dismiss: '閉じる',
           showRegistrationSecret: 'Registration Secretを表示',
           regenerateRegistrationSecret: 'Registration Secretを再発行',
+        },
+        deleteDialog: {
+          title: 'トークンの削除',
+          content:
+            '<Bold>{{displayName}}</Bold> を削除します。この操作は取り消せません。よろしいですか？',
         },
       },
       validationError: {

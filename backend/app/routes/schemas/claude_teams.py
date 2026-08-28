@@ -54,12 +54,7 @@ class UpdateClaudeTeamsTokenInput(BaseSchema):
 class ClaudeTeamsTokenCreateOutput(ClaudeTeamsTokenOutput):
     # Only present in the response to POST /admin/claude-teams-tokens
     # (registration time). Never returned again afterward — the admin
-    # must copy it into the member's usage-reporting script config now,
-    # or use the regenerate endpoint to mint (and see) a new one.
-    ingest_secret: str
-
-
-class ClaudeTeamsIngestSecretOutput(BaseSchema):
+    # must copy it into the member's usage-reporting script config now.
     ingest_secret: str
 
 

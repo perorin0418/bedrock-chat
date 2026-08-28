@@ -10,7 +10,6 @@ from app.claude_teams.token_repository import (
     delete_token,
     get_token,
     list_tokens,
-    regenerate_ingest_secret,
     set_enabled,
 )
 from app.claude_teams.token_secrets import (
@@ -54,14 +53,6 @@ def delete_claude_teams_token_usecase(token_id: str) -> None:
     """Delete both the DynamoDB metadata row and the Secrets Manager entry."""
     delete_token(token_id)
     delete_claude_teams_token(token_id)
-
-
-def regenerate_claude_teams_ingest_secret(token_id: str) -> str:
-    """Rotate the usage-snapshot ingest secret for one token (e.g. it
-    leaked, or a member's local reporting script needs reconfiguring).
-    Returns the new secret; the admin must hand it to whoever runs the
-    member's script, since it's never shown again after this."""
-    return regenerate_ingest_secret(token_id)
 
 
 def get_claude_teams_token_latest_usage(

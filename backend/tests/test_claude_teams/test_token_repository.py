@@ -11,7 +11,6 @@ from app.claude_teams.token_repository import (
     get_token,
     list_tokens,
     pick_next_available_token,
-    regenerate_ingest_secret,
     set_cooldown,
     set_enabled,
 )
@@ -241,17 +240,6 @@ class TestClaudeTeamsTokenRepository(unittest.TestCase):
         token = get_token("tok-missing")
 
         self.assertIsNone(token)
-
-    def test_regenerate_ingest_secret_updates_item_and_returns_new_secret(self):
-        new_secret = regenerate_ingest_secret("tok-1")
-
-        self.mock_table.update_item.assert_called_once()
-        kwargs = self.mock_table.update_item.call_args.kwargs
-        self.assertEqual(kwargs["Key"], {"TokenId": "tok-1"})
-        self.assertEqual(
-            kwargs["ExpressionAttributeValues"][":ingest_secret"], new_secret
-        )
-        self.assertTrue(len(new_secret) > 0)
 
 
 if __name__ == "__main__":

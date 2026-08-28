@@ -238,15 +238,15 @@ Two independent, unrelated signals are recorded — do not conflate them:
   token_id, and read that token's `enabled` flag via `GET
   /claude-teams-tokens/{token_id}/status`. It cannot be used to read
   chat data (including the token string itself), register/disable
-  tokens, or affect chat routing — use "Regenerate Ingest Secret" on the
-  admin page if one leaks.
+  tokens, or affect chat routing. There is no in-place rotation for a
+  leaked `ingest_secret` — delete and re-register the token instead.
 - The self-registration route (`POST /claude-teams-tokens/register`) is
   likewise not Cognito-authenticated; anyone holding the org-wide
   Registration Secret can add a new pool token (consuming that member's
   Teams/Pro/Max quota for chat) but cannot read, list, disable, or
   delete existing tokens, and cannot affect an existing token's
-  `ingest_secret`. Rotate it from the admin page
-  ("Regenerate Registration Secret" /
+  `ingest_secret`. Rotate the Registration Secret itself from the admin
+  page ("Regenerate Registration Secret" /
   `POST /admin/claude-teams-tokens/regenerate-registration-secret`) if
   it leaks outside the org; already-registered tokens are unaffected.
 - The self-registered Task Scheduler task (`ClaudeTeamsMemberAgent` by

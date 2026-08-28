@@ -36,14 +36,6 @@ const useClaudeTeamsTokens = () => {
     await mutate();
   };
 
-  const regenerateIngestSecret = async (tokenId: string): Promise<string> => {
-    const res = await http.post<{ ingestSecret: string }>(
-      `/admin/claude-teams-tokens/${tokenId}/regenerate-ingest-secret`,
-      {}
-    );
-    return res.data.ingestSecret;
-  };
-
   const getRegistrationSecret = async (): Promise<string> => {
     const res = await http.getOnce<{ registrationSecret: string }>(
       '/admin/claude-teams-tokens/registration-secret'
@@ -84,7 +76,6 @@ const useClaudeTeamsTokens = () => {
     createToken,
     updateToken,
     deleteToken,
-    regenerateIngestSecret,
     getRegistrationSecret,
     regenerateRegistrationSecret,
     downloadUsageHistoryCsv,

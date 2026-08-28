@@ -4,6 +4,7 @@ import ListPageLayout from '../layouts/ListPageLayout';
 import Button from '../components/Button';
 import InputText from '../components/InputText';
 import Toggle from '../components/Toggle';
+import DialogConfirmDeleteClaudeTeamsToken from '../components/DialogConfirmDeleteClaudeTeamsToken';
 import useClaudeTeamsTokens from '../hooks/useClaudeTeamsTokens';
 import { ClaudeTeamsToken } from '../@types/claude-teams';
 
@@ -40,7 +41,11 @@ const UsageBadge: React.FC<{
   const usage = token.latestUsage;
 
   if (!usage) {
-    return <span className="text-xs text-gray">{t('admin.claudeTeamsTokens.label.noUsageData')}</span>;
+    return (
+      <span className="text-xs text-gray">
+        {t('admin.claudeTeamsTokens.label.noUsageData')}
+      </span>
+    );
   }
 
   if (usage.isTokenExpired) {
@@ -90,7 +95,6 @@ const AdminClaudeTeamsTokensPage: React.FC = () => {
     createToken,
     updateToken,
     deleteToken,
-    regenerateIngestSecret,
     getRegistrationSecret,
     regenerateRegistrationSecret,
     downloadUsageHistoryCsv,
@@ -110,6 +114,9 @@ const AdminClaudeTeamsTokensPage: React.FC = () => {
   // an admin can reach this Cognito-authenticated route), so it's kept
   // in state and shown/hidden rather than gated behind a one-time reveal.
   const [registrationSecret, setRegistrationSecret] = useState<string | null>(
+    null
+  );
+  const [deleteTarget, setDeleteTarget] = useState<ClaudeTeamsToken | null>(
     null
   );
 
@@ -134,11 +141,6 @@ const AdminClaudeTeamsTokensPage: React.FC = () => {
     });
   };
 
-  const onRegenerateIngestSecret = async (tokenId: string) => {
-    const secret = await regenerateIngestSecret(tokenId);
-    setRevealedIngestSecret({ tokenId, secret });
-  };
-
   const onDownloadCsv = async () => {
     const start = toEpochMs(csvFrom);
     const end = toEpochMs(csvTo);
@@ -148,139 +150,150 @@ const AdminClaudeTeamsTokensPage: React.FC = () => {
     await downloadUsageHistoryCsv({ start, end });
   };
 
+  const onConfirmDeleteToken = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    await deleteToken(deleteTarget.tokenId);
+    setDeleteTarget(null);
+  };
+
   return (
-    <ListPageLayout
-      pageTitle={t('admin.claudeTeamsTokens.label.pageTitle')}
-      isLoading={isLoading}
-      isEmpty={tokens?.length === 0}
-      emptyMessage={t('admin.claudeTeamsTokens.label.noTokens')}
-      searchCondition={
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2 rounded border p-4">
-            <div className="text-sm font-bold">
-              {t('admin.claudeTeamsTokens.label.registrationSecretTitle')}
-            </div>
-            <div className="text-xs">
-              {t('admin.claudeTeamsTokens.label.registrationSecretHint')}
-            </div>
-            {registrationSecret && (
-              <code className="select-all break-all rounded bg-aws-paper-light p-2 text-xs">
-                {registrationSecret}
-              </code>
-            )}
-            <div className="flex gap-2">
-              <Button outlined onClick={onShowRegistrationSecret}>
-                {t('admin.claudeTeamsTokens.button.showRegistrationSecret')}
-              </Button>
-              <Button outlined onClick={onRegenerateRegistrationSecret}>
-                {t('admin.claudeTeamsTokens.button.regenerateRegistrationSecret')}
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 rounded border p-4">
-            <div className="text-sm font-bold">
-              {t('admin.claudeTeamsTokens.label.manualRegisterTitle')}
-            </div>
-            <InputText
-              label={t('admin.claudeTeamsTokens.label.displayName')}
-              value={displayName}
-              onChange={setDisplayName}
-            />
-            <InputText
-              label={t('admin.claudeTeamsTokens.label.tokenValue')}
-              value={tokenValue}
-              onChange={setTokenValue}
-              type="password"
-            />
-            <Button onClick={onSubmit}>
-              {t('admin.claudeTeamsTokens.button.register')}
-            </Button>
-          </div>
-          {revealedIngestSecret && (
-            <div className="flex flex-col gap-1 rounded border border-aws-font-color-blue-dark bg-light-blue p-4">
+    <>
+      <DialogConfirmDeleteClaudeTeamsToken
+        isOpen={deleteTarget !== null}
+        tokenDisplayName={deleteTarget?.displayName ?? ''}
+        onDelete={onConfirmDeleteToken}
+        onClose={() => setDeleteTarget(null)}
+      />
+      <ListPageLayout
+        pageTitle={t('admin.claudeTeamsTokens.label.pageTitle')}
+        isLoading={isLoading}
+        isEmpty={tokens?.length === 0}
+        emptyMessage={t('admin.claudeTeamsTokens.label.noTokens')}
+        searchCondition={
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2 rounded border p-4">
               <div className="text-sm font-bold">
-                {t('admin.claudeTeamsTokens.label.ingestSecretRevealed')}
+                {t('admin.claudeTeamsTokens.label.registrationSecretTitle')}
               </div>
               <div className="text-xs">
-                {t('admin.claudeTeamsTokens.label.ingestSecretRevealedHint')}
+                {t('admin.claudeTeamsTokens.label.registrationSecretHint')}
               </div>
-              <code className="select-all break-all rounded bg-white p-2 text-xs">
-                {revealedIngestSecret.secret}
-              </code>
-              <Button
-                outlined
-                className="self-start"
-                onClick={() => setRevealedIngestSecret(null)}>
-                {t('admin.claudeTeamsTokens.button.dismiss')}
+              {registrationSecret && (
+                <code className="select-all break-all rounded bg-aws-paper-light p-2 text-xs">
+                  {registrationSecret}
+                </code>
+              )}
+              <div className="flex gap-2">
+                <Button outlined onClick={onShowRegistrationSecret}>
+                  {t('admin.claudeTeamsTokens.button.showRegistrationSecret')}
+                </Button>
+                <Button outlined onClick={onRegenerateRegistrationSecret}>
+                  {t(
+                    'admin.claudeTeamsTokens.button.regenerateRegistrationSecret'
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 rounded border p-4">
+              <div className="text-sm font-bold">
+                {t('admin.claudeTeamsTokens.label.manualRegisterTitle')}
+              </div>
+              <InputText
+                label={t('admin.claudeTeamsTokens.label.displayName')}
+                value={displayName}
+                onChange={setDisplayName}
+              />
+              <InputText
+                label={t('admin.claudeTeamsTokens.label.tokenValue')}
+                value={tokenValue}
+                onChange={setTokenValue}
+                type="password"
+              />
+              <Button onClick={onSubmit}>
+                {t('admin.claudeTeamsTokens.button.register')}
               </Button>
             </div>
-          )}
-          <div className="flex flex-col gap-2 rounded border p-4">
-            <div className="text-sm font-bold">
-              {t('admin.claudeTeamsTokens.label.csvDownload')}
+            {revealedIngestSecret && (
+              <div className="border-aws-font-color-blue-dark bg-light-blue flex flex-col gap-1 rounded border p-4">
+                <div className="text-sm font-bold">
+                  {t('admin.claudeTeamsTokens.label.ingestSecretRevealed')}
+                </div>
+                <div className="text-xs">
+                  {t('admin.claudeTeamsTokens.label.ingestSecretRevealedHint')}
+                </div>
+                <code className="select-all break-all rounded bg-white p-2 text-xs">
+                  {revealedIngestSecret.secret}
+                </code>
+                <Button
+                  outlined
+                  className="self-start"
+                  onClick={() => setRevealedIngestSecret(null)}>
+                  {t('admin.claudeTeamsTokens.button.dismiss')}
+                </Button>
+              </div>
+            )}
+            <div className="flex flex-col gap-2 rounded border p-4">
+              <div className="text-sm font-bold">
+                {t('admin.claudeTeamsTokens.label.csvDownload')}
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="flex flex-col text-xs">
+                  {t('admin.claudeTeamsTokens.label.csvFrom')}
+                  <input
+                    type="datetime-local"
+                    className="rounded border p-1"
+                    value={csvFrom}
+                    onChange={(e) => setCsvFrom(e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col text-xs">
+                  {t('admin.claudeTeamsTokens.label.csvTo')}
+                  <input
+                    type="datetime-local"
+                    className="rounded border p-1"
+                    value={csvTo}
+                    onChange={(e) => setCsvTo(e.target.value)}
+                  />
+                </label>
+                <Button
+                  outlined
+                  disabled={!csvFrom || !csvTo}
+                  onClick={onDownloadCsv}>
+                  {t('admin.claudeTeamsTokens.button.download')}
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex flex-col text-xs">
-                {t('admin.claudeTeamsTokens.label.csvFrom')}
-                <input
-                  type="datetime-local"
-                  className="rounded border p-1"
-                  value={csvFrom}
-                  onChange={(e) => setCsvFrom(e.target.value)}
-                />
-              </label>
-              <label className="flex flex-col text-xs">
-                {t('admin.claudeTeamsTokens.label.csvTo')}
-                <input
-                  type="datetime-local"
-                  className="rounded border p-1"
-                  value={csvTo}
-                  onChange={(e) => setCsvTo(e.target.value)}
-                />
-              </label>
-              <Button
-                outlined
-                disabled={!csvFrom || !csvTo}
-                onClick={onDownloadCsv}>
-                {t('admin.claudeTeamsTokens.button.download')}
+          </div>
+        }>
+        {tokens?.map((token) => (
+          <div
+            key={token.tokenId}
+            className="flex items-center justify-between border-b p-2">
+            <div>
+              <div className="font-bold">{token.displayName}</div>
+              <div className="text-xs">
+                {token.isCoolingDown &&
+                  t('admin.claudeTeamsTokens.label.coolingDown')}
+              </div>
+              <UsageBadge token={token} />
+            </div>
+            <div className="flex items-center gap-2">
+              <Toggle
+                value={token.enabled}
+                onChange={(checked) =>
+                  updateToken(token.tokenId, { enabled: checked })
+                }
+              />
+              <Button outlined onClick={() => setDeleteTarget(token)}>
+                {t('admin.claudeTeamsTokens.button.delete')}
               </Button>
             </div>
           </div>
-        </div>
-      }>
-      {tokens?.map((token) => (
-        <div
-          key={token.tokenId}
-          className="flex items-center justify-between border-b p-2">
-          <div>
-            <div className="font-bold">{token.displayName}</div>
-            <div className="text-xs">
-              {token.isCoolingDown &&
-                t('admin.claudeTeamsTokens.label.coolingDown')}
-            </div>
-            <UsageBadge token={token} />
-          </div>
-          <div className="flex items-center gap-2">
-            <Toggle
-              value={token.enabled}
-              onChange={(checked) =>
-                updateToken(token.tokenId, { enabled: checked })
-              }
-            />
-            <Button
-              outlined
-              onClick={() => onRegenerateIngestSecret(token.tokenId)}>
-              {t('admin.claudeTeamsTokens.button.regenerateIngestSecret')}
-            </Button>
-            <Button
-              outlined
-              onClick={() => deleteToken(token.tokenId)}>
-              {t('admin.claudeTeamsTokens.button.delete')}
-            </Button>
-          </div>
-        </div>
-      ))}
-    </ListPageLayout>
+        ))}
+      </ListPageLayout>
+    </>
   );
 };
 

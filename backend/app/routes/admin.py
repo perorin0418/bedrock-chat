@@ -16,7 +16,6 @@ from app.routes.schemas.admin import (
 )
 from app.routes.schemas.bot import Knowledge
 from app.routes.schemas.claude_teams import (
-    ClaudeTeamsIngestSecretOutput,
     ClaudeTeamsRegistrationSecretOutput,
     ClaudeTeamsTokenCreateOutput,
     ClaudeTeamsTokenOutput,
@@ -32,7 +31,6 @@ from app.usecases.claude_teams_admin import (
     get_claude_teams_registration_secret,
     get_claude_teams_token_latest_usage,
     list_claude_teams_tokens,
-    regenerate_claude_teams_ingest_secret,
     regenerate_claude_teams_registration_secret,
     update_claude_teams_token,
 )
@@ -300,22 +298,6 @@ def delete_claude_teams_token_route(
 ):
     """Permanently remove a token from the pool and delete its secret."""
     delete_claude_teams_token_usecase(token_id)
-
-
-@router.post(
-    "/admin/claude-teams-tokens/{token_id}/regenerate-ingest-secret",
-    response_model=ClaudeTeamsIngestSecretOutput,
-)
-def regenerate_claude_teams_ingest_secret_route(
-    token_id: str,
-    admin_check=Depends(check_admin),
-):
-    """Rotate the usage-snapshot ingest secret for one token (e.g. it
-    leaked in a shared script, or a member's local reporting config needs
-    reconfiguring). The old secret stops working immediately; the new one
-    is shown once here, same as at registration time."""
-    new_secret = regenerate_claude_teams_ingest_secret(token_id)
-    return ClaudeTeamsIngestSecretOutput(ingest_secret=new_secret)
 
 
 @router.get(

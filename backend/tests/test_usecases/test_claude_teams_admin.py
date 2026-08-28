@@ -14,7 +14,6 @@ from app.usecases.claude_teams_admin import (
     get_claude_teams_token_status,
     ingest_claude_teams_usage_snapshot,
     list_claude_teams_tokens,
-    regenerate_claude_teams_ingest_secret,
     regenerate_claude_teams_registration_secret,
     self_register_claude_teams_token,
     update_claude_teams_token,
@@ -303,17 +302,6 @@ class TestClaudeTeamsAdminUsecase(unittest.TestCase):
             get_claude_teams_token_status(
                 token_id="tok-missing", ingest_secret="anything"
             )
-
-    @patch("app.usecases.claude_teams_admin.regenerate_ingest_secret")
-    def test_regenerate_claude_teams_ingest_secret_delegates_to_repository(
-        self, mock_regenerate
-    ):
-        mock_regenerate.return_value = "new-secret"
-
-        result = regenerate_claude_teams_ingest_secret("tok-1")
-
-        mock_regenerate.assert_called_once_with("tok-1")
-        self.assertEqual(result, "new-secret")
 
     @patch("app.usecases.claude_teams_admin.get_or_create_registration_secret")
     def test_get_claude_teams_registration_secret_delegates_to_repository(

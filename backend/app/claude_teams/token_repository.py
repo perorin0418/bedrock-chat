@@ -64,9 +64,8 @@ def create_token(display_name: str) -> ClaudeTeamsTokenItem:
     Also mints an `ingest_secret`: the bearer credential a member's local
     usage-reporting script (see scripts/report_claude_teams_usage.ps1)
     presents to push a usage snapshot for this token_id from outside the
-    Cognito-authenticated admin API. Returned only here and by
-    `regenerate_ingest_secret` — never included in `list_tokens`/GET
-    responses."""
+    Cognito-authenticated admin API. Returned only here — never included
+    in `list_tokens`/GET responses."""
     table = get_claude_teams_token_table_client()
     token_id = str(ULID())
     now_ms = get_current_time()
@@ -142,20 +141,6 @@ def get_token(token_id: str) -> ClaudeTeamsTokenItem | None:
     if item is None:
         return None
     return _item_to_model(item)
-
-
-def regenerate_ingest_secret(token_id: str) -> str:
-    """Rotate a token's ingest secret (e.g. if it leaked) and return the
-    new value. Any usage-reporting script still using the old secret will
-    start getting 401s on its next push."""
-    new_secret = _generate_ingest_secret()
-    table = get_claude_teams_token_table_client()
-    table.update_item(
-        Key={"TokenId": token_id},
-        UpdateExpression="SET IngestSecret = :ingest_secret",
-        ExpressionAttributeValues={":ingest_secret": new_secret},
-    )
-    return new_secret
 
 
 def pick_next_available_token() -> ClaudeTeamsTokenItem | None:

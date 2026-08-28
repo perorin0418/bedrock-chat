@@ -780,10 +780,14 @@ How would you categorize this email?`,
           register: 'Register',
           delete: 'Delete',
           download: 'Download',
-          regenerateIngestSecret: 'Regenerate Ingest Secret',
           dismiss: 'Dismiss',
           showRegistrationSecret: 'Show Registration Secret',
           regenerateRegistrationSecret: 'Regenerate Registration Secret',
+        },
+        deleteDialog: {
+          title: 'Delete Token',
+          content:
+            'This will delete <Bold>{{displayName}}</Bold>. This action cannot be undone. Are you sure?',
         },
       },
       validationError: {
