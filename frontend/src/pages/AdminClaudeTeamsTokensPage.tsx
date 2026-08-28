@@ -90,20 +90,53 @@ const AdminClaudeTeamsTokensPage: React.FC = () => {
     createToken,
     updateToken,
     deleteToken,
+    regenerateIngestSecret,
+    getRegistrationSecret,
+    regenerateRegistrationSecret,
     downloadUsageHistoryCsv,
   } = useClaudeTeamsTokens();
   const [displayName, setDisplayName] = useState('');
   const [tokenValue, setTokenValue] = useState('');
   const [csvFrom, setCsvFrom] = useState('');
   const [csvTo, setCsvTo] = useState('');
+  // Shown once right after registration or a secret regeneration -- never
+  // fetched back from the API afterward, so this is the only place the
+  // admin can copy it from.
+  const [revealedIngestSecret, setRevealedIngestSecret] = useState<{
+    tokenId: string;
+    secret: string;
+  } | null>(null);
+  // Unlike per-token ingest secrets, this one is safe to re-fetch (only
+  // an admin can reach this Cognito-authenticated route), so it's kept
+  // in state and shown/hidden rather than gated behind a one-time reveal.
+  const [registrationSecret, setRegistrationSecret] = useState<string | null>(
+    null
+  );
+
+  const onShowRegistrationSecret = async () => {
+    setRegistrationSecret(await getRegistrationSecret());
+  };
+
+  const onRegenerateRegistrationSecret = async () => {
+    setRegistrationSecret(await regenerateRegistrationSecret());
+  };
 
   const onSubmit = async () => {
     if (!displayName || !tokenValue) {
       return;
     }
-    await createToken({ displayName, tokenValue });
+    const created = await createToken({ displayName, tokenValue });
     setDisplayName('');
     setTokenValue('');
+    setRevealedIngestSecret({
+      tokenId: created.tokenId,
+      secret: created.ingestSecret,
+    });
+  };
+
+  const onRegenerateIngestSecret = async (tokenId: string) => {
+    const secret = await regenerateIngestSecret(tokenId);
+    setRevealedIngestSecret({ tokenId, secret });
   };
 
   const onDownloadCsv = async () => {
@@ -124,6 +157,30 @@ const AdminClaudeTeamsTokensPage: React.FC = () => {
       searchCondition={
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2 rounded border p-4">
+            <div className="text-sm font-bold">
+              {t('admin.claudeTeamsTokens.label.registrationSecretTitle')}
+            </div>
+            <div className="text-xs">
+              {t('admin.claudeTeamsTokens.label.registrationSecretHint')}
+            </div>
+            {registrationSecret && (
+              <code className="select-all break-all rounded bg-aws-paper-light p-2 text-xs">
+                {registrationSecret}
+              </code>
+            )}
+            <div className="flex gap-2">
+              <Button outlined onClick={onShowRegistrationSecret}>
+                {t('admin.claudeTeamsTokens.button.showRegistrationSecret')}
+              </Button>
+              <Button outlined onClick={onRegenerateRegistrationSecret}>
+                {t('admin.claudeTeamsTokens.button.regenerateRegistrationSecret')}
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 rounded border p-4">
+            <div className="text-sm font-bold">
+              {t('admin.claudeTeamsTokens.label.manualRegisterTitle')}
+            </div>
             <InputText
               label={t('admin.claudeTeamsTokens.label.displayName')}
               value={displayName}
@@ -139,6 +196,25 @@ const AdminClaudeTeamsTokensPage: React.FC = () => {
               {t('admin.claudeTeamsTokens.button.register')}
             </Button>
           </div>
+          {revealedIngestSecret && (
+            <div className="flex flex-col gap-1 rounded border border-aws-font-color-blue-dark bg-light-blue p-4">
+              <div className="text-sm font-bold">
+                {t('admin.claudeTeamsTokens.label.ingestSecretRevealed')}
+              </div>
+              <div className="text-xs">
+                {t('admin.claudeTeamsTokens.label.ingestSecretRevealedHint')}
+              </div>
+              <code className="select-all break-all rounded bg-white p-2 text-xs">
+                {revealedIngestSecret.secret}
+              </code>
+              <Button
+                outlined
+                className="self-start"
+                onClick={() => setRevealedIngestSecret(null)}>
+                {t('admin.claudeTeamsTokens.button.dismiss')}
+              </Button>
+            </div>
+          )}
           <div className="flex flex-col gap-2 rounded border p-4">
             <div className="text-sm font-bold">
               {t('admin.claudeTeamsTokens.label.csvDownload')}
@@ -191,6 +267,11 @@ const AdminClaudeTeamsTokensPage: React.FC = () => {
                 updateToken(token.tokenId, { enabled: checked })
               }
             />
+            <Button
+              outlined
+              onClick={() => onRegenerateIngestSecret(token.tokenId)}>
+              {t('admin.claudeTeamsTokens.button.regenerateIngestSecret')}
+            </Button>
             <Button
               outlined
               onClick={() => deleteToken(token.tokenId)}>

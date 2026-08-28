@@ -16,6 +16,9 @@ from app.routes.schemas.admin import (
 )
 from app.routes.schemas.bot import Knowledge
 from app.routes.schemas.claude_teams import (
+    ClaudeTeamsIngestSecretOutput,
+    ClaudeTeamsRegistrationSecretOutput,
+    ClaudeTeamsTokenCreateOutput,
     ClaudeTeamsTokenOutput,
     ClaudeTeamsUsageSnapshotOutput,
     CreateClaudeTeamsTokenInput,
@@ -26,8 +29,11 @@ from app.usecases.claude_teams_admin import (
     build_claude_teams_usage_history_csv,
     create_claude_teams_token,
     delete_claude_teams_token_usecase,
+    get_claude_teams_registration_secret,
     get_claude_teams_token_latest_usage,
     list_claude_teams_tokens,
+    regenerate_claude_teams_ingest_secret,
+    regenerate_claude_teams_registration_secret,
     update_claude_teams_token,
 )
 from app.usecases.user import approve_pending_user, list_users_pending_approval
@@ -217,17 +223,24 @@ def _to_claude_teams_token_output(token) -> ClaudeTeamsTokenOutput:
     )
 
 
-@router.post("/admin/claude-teams-tokens", response_model=ClaudeTeamsTokenOutput)
+@router.post("/admin/claude-teams-tokens", response_model=ClaudeTeamsTokenCreateOutput)
 def create_claude_teams_token_route(
     body: CreateClaudeTeamsTokenInput,
     admin_check=Depends(check_admin),
 ):
     """Register a new Claude Teams OAuth token. The token string is written
-    to Secrets Manager and never returned again by any endpoint."""
+    to Secrets Manager and never returned again by any endpoint. The
+    response also includes a freshly-minted `ingest_secret` (see
+    ClaudeTeamsTokenCreateOutput) for the member's local usage-reporting
+    script to authenticate with -- likewise shown only this once."""
     token = create_claude_teams_token(
         display_name=body.display_name, token_value=body.token_value
     )
-    return _to_claude_teams_token_output(token)
+    base_output = _to_claude_teams_token_output(token)
+    assert token.ingest_secret is not None, "create_token must always mint an ingest_secret"
+    return ClaudeTeamsTokenCreateOutput(
+        **base_output.model_dump(), ingest_secret=token.ingest_secret
+    )
 
 
 @router.get("/admin/claude-teams-tokens", response_model=list[ClaudeTeamsTokenOutput])
@@ -287,3 +300,50 @@ def delete_claude_teams_token_route(
 ):
     """Permanently remove a token from the pool and delete its secret."""
     delete_claude_teams_token_usecase(token_id)
+
+
+@router.post(
+    "/admin/claude-teams-tokens/{token_id}/regenerate-ingest-secret",
+    response_model=ClaudeTeamsIngestSecretOutput,
+)
+def regenerate_claude_teams_ingest_secret_route(
+    token_id: str,
+    admin_check=Depends(check_admin),
+):
+    """Rotate the usage-snapshot ingest secret for one token (e.g. it
+    leaked in a shared script, or a member's local reporting config needs
+    reconfiguring). The old secret stops working immediately; the new one
+    is shown once here, same as at registration time."""
+    new_secret = regenerate_claude_teams_ingest_secret(token_id)
+    return ClaudeTeamsIngestSecretOutput(ingest_secret=new_secret)
+
+
+@router.get(
+    "/admin/claude-teams-tokens/registration-secret",
+    response_model=ClaudeTeamsRegistrationSecretOutput,
+)
+def get_claude_teams_registration_secret_route(admin_check=Depends(check_admin)):
+    """Return the org-wide self-registration secret (minting one on
+    first call), for the admin to hand out to members running
+    scripts/claude_teams_member_agent.ps1. Unlike per-token
+    `ingest_secret`, this one is safe to fetch repeatedly -- it isn't a
+    one-time reveal, since only an admin can view it (via this
+    Cognito-authenticated route) in the first place."""
+    return ClaudeTeamsRegistrationSecretOutput(
+        registration_secret=get_claude_teams_registration_secret()
+    )
+
+
+@router.post(
+    "/admin/claude-teams-tokens/regenerate-registration-secret",
+    response_model=ClaudeTeamsRegistrationSecretOutput,
+)
+def regenerate_claude_teams_registration_secret_route(admin_check=Depends(check_admin)):
+    """Rotate the org-wide self-registration secret (e.g. it leaked
+    outside the org). Already-registered tokens are unaffected; any
+    member's agent script still configured with the old value will get a
+    401 the next time it tries to self-register (already-registered
+    members are unaffected, since they never call that path again)."""
+    return ClaudeTeamsRegistrationSecretOutput(
+        registration_secret=regenerate_claude_teams_registration_secret()
+    )

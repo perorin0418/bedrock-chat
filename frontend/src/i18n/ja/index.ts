@@ -772,11 +772,22 @@ const translation: typeof en = {
           csvDownload: 'CSVダウンロード',
           csvFrom: '開始日時',
           csvTo: '終了日時',
+          ingestSecretRevealed: '利用状況レポート用シークレット',
+          ingestSecretRevealedHint:
+            '今すぐコピーして、このトークンの scripts/claude_teams_member_agent.ps1 を実行するメンバーに渡してください。二度と表示されません。',
+          registrationSecretTitle: 'メンバーによる自己登録',
+          registrationSecretHint:
+            'このRegistration Secretと scripts/claude_teams_member_agent.ps1、APIエンドポイントURLをメンバーに渡してください。スクリプトを一度実行する（初回のみ claude setup-token 承認のためブラウザが開きます）だけで、トークン登録と定期的な利用状況レポートが自動でセットアップされます。下の手動登録は不要です。',
+          manualRegisterTitle: '手動登録（管理者側）',
         },
         button: {
           register: '登録',
           delete: '削除',
           download: 'ダウンロード',
+          regenerateIngestSecret: 'シークレット再発行',
+          dismiss: '閉じる',
+          showRegistrationSecret: 'Registration Secretを表示',
+          regenerateRegistrationSecret: 'Registration Secretを再発行',
         },
       },
       validationError: {

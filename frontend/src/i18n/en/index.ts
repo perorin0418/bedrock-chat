@@ -768,11 +768,22 @@ How would you categorize this email?`,
           csvDownload: 'Download CSV',
           csvFrom: 'From',
           csvTo: 'To',
+          ingestSecretRevealed: 'Usage-reporting ingest secret',
+          ingestSecretRevealedHint:
+            'Copy this now and give it to the member running scripts/claude_teams_member_agent.ps1 for this token. It will not be shown again.',
+          registrationSecretTitle: 'Member self-registration',
+          registrationSecretHint:
+            'Give this Registration Secret, plus scripts/claude_teams_member_agent.ps1 and your API endpoint URL, to each member. Running the script once (a browser opens for one-time claude setup-token approval) registers their token and sets up recurring usage reporting -- no manual token paste needed below.',
+          manualRegisterTitle: 'Manual registration (admin-side)',
         },
         button: {
           register: 'Register',
           delete: 'Delete',
           download: 'Download',
+          regenerateIngestSecret: 'Regenerate Ingest Secret',
+          dismiss: 'Dismiss',
+          showRegistrationSecret: 'Show Registration Secret',
+          regenerateRegistrationSecret: 'Regenerate Registration Secret',
         },
       },
       validationError: {

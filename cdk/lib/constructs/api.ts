@@ -253,6 +253,12 @@ export class Api extends Construct {
           `arn:aws:secretsmanager:${Stack.of(this).region}:${
             Stack.of(this).account
           }:secret:claude-teams-token/*`,
+          // Org-wide self-registration secret (see
+          // app/claude_teams/token_secrets.py:REGISTRATION_SECRET_NAME),
+          // lazily created on first use rather than provisioned here.
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:claude-teams-registration-secret*`,
         ],
       })
     );
@@ -262,7 +268,11 @@ export class Api extends Construct {
     props.rateLimitFiveHourParam.grantRead(handlerRole);
     props.rateLimitSevenDayParam.grantRead(handlerRole);
     database.claudeTeamsTokenTable.grantReadWriteData(handlerRole);
-    database.claudeTeamsUsageHistoryTable.grantReadData(handlerRole);
+    // Read-write (not just read): the usage-snapshot ingest route (see
+    // backend/app/routes/claude_teams_ingest.py) writes rows here
+    // directly from the API Lambda, alongside the existing hourly sync
+    // Lambda's own writes via a separate assumed role.
+    database.claudeTeamsUsageHistoryTable.grantReadWriteData(handlerRole);
 
     const api = new HttpApi(this, "Default", {
       description: `Main API for ${Stack.of(this).stackName}`,
@@ -384,6 +394,33 @@ export class Api extends Construct {
     // `/{proxy+}` catch-all above in HTTP API routing.
     api.addRoutes({
       path: "/mcp/oauth/callback",
+      integration,
+      methods: [HttpMethod.GET],
+    });
+
+    // Members' local combined agent script (see
+    // scripts/claude_teams_member_agent.ps1) calls these routes
+    // directly from their own machines, not from a bedrock-chat frontend
+    // session -- there is no Cognito user token to present. Authenticated
+    // instead by an org-wide registration secret and a per-token
+    // ingest_secret the routes themselves verify (see
+    // backend/app/routes/claude_teams_ingest.py).
+    api.addRoutes({
+      path: "/claude-teams-tokens/register",
+      integration,
+      methods: [HttpMethod.POST],
+    });
+    api.addRoutes({
+      path: "/claude-teams-tokens/{token_id}/usage-snapshot",
+      integration,
+      methods: [HttpMethod.POST],
+    });
+    // Same script, on every scheduled run: asks whether the chat-side
+    // token it registered is still usable so it can prompt the member to
+    // mint a fresh one. Returns only {enabled: bool} -- never the token
+    // string itself -- and is likewise ingest_secret-authenticated.
+    api.addRoutes({
+      path: "/claude-teams-tokens/{token_id}/status",
       integration,
       methods: [HttpMethod.GET],
     });

@@ -1,5 +1,6 @@
 import {
   ClaudeTeamsToken,
+  ClaudeTeamsTokenWithIngestSecret,
   CreateClaudeTeamsTokenRequest,
   UpdateClaudeTeamsTokenRequest,
 } from '../@types/claude-teams';
@@ -11,9 +12,15 @@ const useClaudeTeamsTokens = () => {
     '/admin/claude-teams-tokens'
   );
 
-  const createToken = async (req: CreateClaudeTeamsTokenRequest) => {
-    await http.post<ClaudeTeamsToken>('/admin/claude-teams-tokens', req);
+  const createToken = async (
+    req: CreateClaudeTeamsTokenRequest
+  ): Promise<ClaudeTeamsTokenWithIngestSecret> => {
+    const res = await http.post<ClaudeTeamsTokenWithIngestSecret>(
+      '/admin/claude-teams-tokens',
+      req
+    );
     await mutate();
+    return res.data;
   };
 
   const updateToken = async (
@@ -27,6 +34,29 @@ const useClaudeTeamsTokens = () => {
   const deleteToken = async (tokenId: string) => {
     await http.delete<null>(`/admin/claude-teams-tokens/${tokenId}`);
     await mutate();
+  };
+
+  const regenerateIngestSecret = async (tokenId: string): Promise<string> => {
+    const res = await http.post<{ ingestSecret: string }>(
+      `/admin/claude-teams-tokens/${tokenId}/regenerate-ingest-secret`,
+      {}
+    );
+    return res.data.ingestSecret;
+  };
+
+  const getRegistrationSecret = async (): Promise<string> => {
+    const res = await http.getOnce<{ registrationSecret: string }>(
+      '/admin/claude-teams-tokens/registration-secret'
+    );
+    return res.data.registrationSecret;
+  };
+
+  const regenerateRegistrationSecret = async (): Promise<string> => {
+    const res = await http.post<{ registrationSecret: string }>(
+      '/admin/claude-teams-tokens/regenerate-registration-secret',
+      {}
+    );
+    return res.data.registrationSecret;
   };
 
   const downloadUsageHistoryCsv = async (params: {
@@ -54,6 +84,9 @@ const useClaudeTeamsTokens = () => {
     createToken,
     updateToken,
     deleteToken,
+    regenerateIngestSecret,
+    getRegistrationSecret,
+    regenerateRegistrationSecret,
     downloadUsageHistoryCsv,
   };
 };

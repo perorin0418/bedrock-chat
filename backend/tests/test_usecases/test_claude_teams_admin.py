@@ -4,11 +4,19 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, ".")
 from app.usecases.claude_teams_admin import (
+    InvalidIngestSecretError,
+    InvalidRegistrationSecretError,
     build_claude_teams_usage_history_csv,
     create_claude_teams_token,
     delete_claude_teams_token_usecase,
+    get_claude_teams_registration_secret,
     get_claude_teams_token_latest_usage,
+    get_claude_teams_token_status,
+    ingest_claude_teams_usage_snapshot,
     list_claude_teams_tokens,
+    regenerate_claude_teams_ingest_secret,
+    regenerate_claude_teams_registration_secret,
+    self_register_claude_teams_token,
     update_claude_teams_token,
 )
 from app.claude_teams.token_repository import ClaudeTeamsTokenItem
@@ -151,6 +159,228 @@ class TestClaudeTeamsAdminUsecase(unittest.TestCase):
         self.assertIn(
             "401 Unauthorized (token expired or revoked)", lines[2]
         )
+
+    @patch("app.usecases.claude_teams_admin.write_usage_snapshot")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_ingest_usage_snapshot_writes_when_secret_matches(
+        self, mock_get_token, mock_write
+    ):
+        mock_get_token.return_value = ClaudeTeamsTokenItem(
+            token_id="tok-1",
+            display_name="team-a",
+            enabled=True,
+            created_at=1,
+            ingest_secret="correct-secret",
+        )
+
+        ingest_claude_teams_usage_snapshot(
+            token_id="tok-1",
+            ingest_secret="correct-secret",
+            fetch_status="ok",
+            fetch_error_message=None,
+            five_hour_utilization=42.0,
+            five_hour_resets_at="2026-05-14T19:40:00Z",
+            seven_day_utilization=10.0,
+            seven_day_resets_at="2026-05-21T16:00:01Z",
+            sampled_at_ms=1_700_000_000_000,
+        )
+
+        mock_write.assert_called_once_with(
+            token_id="tok-1",
+            fetch_status="ok",
+            fetch_error_message=None,
+            five_hour_utilization=42.0,
+            five_hour_resets_at="2026-05-14T19:40:00Z",
+            seven_day_utilization=10.0,
+            seven_day_resets_at="2026-05-21T16:00:01Z",
+            sampled_at_ms=1_700_000_000_000,
+        )
+
+    @patch("app.usecases.claude_teams_admin.write_usage_snapshot")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_ingest_usage_snapshot_rejects_wrong_secret(
+        self, mock_get_token, mock_write
+    ):
+        mock_get_token.return_value = ClaudeTeamsTokenItem(
+            token_id="tok-1",
+            display_name="team-a",
+            enabled=True,
+            created_at=1,
+            ingest_secret="correct-secret",
+        )
+
+        with self.assertRaises(InvalidIngestSecretError):
+            ingest_claude_teams_usage_snapshot(
+                token_id="tok-1",
+                ingest_secret="wrong-secret",
+                fetch_status="ok",
+                fetch_error_message=None,
+                five_hour_utilization=None,
+                five_hour_resets_at=None,
+                seven_day_utilization=None,
+                seven_day_resets_at=None,
+                sampled_at_ms=None,
+            )
+        mock_write.assert_not_called()
+
+    @patch("app.usecases.claude_teams_admin.write_usage_snapshot")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_ingest_usage_snapshot_rejects_unknown_token_id(
+        self, mock_get_token, mock_write
+    ):
+        mock_get_token.return_value = None
+
+        with self.assertRaises(InvalidIngestSecretError):
+            ingest_claude_teams_usage_snapshot(
+                token_id="tok-missing",
+                ingest_secret="anything",
+                fetch_status="ok",
+                fetch_error_message=None,
+                five_hour_utilization=None,
+                five_hour_resets_at=None,
+                seven_day_utilization=None,
+                seven_day_resets_at=None,
+                sampled_at_ms=None,
+            )
+        mock_write.assert_not_called()
+
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_get_token_status_returns_enabled_when_secret_matches(
+        self, mock_get_token
+    ):
+        mock_get_token.return_value = ClaudeTeamsTokenItem(
+            token_id="tok-1",
+            display_name="team-a",
+            enabled=True,
+            created_at=1,
+            ingest_secret="correct-secret",
+        )
+
+        result = get_claude_teams_token_status(
+            token_id="tok-1", ingest_secret="correct-secret"
+        )
+
+        self.assertTrue(result)
+
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_get_token_status_returns_false_for_disabled_token(
+        self, mock_get_token
+    ):
+        mock_get_token.return_value = ClaudeTeamsTokenItem(
+            token_id="tok-1",
+            display_name="team-a",
+            enabled=False,
+            created_at=1,
+            ingest_secret="correct-secret",
+        )
+
+        result = get_claude_teams_token_status(
+            token_id="tok-1", ingest_secret="correct-secret"
+        )
+
+        self.assertFalse(result)
+
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_get_token_status_rejects_wrong_secret(self, mock_get_token):
+        mock_get_token.return_value = ClaudeTeamsTokenItem(
+            token_id="tok-1",
+            display_name="team-a",
+            enabled=True,
+            created_at=1,
+            ingest_secret="correct-secret",
+        )
+
+        with self.assertRaises(InvalidIngestSecretError):
+            get_claude_teams_token_status(
+                token_id="tok-1", ingest_secret="wrong-secret"
+            )
+
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_get_token_status_rejects_unknown_token_id(self, mock_get_token):
+        mock_get_token.return_value = None
+
+        with self.assertRaises(InvalidIngestSecretError):
+            get_claude_teams_token_status(
+                token_id="tok-missing", ingest_secret="anything"
+            )
+
+    @patch("app.usecases.claude_teams_admin.regenerate_ingest_secret")
+    def test_regenerate_claude_teams_ingest_secret_delegates_to_repository(
+        self, mock_regenerate
+    ):
+        mock_regenerate.return_value = "new-secret"
+
+        result = regenerate_claude_teams_ingest_secret("tok-1")
+
+        mock_regenerate.assert_called_once_with("tok-1")
+        self.assertEqual(result, "new-secret")
+
+    @patch("app.usecases.claude_teams_admin.get_or_create_registration_secret")
+    def test_get_claude_teams_registration_secret_delegates_to_repository(
+        self, mock_get
+    ):
+        mock_get.return_value = "reg-secret"
+
+        result = get_claude_teams_registration_secret()
+
+        mock_get.assert_called_once_with()
+        self.assertEqual(result, "reg-secret")
+
+    @patch("app.usecases.claude_teams_admin.regenerate_registration_secret")
+    def test_regenerate_claude_teams_registration_secret_delegates_to_repository(
+        self, mock_regenerate
+    ):
+        mock_regenerate.return_value = "new-reg-secret"
+
+        result = regenerate_claude_teams_registration_secret()
+
+        mock_regenerate.assert_called_once_with()
+        self.assertEqual(result, "new-reg-secret")
+
+    @patch("app.usecases.claude_teams_admin.store_claude_teams_token")
+    @patch("app.usecases.claude_teams_admin.create_token")
+    @patch("app.usecases.claude_teams_admin.get_or_create_registration_secret")
+    def test_self_register_creates_token_when_secret_matches(
+        self, mock_get_reg_secret, mock_create_token, mock_store_secret
+    ):
+        mock_get_reg_secret.return_value = "correct-reg-secret"
+        mock_create_token.return_value = ClaudeTeamsTokenItem(
+            token_id="tok-1",
+            display_name="member-pc",
+            enabled=True,
+            created_at=1,
+            ingest_secret="fresh-ingest-secret",
+        )
+
+        result = self_register_claude_teams_token(
+            registration_secret="correct-reg-secret",
+            display_name="member-pc",
+            token_value="sk-oauth-abc",
+        )
+
+        mock_create_token.assert_called_once_with(
+            display_name="member-pc"
+        )
+        mock_store_secret.assert_called_once_with("tok-1", "sk-oauth-abc")
+        self.assertEqual(result.token_id, "tok-1")
+        self.assertEqual(result.ingest_secret, "fresh-ingest-secret")
+
+    @patch("app.usecases.claude_teams_admin.store_claude_teams_token")
+    @patch("app.usecases.claude_teams_admin.create_token")
+    @patch("app.usecases.claude_teams_admin.get_or_create_registration_secret")
+    def test_self_register_rejects_wrong_secret(
+        self, mock_get_reg_secret, mock_create_token, mock_store_secret
+    ):
+        mock_get_reg_secret.return_value = "correct-reg-secret"
+
+        with self.assertRaises(InvalidRegistrationSecretError):
+            self_register_claude_teams_token(
+                registration_secret="wrong-secret",
+                display_name="member-pc",
+                token_value="sk-oauth-abc",
+            )
+        mock_create_token.assert_not_called()
+        mock_store_secret.assert_not_called()
 
 
 if __name__ == "__main__":

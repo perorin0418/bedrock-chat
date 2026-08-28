@@ -14,6 +14,7 @@ from app.routes.admin import router as admin_router
 from app.routes.api_publication import router as api_publication_router
 from app.routes.bot import router as bot_router
 from app.routes.bot_store import router as bot_store_router
+from app.routes.claude_teams_ingest import router as claude_teams_ingest_router
 from app.routes.conversation import router as conversation_router
 from app.routes.global_config import router as global_config_router
 from app.routes.mcp_oauth import router as mcp_oauth_router
@@ -70,6 +71,7 @@ if not is_published_api:
     app.include_router(mcp_oauth_router)
     app.include_router(api_publication_router)
     app.include_router(admin_router)
+    app.include_router(claude_teams_ingest_router)
     app.include_router(user_router)
     app.include_router(bot_store_router)
     app.include_router(global_config_router)

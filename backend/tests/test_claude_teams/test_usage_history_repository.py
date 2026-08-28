@@ -8,6 +8,7 @@ sys.path.insert(0, ".")
 from app.claude_teams.usage_history_repository import (
     get_latest_usage_snapshot,
     list_usage_history,
+    write_usage_snapshot,
 )
 
 
@@ -132,6 +133,53 @@ class TestClaudeTeamsUsageHistoryRepository(unittest.TestCase):
         snapshot = get_latest_usage_snapshot("tok-1")
 
         self.assertIsNone(snapshot)
+
+    def test_write_usage_snapshot_puts_ok_item_with_both_buckets(self):
+        write_usage_snapshot(
+            token_id="tok-1",
+            fetch_status="ok",
+            five_hour_utilization=42.5,
+            five_hour_resets_at="2026-05-14T19:40:00Z",
+            seven_day_utilization=10.0,
+            seven_day_resets_at="2026-05-21T16:00:01Z",
+            sampled_at_ms=1_700_000_000_000,
+        )
+
+        self.mock_table.put_item.assert_called_once()
+        item = self.mock_table.put_item.call_args.kwargs["Item"]
+        self.assertEqual(item["TokenId"], "tok-1")
+        self.assertEqual(item["SampledAtMs"], 1_700_000_000_000)
+        self.assertEqual(item["FetchStatus"], "ok")
+        self.assertEqual(item["FiveHourUtilization"], Decimal("42.5"))
+        self.assertEqual(item["FiveHourResetsAt"], "2026-05-14T19:40:00Z")
+        self.assertEqual(item["SevenDayUtilization"], Decimal("10.0"))
+        self.assertEqual(item["SevenDayResetsAt"], "2026-05-21T16:00:01Z")
+        self.assertNotIn("FetchErrorMessage", item)
+        self.assertIn("expire", item)
+
+    def test_write_usage_snapshot_omits_utilization_fields_when_none(self):
+        write_usage_snapshot(
+            token_id="tok-1",
+            fetch_status="auth_error",
+            fetch_error_message="401 Unauthorized",
+            sampled_at_ms=1_700_000_000_000,
+        )
+
+        item = self.mock_table.put_item.call_args.kwargs["Item"]
+        self.assertEqual(item["FetchStatus"], "auth_error")
+        self.assertEqual(item["FetchErrorMessage"], "401 Unauthorized")
+        self.assertNotIn("FiveHourUtilization", item)
+        self.assertNotIn("SevenDayUtilization", item)
+
+    @patch(
+        "app.claude_teams.usage_history_repository.get_current_time",
+        return_value=1_700_000_000_000,
+    )
+    def test_write_usage_snapshot_defaults_sampled_at_to_now(self, mock_time):
+        write_usage_snapshot(token_id="tok-1", fetch_status="ok")
+
+        item = self.mock_table.put_item.call_args.kwargs["Item"]
+        self.assertEqual(item["SampledAtMs"], 1_700_000_000_000)
 
 
 if __name__ == "__main__":

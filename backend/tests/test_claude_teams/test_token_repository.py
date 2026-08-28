@@ -8,8 +8,10 @@ from app.claude_teams.token_repository import (
     create_token,
     delete_token,
     disable_token,
+    get_token,
     list_tokens,
     pick_next_available_token,
+    regenerate_ingest_secret,
     set_cooldown,
     set_enabled,
 )
@@ -45,6 +47,19 @@ class TestClaudeTeamsTokenRepository(unittest.TestCase):
         self.assertIsNone(put_item.get("CooldownUntil"))
         self.assertEqual(item.display_name, "team-a-token")
         self.assertTrue(item.enabled)
+
+    def test_create_token_mints_an_ingest_secret(self):
+        item = create_token(display_name="team-a-token")
+
+        self.assertIsNotNone(item.ingest_secret)
+        put_item = self.mock_table.put_item.call_args.kwargs["Item"]
+        self.assertEqual(put_item["IngestSecret"], item.ingest_secret)
+
+    def test_create_token_mints_distinct_secrets_for_different_tokens(self):
+        first = create_token(display_name="a")
+        second = create_token(display_name="b")
+
+        self.assertNotEqual(first.ingest_secret, second.ingest_secret)
 
     def test_list_tokens_returns_items_from_scan(self):
         self.mock_table.scan.return_value = {
@@ -200,6 +215,43 @@ class TestClaudeTeamsTokenRepository(unittest.TestCase):
 
         self.assertIsNone(picked)
         self.mock_table.update_item.assert_not_called()
+
+    def test_get_token_returns_item_including_ingest_secret(self):
+        self.mock_table.get_item.return_value = {
+            "Item": {
+                "TokenId": "tok-1",
+                "DisplayName": "team-a",
+                "Enabled": True,
+                "CreatedAt": 1,
+                "IngestSecret": "secret-abc",
+            }
+        }
+
+        token = get_token("tok-1")
+
+        self.assertIsNotNone(token)
+        assert token is not None
+        self.assertEqual(token.token_id, "tok-1")
+        self.assertEqual(token.ingest_secret, "secret-abc")
+        self.mock_table.get_item.assert_called_once_with(Key={"TokenId": "tok-1"})
+
+    def test_get_token_returns_none_when_missing(self):
+        self.mock_table.get_item.return_value = {}
+
+        token = get_token("tok-missing")
+
+        self.assertIsNone(token)
+
+    def test_regenerate_ingest_secret_updates_item_and_returns_new_secret(self):
+        new_secret = regenerate_ingest_secret("tok-1")
+
+        self.mock_table.update_item.assert_called_once()
+        kwargs = self.mock_table.update_item.call_args.kwargs
+        self.assertEqual(kwargs["Key"], {"TokenId": "tok-1"})
+        self.assertEqual(
+            kwargs["ExpressionAttributeValues"][":ingest_secret"], new_secret
+        )
+        self.assertTrue(len(new_secret) > 0)
 
 
 if __name__ == "__main__":
