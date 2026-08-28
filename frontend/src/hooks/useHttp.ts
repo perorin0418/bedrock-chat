@@ -94,6 +94,39 @@ const useHttp = () => {
     },
 
     /**
+     * GET Request expecting a binary file response (e.g. CSV export).
+     * @param url
+     * @param params
+     * @returns
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getBlob: <DATA = any>(
+      url: string,
+      params?: DATA,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      errorProcess?: (err: any) => void
+    ) => {
+      return new Promise<AxiosResponse<Blob>>((resolve, reject) => {
+        api
+          .get<Blob, AxiosResponse<Blob>, DATA>(url, {
+            params,
+            responseType: 'blob',
+          })
+          .then((data) => {
+            resolve(data);
+          })
+          .catch((err) => {
+            if (errorProcess) {
+              errorProcess(err);
+            } else {
+              // alert.openError(getErrorMessage(err));
+            }
+            reject(err);
+          });
+      });
+    },
+
+    /**
      * POST Request
      * @param url
      * @param data

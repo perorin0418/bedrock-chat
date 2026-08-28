@@ -12,6 +12,10 @@ BOT_TABLE_NAME = os.environ.get("BOT_TABLE_NAME", "")
 USAGE_LEDGER_TABLE_NAME = os.environ.get("USAGE_LEDGER_TABLE_NAME", "")
 API_KEY_OWNER_TABLE_NAME = os.environ.get("API_KEY_OWNER_TABLE_NAME", "")
 MCP_OAUTH_STATE_TABLE_NAME = os.environ.get("MCP_OAUTH_STATE_TABLE_NAME", "")
+CLAUDE_TEAMS_TOKEN_TABLE_NAME = os.environ.get("CLAUDE_TEAMS_TOKEN_TABLE_NAME", "")
+CLAUDE_TEAMS_USAGE_HISTORY_TABLE_NAME = os.environ.get(
+    "CLAUDE_TEAMS_USAGE_HISTORY_TABLE_NAME", ""
+)
 ACCOUNT = os.environ.get("ACCOUNT", "")
 REGION = os.environ.get("REGION", "ap-northeast-1")
 TABLE_ACCESS_ROLE_ARN = os.environ.get("TABLE_ACCESS_ROLE_ARN", "")
@@ -26,7 +30,8 @@ TRANSACTION_BATCH_WRITE_SIZE = 25
 TRANSACTION_BATCH_READ_SIZE = 100
 
 type_table = Literal[
-    "conversation", "bot", "usage_ledger", "api_key_owner", "mcp_oauth_state"
+    "conversation", "bot", "usage_ledger", "api_key_owner", "mcp_oauth_state",
+    "claude_teams_token", "claude_teams_usage_history",
 ]
 _table_name_map = {
     "conversation": CONVERSATION_TABLE_NAME,
@@ -34,6 +39,8 @@ _table_name_map = {
     "usage_ledger": USAGE_LEDGER_TABLE_NAME,
     "api_key_owner": API_KEY_OWNER_TABLE_NAME,
     "mcp_oauth_state": MCP_OAUTH_STATE_TABLE_NAME,
+    "claude_teams_token": CLAUDE_TEAMS_TOKEN_TABLE_NAME,
+    "claude_teams_usage_history": CLAUDE_TEAMS_USAGE_HISTORY_TABLE_NAME,
 }
 
 
@@ -213,6 +220,26 @@ def get_mcp_oauth_state_table_client():
     return _get_aws_resource("dynamodb", table_name=MCP_OAUTH_STATE_TABLE_NAME).Table(
         MCP_OAUTH_STATE_TABLE_NAME
     )
+
+
+def get_claude_teams_token_table_client():
+    """Get a DynamoDB table client for the Claude Teams OAuth token pool table.
+    Note: No row-level access control (server-side reference data, not
+    scoped per Cognito user, same as `get_bot_table_client`).
+    """
+    return _get_aws_resource(
+        "dynamodb", table_name=CLAUDE_TEAMS_TOKEN_TABLE_NAME
+    ).Table(CLAUDE_TEAMS_TOKEN_TABLE_NAME)
+
+
+def get_claude_teams_usage_history_table_client():
+    """Get a DynamoDB table client for the Claude Teams usage-history table.
+    Note: No row-level access control (server-side reference data, not
+    scoped per Cognito user, same as `get_bot_table_client`).
+    """
+    return _get_aws_resource(
+        "dynamodb", table_name=CLAUDE_TEAMS_USAGE_HISTORY_TABLE_NAME
+    ).Table(CLAUDE_TEAMS_USAGE_HISTORY_TABLE_NAME)
 
 
 def get_opensearch_client(collection_type: str = "bot") -> OpenSearch:

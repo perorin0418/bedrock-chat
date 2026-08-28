@@ -45,6 +45,11 @@ type_model_name = Literal[
     "gpt-oss-120b",
     # xAI models
     "grok-4.6",
+    # Claude Teams plan (via Claude Code CLI OAuth token, flat-rate quota)
+    "claude-teams-opus",
+    "claude-teams-sonnet",
+    "claude-teams-haiku",
+    "claude-teams-fable",
 ]
 
 

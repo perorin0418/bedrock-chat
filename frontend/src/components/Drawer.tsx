@@ -13,6 +13,7 @@ import {
   PiChartLine,
   PiChatCenteredDotsDuotone,
   PiClockCounterClockwise,
+  PiKey,
   PiListBullets,
   PiPlugs,
   PiPresentationChart,
@@ -208,6 +209,14 @@ const Drawer: React.FC<Props> = (props) => {
                 icon={<PiUserCheck />}
                 to="/admin/user-approval"
                 labelComponent={getPageLabel('/admin/user-approval')}
+                onClick={closeSmallDrawer}
+              />
+              <DrawerItem
+                className="w-60"
+                isActive={location.pathname === '/admin/claude-teams-tokens'}
+                icon={<PiKey />}
+                to="/admin/claude-teams-tokens"
+                labelComponent={getPageLabel('/admin/claude-teams-tokens')}
                 onClick={closeSmallDrawer}
               />
             </>

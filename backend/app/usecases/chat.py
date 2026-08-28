@@ -326,24 +326,21 @@ def chat(
             on_tool_result(run_result)
 
     """
-    Routes to Strands or legacy implementation based on USE_STRANDS environment variable.
+    Routes to Claude Teams CLI, Strands, or legacy implementation based on
+    the selected model / USE_STRANDS environment variable.
     """
     import os
 
-    use_strands = os.environ.get("USE_STRANDS", "true").lower() == "true"
+    from app.claude_teams.models import is_claude_teams_model
 
-    if use_strands:
-        from app.strands_integration.chat_strands import converse_with_strands
+    if is_claude_teams_model(chat_input.message.model):
+        from app.claude_teams.chat import converse_with_claude_teams
 
-        result = converse_with_strands(
+        result = converse_with_claude_teams(
             bot=bot,
             chat_input=chat_input,
             instructions=instructions,
-            generation_params=generation_params,
-            guardrail=guardrail,
-            display_citation=display_citation,
             messages=messages,
-            search_results=search_results,
             on_stream=on_stream,
             on_thinking=on_thinking,
             on_tool_result=on_tool_run_result,
@@ -351,20 +348,41 @@ def chat(
         )
 
     else:
-        result = converse_legacy(
-            bot=bot,
-            chat_input=chat_input,
-            instructions=instructions,
-            generation_params=generation_params,
-            guardrail=guardrail,
-            display_citation=display_citation,
-            messages=messages,
-            search_results=search_results,
-            on_stream=on_stream,
-            on_thinking=on_thinking,
-            on_tool_result=on_tool_run_result,
-            on_reasoning=on_reasoning,
-        )
+        use_strands = os.environ.get("USE_STRANDS", "true").lower() == "true"
+
+        if use_strands:
+            from app.strands_integration.chat_strands import converse_with_strands
+
+            result = converse_with_strands(
+                bot=bot,
+                chat_input=chat_input,
+                instructions=instructions,
+                generation_params=generation_params,
+                guardrail=guardrail,
+                display_citation=display_citation,
+                messages=messages,
+                search_results=search_results,
+                on_stream=on_stream,
+                on_thinking=on_thinking,
+                on_tool_result=on_tool_run_result,
+                on_reasoning=on_reasoning,
+            )
+
+        else:
+            result = converse_legacy(
+                bot=bot,
+                chat_input=chat_input,
+                instructions=instructions,
+                generation_params=generation_params,
+                guardrail=guardrail,
+                display_citation=display_citation,
+                messages=messages,
+                search_results=search_results,
+                on_stream=on_stream,
+                on_thinking=on_thinking,
+                on_tool_result=on_tool_run_result,
+                on_reasoning=on_reasoning,
+            )
 
     # Post handling: process the result and update conversation
     return post_process_result(

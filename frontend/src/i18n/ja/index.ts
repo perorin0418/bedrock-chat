@@ -119,6 +119,26 @@ const translation: typeof en = {
         label: 'Claude 3 (Opus)',
         description: '非常に複雑なタスクに対応するパワフルなモデル',
       },
+      'claude-teams-opus': {
+        label: 'Claude Opus 5（Teamsプラン経由）',
+        description:
+          'Claude Code CLI経由で動作するClaude Opus 5。Bedrockの従量課金ではなく、Claude Teams/Pro/Maxプランの定額枠（プール管理）を消費します。',
+      },
+      'claude-teams-sonnet': {
+        label: 'Claude Sonnet 5（Teamsプラン経由）',
+        description:
+          'Claude Code CLI経由で動作するClaude Sonnet 5。Bedrockの従量課金ではなく、Claude Teams/Pro/Maxプランの定額枠（プール管理）を消費します。',
+      },
+      'claude-teams-haiku': {
+        label: 'Claude Haiku 4.5（Teamsプラン経由）',
+        description:
+          'Claude Code CLI経由で動作するClaude Haiku 4.5。Bedrockの従量課金ではなく、Claude Teams/Pro/Maxプランの定額枠（プール管理）を消費します。',
+      },
+      'claude-teams-fable': {
+        label: 'Claude Fable 5（Teamsプラン経由）',
+        description:
+          'Claude Code CLI経由で動作するClaude Fable 5。Bedrockの従量課金ではなく、Claude Teams/Pro/Maxプランの定額枠（プール管理）を消費します。',
+      },
       'mistral-7b-instruct': {
         label: 'Mistral 7B',
         description:
@@ -733,6 +753,45 @@ const translation: typeof en = {
         },
         error: {
           failApprove: 'ユーザーの承認に失敗しました。',
+        },
+      },
+      claudeTeamsTokens: {
+        label: {
+          pageTitle: 'Claude Teamsトークン',
+          noTokens: '登録されたトークンがありません。',
+          displayName: '表示名',
+          tokenValue: 'OAuthトークン',
+          coolingDown: 'クールダウン中',
+          tokenExpired: '期限切れ',
+          fiveHourUsage: '5時間制限',
+          sevenDayUsage: '7日制限',
+          resetsAt: 'リセット',
+          noUsageData: '未取得',
+          fetchError: '取得エラー',
+          fetchErrorScope: 'スコープ不足（要 user:profile）',
+          csvDownload: 'CSVダウンロード',
+          csvFrom: '開始日時',
+          csvTo: '終了日時',
+          ingestSecretRevealed: '利用状況レポート用シークレット',
+          ingestSecretRevealedHint:
+            '今すぐコピーして、このトークンの scripts/claude_teams_member_agent.ps1 を実行するメンバーに渡してください。二度と表示されません。',
+          registrationSecretTitle: 'メンバーによる自己登録',
+          registrationSecretHint:
+            'このRegistration Secretと scripts/claude_teams_member_agent.ps1、APIエンドポイントURLをメンバーに渡してください。スクリプトを一度実行する（初回のみ claude setup-token 承認のためブラウザが開きます）だけで、トークン登録と定期的な利用状況レポートが自動でセットアップされます。下の手動登録は不要です。',
+          manualRegisterTitle: '手動登録（管理者側）',
+        },
+        button: {
+          register: '登録',
+          delete: '削除',
+          download: 'ダウンロード',
+          dismiss: '閉じる',
+          showRegistrationSecret: 'Registration Secretを表示',
+          regenerateRegistrationSecret: 'Registration Secretを再発行',
+        },
+        deleteDialog: {
+          title: 'トークンの削除',
+          content:
+            '<Bold>{{displayName}}</Bold> を削除します。この操作は取り消せません。よろしいですか？',
         },
       },
       validationError: {

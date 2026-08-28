@@ -118,6 +118,26 @@ const translation = {
         label: 'Claude 3 (Opus)',
         description: 'Powerful model for highly complex tasks.',
       },
+      'claude-teams-opus': {
+        label: 'Claude Opus 5 (Teams Plan)',
+        description:
+          'Claude Opus 5 running through the Claude Code CLI, billed against a pooled Claude Teams/Pro/Max flat-rate quota instead of Bedrock on-demand pricing.',
+      },
+      'claude-teams-sonnet': {
+        label: 'Claude Sonnet 5 (Teams Plan)',
+        description:
+          'Claude Sonnet 5 running through the Claude Code CLI, billed against a pooled Claude Teams/Pro/Max flat-rate quota instead of Bedrock on-demand pricing.',
+      },
+      'claude-teams-haiku': {
+        label: 'Claude Haiku 4.5 (Teams Plan)',
+        description:
+          'Claude Haiku 4.5 running through the Claude Code CLI, billed against a pooled Claude Teams/Pro/Max flat-rate quota instead of Bedrock on-demand pricing.',
+      },
+      'claude-teams-fable': {
+        label: 'Claude Fable 5 (Teams Plan)',
+        description:
+          'Claude Fable 5 running through the Claude Code CLI, billed against a pooled Claude Teams/Pro/Max flat-rate quota instead of Bedrock on-demand pricing.',
+      },
       'mistral-7b-instruct': {
         label: 'Mistral 7B',
         description:
@@ -729,6 +749,45 @@ How would you categorize this email?`,
         },
         error: {
           failApprove: 'Failed to approve the user.',
+        },
+      },
+      claudeTeamsTokens: {
+        label: {
+          pageTitle: 'Claude Teams Tokens',
+          noTokens: 'No tokens registered.',
+          displayName: 'Display Name',
+          tokenValue: 'OAuth Token',
+          coolingDown: 'Cooling down',
+          tokenExpired: 'Expired',
+          fiveHourUsage: '5-hour limit',
+          sevenDayUsage: '7-day limit',
+          resetsAt: 'Resets at',
+          noUsageData: 'Not sampled yet',
+          fetchError: 'Fetch error',
+          fetchErrorScope: 'Missing scope (needs user:profile)',
+          csvDownload: 'Download CSV',
+          csvFrom: 'From',
+          csvTo: 'To',
+          ingestSecretRevealed: 'Usage-reporting ingest secret',
+          ingestSecretRevealedHint:
+            'Copy this now and give it to the member running scripts/claude_teams_member_agent.ps1 for this token. It will not be shown again.',
+          registrationSecretTitle: 'Member self-registration',
+          registrationSecretHint:
+            'Give this Registration Secret, plus scripts/claude_teams_member_agent.ps1 and your API endpoint URL, to each member. Running the script once (a browser opens for one-time claude setup-token approval) registers their token and sets up recurring usage reporting -- no manual token paste needed below.',
+          manualRegisterTitle: 'Manual registration (admin-side)',
+        },
+        button: {
+          register: 'Register',
+          delete: 'Delete',
+          download: 'Download',
+          dismiss: 'Dismiss',
+          showRegistrationSecret: 'Show Registration Secret',
+          regenerateRegistrationSecret: 'Regenerate Registration Secret',
+        },
+        deleteDialog: {
+          title: 'Delete Token',
+          content:
+            'This will delete <Bold>{{displayName}}</Bold>. This action cannot be undone. Are you sure?',
         },
       },
       validationError: {

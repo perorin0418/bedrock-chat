@@ -9,6 +9,7 @@ os.environ["ENABLE_BEDROCK_CROSS_REGION_INFERENCE"] = "true"
 sys.path.insert(0, ".")
 import unittest
 from pprint import pprint
+from unittest.mock import patch
 
 import boto3
 from app.agents.tools.agent_tool import ToolRunResult
@@ -1042,6 +1043,163 @@ class TestGuardrailChat(unittest.TestCase):
 
         # Must be blocked
         assert output.message.content[0].body == "blocked"
+
+
+class TestChatRoutesToClaudeTeams(unittest.TestCase):
+    @patch("app.claude_teams.chat.converse_with_claude_teams")
+    @patch("app.usecases.chat.prepare_conversation")
+    @patch("app.usecases.chat.post_process_result")
+    def test_chat_routes_claude_teams_model_to_converse_with_claude_teams(
+        self, mock_post_process, mock_prepare_conversation, mock_converse_teams
+    ):
+        from app.repositories.models.conversation import (
+            ConversationModel,
+            MessageModel,
+            TextContentModel,
+        )
+        from app.routes.schemas.conversation import ChatInput, MessageInput
+        from app.stream import OnStopInput
+        from app.usecases.chat import chat
+        from app.user import User
+
+        root_msg = MessageModel(
+            role="system",
+            content=[TextContentModel(content_type="text", body="")],
+            model="claude-teams-sonnet",
+            children=["user-1"],
+            parent=None,
+            create_time=0,
+        )
+        user_msg = MessageModel(
+            role="user",
+            content=[TextContentModel(content_type="text", body="hi")],
+            model="claude-teams-sonnet",
+            children=[],
+            parent="root",
+            create_time=0,
+        )
+        conversation = ConversationModel(
+            id="conv-1",
+            title="t",
+            create_time=0,
+            message_map={"root": root_msg, "user-1": user_msg},
+            last_message_id="user-1",
+            total_price=0,
+            bot_id=None,
+            should_continue=False,
+        )
+        mock_prepare_conversation.return_value = ("user-1", conversation, None)
+        assistant_message = MessageModel(
+            role="assistant",
+            content=[TextContentModel(content_type="text", body="hello back")],
+            model="claude-teams-sonnet",
+            children=[],
+            parent=None,
+            create_time=0,
+        )
+        mock_converse_teams.return_value = OnStopInput(
+            message=assistant_message,
+            stop_reason="end_turn",
+            input_token_count=1,
+            output_token_count=1,
+            cache_read_input_count=0,
+            cache_write_input_count=0,
+            price=0.0,
+        )
+        mock_post_process.return_value = (conversation, assistant_message)
+
+        chat_input = ChatInput(
+            conversation_id="conv-1",
+            message=MessageInput(
+                role="user",
+                content=[{"content_type": "text", "body": "hi"}],
+                model="claude-teams-sonnet",
+                parent_message_id=None,
+            ),
+        )
+        user = User(id="user-1", name="user-1", email="user@example.com", groups=[])
+
+        chat(user=user, chat_input=chat_input)
+
+        mock_converse_teams.assert_called_once()
+
+
+class TestPostProcessResultRecordsZeroPriceForClaudeTeams(unittest.TestCase):
+    @patch("app.usecases.chat.record_usage")
+    @patch("app.usecases.chat.store_conversation")
+    @patch("app.usecases.chat.modify_bot_last_used_time")
+    @patch("app.usecases.chat.modify_bot_stats")
+    def test_post_process_result_records_zero_price(
+        self, mock_stats, mock_last_used, mock_store_conv, mock_record_usage
+    ):
+        from app.repositories.models.conversation import (
+            ConversationModel,
+            MessageModel,
+            TextContentModel,
+        )
+        from app.routes.schemas.conversation import ChatInput, MessageInput
+        from app.stream import OnStopInput
+        from app.usecases.chat import post_process_result
+        from app.user import User
+
+        user_msg = MessageModel(
+            role="user",
+            content=[TextContentModel(content_type="text", body="hi")],
+            model="claude-teams-sonnet",
+            children=[],
+            parent=None,
+            create_time=0,
+        )
+        conversation = ConversationModel(
+            id="conv-1",
+            title="t",
+            create_time=0,
+            message_map={"user-1": user_msg},
+            last_message_id="user-1",
+            total_price=0,
+            bot_id=None,
+            should_continue=False,
+        )
+        result = OnStopInput(
+            message=MessageModel(
+                role="assistant",
+                content=[TextContentModel(content_type="text", body="hello")],
+                model="claude-teams-sonnet",
+                children=[],
+                parent=None,
+                create_time=0,
+            ),
+            stop_reason="end_turn",
+            input_token_count=5,
+            output_token_count=3,
+            cache_read_input_count=0,
+            cache_write_input_count=0,
+            price=0.0,
+        )
+        chat_input = ChatInput(
+            conversation_id="conv-1",
+            message=MessageInput(
+                role="user",
+                content=[{"content_type": "text", "body": "hi"}],
+                model="claude-teams-sonnet",
+                parent_message_id=None,
+            ),
+        )
+        user = User(id="user-1", name="user-1", email="user@example.com", groups=[])
+
+        post_process_result(
+            result=result,
+            message_for_continue_generate=None,
+            conversation=conversation,
+            user_msg_id="user-1",
+            bot=None,
+            user=user,
+            chat_input=chat_input,
+            search_results=[],
+            related_documents=[],
+        )
+
+        mock_record_usage.assert_called_once_with(user.rate_limit_id, 0.0)
 
 
 if __name__ == "__main__":

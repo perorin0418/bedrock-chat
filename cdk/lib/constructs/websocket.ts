@@ -2,7 +2,11 @@ import { Construct } from "constructs";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { WebSocketLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 
-import { IFunction, Runtime, SnapStartConf } from "aws-cdk-lib/aws-lambda";
+import {
+  DockerImageCode,
+  DockerImageFunction,
+  IFunction,
+} from "aws-cdk-lib/aws-lambda";
 import * as path from "path";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { CfnOutput, Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
@@ -13,7 +17,7 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { excludeDockerImage } from "../constants/docker";
-import { PythonFunction } from "@aws-cdk/aws-lambda-python-alpha";
+import { Platform } from "aws-cdk-lib/aws-ecr-assets";
 import { Database } from "./database";
 
 export interface WebSocketProps {
@@ -133,21 +137,48 @@ export class WebSocket extends Construct {
       })
     );
 
+    // Read-only: chat-time lookup of the pool token's raw OAuth string
+    // (see app/claude_teams/token_secrets.py:get_claude_teams_token),
+    // selected via app/claude_teams/token_repository.py against
+    // claudeTeamsTokenTable below.
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:claude-teams-token/*`,
+        ],
+      })
+    );
+
     largePayloadSupportBucket.grantRead(handlerRole);
     database.websocketSessionTable.grantReadWriteData(handlerRole);
     props.largeMessageBucket.grantReadWrite(handlerRole);
     props.documentBucket.grantRead(handlerRole);
     props.rateLimitFiveHourParam.grantRead(handlerRole);
     props.rateLimitSevenDayParam.grantRead(handlerRole);
+    // Read-write: chat-time token selection (round-robin bookkeeping via
+    // LastUsedAt) and cooldown/disable updates on API failures (see
+    // app/claude_teams/token_repository.py).
+    database.claudeTeamsTokenTable.grantReadWriteData(handlerRole);
 
-    const handler = new PythonFunction(this, "HandlerV2", {
-      entry: path.join(__dirname, "../../../backend"),
-      index: "app/websocket.py",
-      bundling: {
-        assetExcludes: [...excludeDockerImage],
-        buildArgs: { POETRY_VERSION: "1.8.5" },
-      },
-      runtime: Runtime.PYTHON_3_13,
+    // Packaged as a container image (not a zip) because claude-agent-sdk
+    // bundles the Claude Code CLI binary (~230MB), which alone exceeds the
+    // 250MiB unzipped-size limit for zip-based Lambda functions once combined
+    // with the rest of the backend's dependencies. Container images support
+    // up to 10GB. Trade-off: SnapStart is zip/managed-runtime only, so it is
+    // not available here (see enableLambdaSnapStart handling below).
+    const handler = new DockerImageFunction(this, "HandlerV2", {
+      code: DockerImageCode.fromImageAsset(
+        path.join(__dirname, "../../../backend"),
+        {
+          platform: Platform.LINUX_AMD64,
+          file: "lambda.Dockerfile",
+          cmd: ["app.websocket.handler"],
+          exclude: [...excludeDockerImage],
+        }
+      ),
       memorySize: 512,
       timeout: Duration.minutes(15),
       environment: {
@@ -163,6 +194,7 @@ export class WebSocket extends Construct {
         LARGE_PAYLOAD_SUPPORT_BUCKET: largePayloadSupportBucket.bucketName,
         WEBSOCKET_SESSION_TABLE_NAME: database.websocketSessionTable.tableName,
         USAGE_LEDGER_TABLE_NAME: database.usageLedgerTable.tableName,
+        CLAUDE_TEAMS_TOKEN_TABLE_NAME: database.claudeTeamsTokenTable.tableName,
         RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
         RATE_LIMIT_SEVEN_DAY_PARAM_NAME: props.rateLimitSevenDayParam.parameterName,
         ENABLE_BEDROCK_GLOBAL_INFERENCE:
@@ -173,9 +205,6 @@ export class WebSocket extends Construct {
         MCP_OAUTH_REDIRECT_URI: props.mcpOAuthRedirectUri,
       },
       role: handlerRole,
-      snapStart: props.enableLambdaSnapStart
-        ? SnapStartConf.ON_PUBLISHED_VERSIONS
-        : undefined,
       logRetention: logs.RetentionDays.THREE_MONTHS,
     });
 

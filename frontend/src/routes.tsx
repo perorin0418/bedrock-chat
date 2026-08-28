@@ -8,6 +8,7 @@ import AdminSharedBotAnalyticsPage from './pages/AdminSharedBotAnalyticsPage.tsx
 import AdminApiManagementPage from './pages/AdminApiManagementPage.tsx';
 import AdminBotManagementPage from './pages/AdminBotManagementPage.tsx';
 import AdminUserApprovalPage from './pages/AdminUserApprovalPage.tsx';
+import AdminClaudeTeamsTokensPage from './pages/AdminClaudeTeamsTokensPage.tsx';
 import { useTranslation } from 'react-i18next';
 import {
   createBrowserRouter,
@@ -89,6 +90,10 @@ const rootChildren = [
     element: <AdminUserApprovalPage />,
   },
   {
+    path: '/admin/claude-teams-tokens',
+    element: <AdminClaudeTeamsTokensPage />,
+  },
+  {
     path: '/:conversationId',
     element: <ChatPage />,
   },
@@ -132,6 +137,10 @@ export const usePageLabel = () => {
     {
       path: '/admin/user-approval',
       label: t('admin.userApproval.label.pageTitle'),
+    },
+    {
+      path: '/admin/claude-teams-tokens',
+      label: t('admin.claudeTeamsTokens.label.pageTitle'),
     },
   ];
 
