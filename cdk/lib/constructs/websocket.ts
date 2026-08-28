@@ -137,12 +137,31 @@ export class WebSocket extends Construct {
       })
     );
 
+    // Read-only: chat-time lookup of the pool token's raw OAuth string
+    // (see app/claude_teams/token_secrets.py:get_claude_teams_token),
+    // selected via app/claude_teams/token_repository.py against
+    // claudeTeamsTokenTable below.
+    handlerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [
+          `arn:aws:secretsmanager:${Stack.of(this).region}:${
+            Stack.of(this).account
+          }:secret:claude-teams-token/*`,
+        ],
+      })
+    );
+
     largePayloadSupportBucket.grantRead(handlerRole);
     database.websocketSessionTable.grantReadWriteData(handlerRole);
     props.largeMessageBucket.grantReadWrite(handlerRole);
     props.documentBucket.grantRead(handlerRole);
     props.rateLimitFiveHourParam.grantRead(handlerRole);
     props.rateLimitSevenDayParam.grantRead(handlerRole);
+    // Read-write: chat-time token selection (round-robin bookkeeping via
+    // LastUsedAt) and cooldown/disable updates on API failures (see
+    // app/claude_teams/token_repository.py).
+    database.claudeTeamsTokenTable.grantReadWriteData(handlerRole);
 
     // Packaged as a container image (not a zip) because claude-agent-sdk
     // bundles the Claude Code CLI binary (~230MB), which alone exceeds the
@@ -175,6 +194,7 @@ export class WebSocket extends Construct {
         LARGE_PAYLOAD_SUPPORT_BUCKET: largePayloadSupportBucket.bucketName,
         WEBSOCKET_SESSION_TABLE_NAME: database.websocketSessionTable.tableName,
         USAGE_LEDGER_TABLE_NAME: database.usageLedgerTable.tableName,
+        CLAUDE_TEAMS_TOKEN_TABLE_NAME: database.claudeTeamsTokenTable.tableName,
         RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
         RATE_LIMIT_SEVEN_DAY_PARAM_NAME: props.rateLimitSevenDayParam.parameterName,
         ENABLE_BEDROCK_GLOBAL_INFERENCE:
