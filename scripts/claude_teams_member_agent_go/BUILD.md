@@ -82,6 +82,24 @@ registrations need the new secret. Rebuild the `.exe` with the new
 value and distribute it to any new members only; existing members do
 not need to update anything.
 
+## Redistributing an updated `.exe` to existing members
+
+Every run started from a location other than the installed copy
+itself (i.e. any manual double-click of the admin-distributed `.exe`)
+re-checks the installed copy at
+`%USERPROFILE%\.claude\claude_teams_member_agent\claude_teams_member_agent.exe`
+and overwrites it whenever its file size differs from the `.exe` being
+run (see `copySelfToFixedLocation` / `installedCopyNeedsUpdate` in
+`scheduler.go`). So distributing a rebuilt `.exe` to an
+already-registered member (e.g. after a bug fix) needs no
+uninstall/manual-copy step on their end: hand them the new `.exe` and
+have them double-click it once; it updates the installed copy and the
+existing scheduled task then keeps running the new version, with no
+re-registration needed. (The scheduled re-run itself runs the
+installed copy directly, so it has no separate newer source to update
+itself from -- a member always needs to double-click the
+newly-distributed `.exe` at least once for an update to take effect.)
+
 ## Migrating from the old .ps1/.bat pair
 
 A member's existing `%USERPROFILE%\.claude\claude_teams_member_agent.config.json`

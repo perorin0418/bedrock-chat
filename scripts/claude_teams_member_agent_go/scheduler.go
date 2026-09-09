@@ -17,6 +17,19 @@ import (
 // Returns the path the Task Scheduler action should point at (the
 // copy on success, or the original executable path as a best-effort
 // fallback if copying fails for any reason).
+//
+// Also self-updates an already-installed copy: called on every run
+// (registerSelfAsScheduledTask no longer skips this just because the
+// scheduled task already exists -- see its comments), so an admin who
+// rebuilds and redistributes a newer .exe gets it picked up the next
+// time a member double-clicks the new one, or (once installed) the
+// next scheduled re-run, without any manual uninstall/reinstall step.
+// The installed copy is only overwritten when its file size differs
+// from this running exe's -- a cheap, dependency-free staleness check
+// (no need to hash the whole binary) that catches the common real
+// case (a rebuilt .exe almost never happens to land on the exact same
+// byte count) while avoiding a redundant disk write when they already
+// match, e.g. every routine scheduled re-run once installed.
 func copySelfToFixedLocation() string {
 	selfPath, err := os.Executable()
 	if err != nil {
@@ -40,9 +53,19 @@ func copySelfToFixedLocation() string {
 
 	if selfPath == installedPath {
 		// Already running from the fixed location (e.g. a Task
-		// Scheduler re-run after a previous first-run copy) -- nothing
-		// to do.
+		// Scheduler re-run) -- nothing to do; there's no separate
+		// "source" copy to compare against.
 		return selfPath
+	}
+
+	if needsUpdate, err := installedCopyNeedsUpdate(selfPath, installedPath); err != nil {
+		warnf("could not check whether the installed copy at %s is up to date (%v). Leaving it as-is.", installedPath, err)
+		return installedPath
+	} else if !needsUpdate {
+		// Installed copy already matches this exe's size -- skip the
+		// redundant write. Common case for every routine scheduled
+		// re-run once installed.
+		return installedPath
 	}
 
 	if err := os.MkdirAll(installDir, 0o755); err != nil {
@@ -58,6 +81,32 @@ func copySelfToFixedLocation() string {
 	return installedPath
 }
 
+// installedCopyNeedsUpdate reports whether installedPath is missing
+// or its file size differs from selfPath's, i.e. whether
+// copySelfToFixedLocation should (re)copy over it. Returns (true, nil)
+// if installedPath does not exist yet (first-ever install, not an
+// update). Comparing sizes rather than full content is a deliberate,
+// cheap approximation: this only ever runs against builds of this
+// same program (never arbitrary user files), so a byte-for-byte-equal
+// but differently-sized-never case isn't a concern in practice, and a
+// full-content hash would mean reading every byte of the exe on every
+// single scheduled run just to confirm the overwhelmingly common
+// "nothing changed" case.
+func installedCopyNeedsUpdate(selfPath, installedPath string) (bool, error) {
+	installedInfo, err := os.Stat(installedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return false, err
+	}
+	selfInfo, err := os.Stat(selfPath)
+	if err != nil {
+		return false, err
+	}
+	return installedInfo.Size() != selfInfo.Size(), nil
+}
+
 func copyFile(src, dst string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {
@@ -71,26 +120,29 @@ func copyFile(src, dst string) error {
 // recurring interval via Windows Task Scheduler, without
 // -registration-secret (already consumed) so the secret doesn't sit
 // indefinitely in a Task Scheduler action's saved arguments.
-// Idempotent: does nothing if the task already exists, so calling this
-// on every run is safe and self-healing if a member accidentally
-// deletes the task. Uses schtasks.exe (present on every Windows
-// install) rather than a Go scheduled-task library, keeping this
-// dependency-free and directly comparable to what an admin could
-// verify by hand in Task Scheduler's own UI.
+// Idempotent for the schtasks entry itself: skips /Create if the task
+// already exists, so calling this on every run is safe and
+// self-healing if a member accidentally deletes the task. The
+// self-update copy (copySelfToFixedLocation) always runs first,
+// regardless of whether the task already exists -- see that
+// function's comments: an admin who redistributes a rebuilt .exe
+// needs the installed copy refreshed on the very next run (manual or
+// scheduled) even though the task itself needs no changes.
 func (a *appContext) registerSelfAsScheduledTask() {
-	checkCmd := exec.Command("schtasks", "/Query", "/TN", a.taskName)
-	if err := checkCmd.Run(); err == nil {
-		// Task already exists (schtasks /Query exits 0). Nothing to do.
-		return
-	}
-
-	infof("Registering Task Scheduler entry '%s' (every %d minute(s))...", a.taskName, a.taskIntervalMinutes)
-
 	exePath := copySelfToFixedLocation()
 	if exePath == "" {
 		warnf("could not determine a path to register for the scheduled task; skipping Task Scheduler registration for this run.")
 		return
 	}
+
+	checkCmd := exec.Command("schtasks", "/Query", "/TN", a.taskName)
+	if err := checkCmd.Run(); err == nil {
+		// Task already exists (schtasks /Query exits 0). The self-update
+		// copy above still ran, but nothing else to do.
+		return
+	}
+
+	infof("Registering Task Scheduler entry '%s' (every %d minute(s))...", a.taskName, a.taskIntervalMinutes)
 
 	// Only re-pass flags that differ from this exe's own baked-in/
 	// computed defaults (see BUILD.md: -api-endpoint and
