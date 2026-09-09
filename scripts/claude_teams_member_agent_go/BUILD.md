@@ -73,6 +73,35 @@ program is registering a Windows Task Scheduler entry via `schtasks.exe`.
 `GOOS=windows` is required at build time regardless of what platform
 you build it *from*.
 
+## Why the scheduled run goes through a generated `.vbs`, not the `.exe` directly
+
+The Task Scheduler entry this program registers for itself (see
+`registerSelfAsScheduledTask` in `scheduler.go`) points at
+`wscript.exe` running a small `.vbs` this program writes next to its
+own installed copy, rather than at the `.exe` directly. That `.vbs`
+launches the `.exe` via `WScript.Shell.Run` with `WindowStyle=0`
+(hidden), which is the only way found that avoids a console window
+ever being created for that scheduled run:
+
+- Plain `schtasks /Create` has no window-visibility option of its own.
+- Building the whole program with `-H=windowsgui` was considered and
+  rejected: that removes the console for *every* run mode, not just
+  the scheduled one, silently swallowing the interactive first-run
+  flow's `claude setup-token` browser-approval prompt and any error
+  output too.
+- A runtime `GetConsoleWindow` + `ShowWindow(SW_HIDE)` call (hiding the
+  console from inside the program itself, gated on `-unattended`) was
+  also tried and rejected: Windows still creates and briefly shows the
+  console before the program's own code gets a chance to run and hide
+  it, so a visible flash remained on every scheduled run -- exactly
+  what this feature exists to prevent.
+
+The `.vbs` is deliberately kept to one `WScript.Shell.Run` line (see
+`writeLauncherVBScript`) and is regenerated on every run right
+alongside the installed-copy self-update, so a rebuilt/redistributed
+`.exe` (or a changed `-task-interval-minutes`/`-task-name`) always gets
+a matching, up-to-date launcher automatically.
+
 ## Rebuilding after a Registration Secret rotation
 
 If an admin regenerates the Registration Secret (bedrock-chat admin

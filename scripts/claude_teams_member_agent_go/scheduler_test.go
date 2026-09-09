@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -114,5 +115,83 @@ func TestCopySelfToFixedLocationOverwritesStaleInstalledCopy(t *testing.T) {
 	}
 	if updatedInfo.Size() != selfInfo.Size() {
 		t.Fatalf("installed copy size = %d after copySelfToFixedLocation, want %d (this running binary's size) -- stale copy was not overwritten", updatedInfo.Size(), selfInfo.Size())
+	}
+}
+
+// TestWriteLauncherVBScriptProducesExpectedShellRunCall confirms the
+// generated .vbs contains exactly the pieces that make it a
+// no-console-window launch (WScript.Shell.Run's windowStyle=0
+// argument, which is the entire reason this launcher exists -- see
+// writeLauncherVBScript's comments), embeds the exe path and each
+// extra arg quoted, and that the .vbs's own VBScript string-literal
+// quoting doubles any embedded double quote correctly.
+func TestWriteLauncherVBScriptProducesExpectedShellRunCall(t *testing.T) {
+	dir := t.TempDir()
+	exePath := filepath.Join(dir, `sub dir`, "claude_teams_member_agent.exe") // space in path exercises quoting
+	args := []string{"-unattended", "-task-interval-minutes", "30"}
+
+	vbsPath, err := writeLauncherVBScript(dir, exePath, args)
+	if err != nil {
+		t.Fatalf("writeLauncherVBScript: %v", err)
+	}
+	if filepath.Dir(vbsPath) != dir {
+		t.Fatalf("writeLauncherVBScript wrote to %q, want a file directly inside %q", vbsPath, dir)
+	}
+	if filepath.Base(vbsPath) != launcherVBScriptName {
+		t.Fatalf("writeLauncherVBScript's returned path is %q, want basename %q", vbsPath, launcherVBScriptName)
+	}
+
+	content, err := os.ReadFile(vbsPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q): %v", vbsPath, err)
+	}
+	script := string(content)
+
+	if !strings.Contains(script, `CreateObject("WScript.Shell")`) {
+		t.Fatalf("generated .vbs does not create a WScript.Shell object:\n%s", script)
+	}
+	if !strings.Contains(script, "shell.Run \"") {
+		t.Fatalf("generated .vbs does not call shell.Run with a quoted command string:\n%s", script)
+	}
+	// ", 0, True" is the windowStyle=0 (hidden), waitOnReturn=True
+	// argument pair -- the actual mechanism that avoids a console
+	// window ever being shown for the scheduled run.
+	if !strings.Contains(script, ", 0, True") {
+		t.Fatalf("generated .vbs does not pass windowStyle=0 (hidden) to shell.Run:\n%s", script)
+	}
+	// The exe path and its args are embedded (double-quoted internally
+	// by buildCommandLine, then VBScript-escaped to "" by
+	// writeLauncherVBScript), so the raw exe path substring must still
+	// appear somewhere in the script even after that double escaping.
+	if !strings.Contains(script, `sub dir\claude_teams_member_agent.exe`) && !strings.Contains(script, `sub dir/claude_teams_member_agent.exe`) {
+		t.Fatalf("generated .vbs does not appear to embed the exe path %q:\n%s", exePath, script)
+	}
+	if !strings.Contains(script, "-task-interval-minutes") || !strings.Contains(script, "30") {
+		t.Fatalf("generated .vbs does not appear to embed the extra args %v:\n%s", args, script)
+	}
+}
+
+// TestWriteLauncherVBScriptOverwritesExistingFile confirms repeated
+// calls (as happens on every run via registerSelfAsScheduledTask, not
+// just once at first install -- see writeLauncherVBScript's comments
+// on why) replace stale content rather than erroring or appending.
+func TestWriteLauncherVBScriptOverwritesExistingFile(t *testing.T) {
+	dir := t.TempDir()
+	stalePath := filepath.Join(dir, launcherVBScriptName)
+	if err := os.WriteFile(stalePath, []byte("stale content from an older build"), 0o644); err != nil {
+		t.Fatalf("seed stale .vbs: %v", err)
+	}
+
+	vbsPath, err := writeLauncherVBScript(dir, filepath.Join(dir, "claude_teams_member_agent.exe"), []string{"-unattended"})
+	if err != nil {
+		t.Fatalf("writeLauncherVBScript: %v", err)
+	}
+
+	content, err := os.ReadFile(vbsPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if strings.Contains(string(content), "stale content") {
+		t.Fatal("writeLauncherVBScript did not overwrite stale existing .vbs content")
 	}
 }

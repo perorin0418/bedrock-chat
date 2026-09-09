@@ -115,19 +115,95 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, 0o755)
 }
 
+// launcherVBScriptName is the fixed filename of the hidden-window
+// launcher script written alongside the installed .exe (see
+// writeLauncherVBScript). Kept as a named constant since both
+// writeLauncherVBScript and registerSelfAsScheduledTask need the exact
+// same path.
+const launcherVBScriptName = "claude_teams_member_agent_launcher.vbs"
+
+// writeLauncherVBScript (re)writes a small WScript.Shell-based .vbs
+// next to installedExePath that launches it with WindowStyle 0
+// (hidden) and waits for it to exit. This is what the Task Scheduler
+// entry actually points at (via wscript.exe -- see
+// registerSelfAsScheduledTask), instead of the .exe directly.
+//
+// Why this exists at all: schtasks has no window-visibility option of
+// its own, and this .exe is deliberately built with the default
+// console subsystem (not windowsgui) because a manual double-click run
+// still needs a visible console for the first-run 'claude setup-token'
+// browser-approval prompt and any error output (see main.go). A
+// windowsgui build would hide the console for *every* run mode, not
+// just the scheduled one, silently swallowing that interactive flow.
+// A runtime GetConsoleWindow+ShowWindow(SW_HIDE) approach was tried
+// and rejected too: the console is still momentarily created and shown
+// by the OS before this program's own code gets a chance to hide it,
+// so a brief flash is still visible on every scheduled run -- exactly
+// what this feature exists to prevent. Routing the scheduled launch
+// through WScript.Shell.Run's WindowStyle=0 instead avoids a console
+// ever being created in the first place for that run, which is the
+// only way to avoid the flash entirely.
+//
+// Regenerated on every run alongside the self-update copy in
+// copySelfToFixedLocation (not just once at first install), so a
+// rebuilt/redistributed .exe -- and any changed exeArgs, e.g. after a
+// -task-interval-minutes/-task-name override -- also gets an
+// up-to-date launcher without a separate migration step, and so a
+// member who somehow lost/edited the .vbs gets a fresh, correct copy
+// automatically on the next run.
+//
+// The .vbs is deliberately minimal (a single WScript.Shell.Run call,
+// no other logic) precisely because it can't be code-signed the way
+// the .exe can: keeping it to one auditable line limits what an admin
+// or a security reviewer needs to trust in an unsigned script sitting
+// next to a signed binary.
+func writeLauncherVBScript(installDir, installedExePath string, exeArgs []string) (string, error) {
+	vbsPath := filepath.Join(installDir, launcherVBScriptName)
+	// WScript.Shell.Run(command, windowStyle, waitOnReturn):
+	//   windowStyle 0  -- hidden, no window ever shown for this process.
+	//   waitOnReturn true -- blocks until the launched .exe exits, so
+	//   Task Scheduler's own "already running" duplicate-instance
+	//   handling still applies to the .vbs's own lifetime the same way
+	//   it applied to the .exe's when schtasks pointed at it directly.
+	// The whole command string (exe path + args) is built with
+	// buildCommandLine (same quoting buildCommandLine already uses for
+	// schtasks' /TR) and then escaped once more for VBScript's string
+	// literal syntax: wrapped in double quotes, with any embedded
+	// double quote doubled (VBScript's own escaping convention).
+	command := buildCommandLine(installedExePath, exeArgs)
+	vbsQuotedCommand := `"` + strings.ReplaceAll(command, `"`, `""`) + `"`
+	script := "Set shell = CreateObject(\"WScript.Shell\")\r\n" +
+		"shell.Run " + vbsQuotedCommand + ", 0, True\r\n"
+	if err := os.WriteFile(vbsPath, []byte(script), 0o644); err != nil {
+		return "", err
+	}
+	return vbsPath, nil
+}
+
 // registerSelfAsScheduledTask is the direct equivalent of the .ps1
 // predecessor's Register-SelfAsScheduledTask: re-runs this exe on a
 // recurring interval via Windows Task Scheduler, without
 // -registration-secret (already consumed) so the secret doesn't sit
 // indefinitely in a Task Scheduler action's saved arguments.
-// Idempotent for the schtasks entry itself: skips /Create if the task
-// already exists, so calling this on every run is safe and
+//
+// The Task Scheduler action itself never points at the .exe directly.
+// It points at wscript.exe running a small generated launcher .vbs
+// (writeLauncherVBScript) which in turn runs the .exe with
+// WScript.Shell.Run's WindowStyle=0 -- see that function's comments
+// for why (in short: avoids a console window ever being created for
+// the scheduled run, which neither a plain schtasks /TR nor a
+// runtime GetConsoleWindow+ShowWindow(SW_HIDE) call can do, since both
+// still let the OS create/flash a console first).
+//
+// The schtasks entry itself is idempotent (skips /Create if the task
+// already exists), so calling this on every run is safe and
 // self-healing if a member accidentally deletes the task. The
-// self-update copy (copySelfToFixedLocation) always runs first,
-// regardless of whether the task already exists -- see that
-// function's comments: an admin who redistributes a rebuilt .exe
-// needs the installed copy refreshed on the very next run (manual or
-// scheduled) even though the task itself needs no changes.
+// self-update copy (copySelfToFixedLocation) and the launcher .vbs
+// (over)write always run first, regardless of whether the task
+// already exists: an admin who redistributes a rebuilt .exe needs both
+// the installed copy and the launcher refreshed on the very next run
+// (manual or scheduled) even when the schtasks entry itself needs no
+// changes.
 func (a *appContext) registerSelfAsScheduledTask() {
 	exePath := copySelfToFixedLocation()
 	if exePath == "" {
@@ -135,36 +211,21 @@ func (a *appContext) registerSelfAsScheduledTask() {
 		return
 	}
 
-	checkCmd := exec.Command("schtasks", "/Query", "/TN", a.taskName)
-	if err := checkCmd.Run(); err == nil {
-		// Task already exists (schtasks /Query exits 0). The self-update
-		// copy above still ran, but nothing else to do.
-		return
-	}
-
-	infof("Registering Task Scheduler entry '%s' (every %d minute(s))...", a.taskName, a.taskIntervalMinutes)
-
 	// Only re-pass flags that differ from this exe's own baked-in/
 	// computed defaults (see BUILD.md: -api-endpoint and
 	// -registration-secret are normally baked in via -ldflags, so the
 	// scheduled re-run picks them up automatically without needing
 	// them on the command line at all).
 	//
-	// This matters structurally, not just cosmetically: schtasks.exe's
-	// /TR option has a hard 261-character limit (undocumented in
-	// `schtasks /Create /?` but enforced -- confirmed empirically:
+	// Historically this mattered structurally, not just cosmetically,
+	// because of schtasks.exe's /TR 261-character limit (undocumented
+	// in `schtasks /Create /?` but enforced -- confirmed empirically:
 	// "Value for '/TR' option cannot be more than 261 character(s)").
-	// The exe path alone
-	// (%USERPROFILE%\.claude\claude_teams_member_agent\
-	// claude_teams_member_agent.exe) plus a full set of quoted flags
-	// (particularly -api-endpoint's execute-api URL) blows past that
-	// easily. Passing only the non-default subset keeps the common
-	// case (a normally-built, non-overridden distribution) at just the
-	// exe path with zero extra flags. For the remaining case -- a long
-	// -api-endpoint or -config-path/-credentials-path override that
-	// alone would still overflow /TR -- see the environment-variable
-	// fallback in setScheduledTaskEnvironment below instead of growing
-	// the command line further.
+	// Now that /TR points at a fixed, short wscript.exe command instead
+	// (see below), that specific limit no longer applies to these
+	// flags -- but keeping the non-default-only filter regardless
+	// keeps the generated .vbs minimal and avoids re-deriving
+	// resolvedAPIEndpoint-style defaulting logic a second time here.
 	//
 	// display-name is deliberately never re-passed here at all: it is
 	// only ever consulted inside registerThisMachine (first run / a
@@ -181,7 +242,40 @@ func (a *appContext) registerSelfAsScheduledTask() {
 	if a.taskName != defaultTaskName {
 		args = append(args, "-task-name", a.taskName)
 	}
-	taskRun := buildCommandLine(exePath, args)
+
+	installDir := filepath.Dir(exePath)
+	vbsPath, err := writeLauncherVBScript(installDir, exePath, args)
+	if err != nil {
+		warnf("could not write the hidden-window launcher script to %s (%v). Falling back to launching the .exe directly, which will briefly show a console window on each scheduled run.", installDir, err)
+		vbsPath = ""
+	}
+
+	checkCmd := exec.Command("schtasks", "/Query", "/TN", a.taskName)
+	if err := checkCmd.Run(); err == nil {
+		// Task already exists (schtasks /Query exits 0). The self-update
+		// copy and launcher .vbs (re)write above still ran, but nothing
+		// else to do -- the existing schtasks entry already points at
+		// the same fixed launcher path.
+		return
+	}
+
+	infof("Registering Task Scheduler entry '%s' (every %d minute(s))...", a.taskName, a.taskIntervalMinutes)
+
+	// /TR: prefer routing through the generated .vbs launcher
+	// (wscript.exe //B, hidden window, no window ever created for this
+	// scheduled run -- see writeLauncherVBScript). //B suppresses
+	// wscript's own error-dialog popups so a launcher/script failure
+	// doesn't itself show a visible box; any such failure still
+	// surfaces indirectly via the usage-reporting gap an admin would
+	// notice on the bedrock-chat admin page. Falls back to invoking the
+	// .exe directly (briefly showing a console, same as before this
+	// feature) only if writing the .vbs failed above.
+	var taskRun string
+	if vbsPath != "" {
+		taskRun = buildCommandLine("wscript.exe", []string{"//B", vbsPath})
+	} else {
+		taskRun = buildCommandLine(exePath, args)
+	}
 
 	// Anything that could make /TR overflow 261 characters (a
 	// non-default -api-endpoint, or explicit -config-path/
