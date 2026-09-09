@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/binary"
+	"encoding/xml"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
 )
 
 // copySelfToFixedLocation is the direct equivalent of the .ps1
@@ -195,15 +198,19 @@ func writeLauncherVBScript(installDir, installedExePath string, exeArgs []string
 // runtime GetConsoleWindow+ShowWindow(SW_HIDE) call can do, since both
 // still let the OS create/flash a console first).
 //
-// The schtasks entry itself is idempotent (skips /Create if the task
-// already exists), so calling this on every run is safe and
-// self-healing if a member accidentally deletes the task. The
-// self-update copy (copySelfToFixedLocation) and the launcher .vbs
-// (over)write always run first, regardless of whether the task
-// already exists: an admin who redistributes a rebuilt .exe needs both
-// the installed copy and the launcher refreshed on the very next run
-// (manual or scheduled) even when the schtasks entry itself needs no
-// changes.
+// Members who registered before this wscript-launcher indirection was
+// introduced already have a schtasks entry whose /TR points at the
+// .exe directly -- merely checking "does the task exist" (schtasks
+// /Query's exit code) and returning early would leave that stale,
+// console-flashing /TR in place forever, since a member's Task
+// Scheduler entry is never otherwise touched again once created. So
+// this always inspects the existing entry's actual action (via
+// schtasksActionNeedsUpdate, XML-based rather than parsing /Query's
+// plain-text output, which is localized and not stable to parse) and
+// falls through to /Create /F to replace it whenever it doesn't
+// already invoke wscript.exe on our launcher .vbs -- covering both a
+// pre-launcher /TR and (for good measure) a hand-edited or otherwise
+// unexpected one.
 func (a *appContext) registerSelfAsScheduledTask() {
 	exePath := copySelfToFixedLocation()
 	if exePath == "" {
@@ -250,16 +257,30 @@ func (a *appContext) registerSelfAsScheduledTask() {
 		vbsPath = ""
 	}
 
+	taskExists := false
 	checkCmd := exec.Command("schtasks", "/Query", "/TN", a.taskName)
 	if err := checkCmd.Run(); err == nil {
-		// Task already exists (schtasks /Query exits 0). The self-update
-		// copy and launcher .vbs (re)write above still ran, but nothing
-		// else to do -- the existing schtasks entry already points at
-		// the same fixed launcher path.
-		return
+		taskExists = true
 	}
 
-	infof("Registering Task Scheduler entry '%s' (every %d minute(s))...", a.taskName, a.taskIntervalMinutes)
+	if taskExists {
+		needsUpdate, err := schtasksActionNeedsUpdate(a.taskName)
+		if err != nil {
+			warnf("could not inspect the existing Task Scheduler entry '%s' to check whether it needs updating (%v). Leaving it as-is.", a.taskName, err)
+			return
+		}
+		if !needsUpdate {
+			// Already points at our current launcher (or, if vbsPath is
+			// empty because writing it failed above, was already
+			// invoking the .exe directly) -- the self-update copy and
+			// launcher .vbs (re)write above still ran, but nothing else
+			// to do.
+			return
+		}
+		infof("Task Scheduler entry '%s' exists but points at an outdated action (e.g. a pre-hidden-window-launcher version); recreating it...", a.taskName)
+	} else {
+		infof("Registering Task Scheduler entry '%s' (every %d minute(s))...", a.taskName, a.taskIntervalMinutes)
+	}
 
 	// /TR: prefer routing through the generated .vbs launcher
 	// (wscript.exe //B, hidden window, no window ever created for this
@@ -353,4 +374,144 @@ func buildCommandLine(exePath string, args []string) string {
 
 func quoteArg(s string) string {
 	return `"` + s + `"`
+}
+
+// schtasksTaskXML mirrors just the piece of `schtasks /Query /XML`'s
+// output this program needs: the registered action's executable
+// (<Command>). Task Scheduler always splits a /TR command line into a
+// <Command> (the program) and a separate <Arguments> element, so the
+// program actually being invoked -- wscript.exe (our hidden-window
+// launcher) vs. the .exe directly (the pre-launcher behavior) -- is
+// exactly this one field, regardless of what quoting or arguments
+// happen to follow it. Element names in this XML are fixed by the
+// Task Scheduler schema and not localized (unlike /Query's own
+// plain-text column output), so this is stable to parse regardless of
+// the member's Windows display language.
+type schtasksTaskXML struct {
+	Actions struct {
+		Exec struct {
+			Command string `xml:"Command"`
+		} `xml:"Exec"`
+	} `xml:"Actions"`
+}
+
+// schtasksActionNeedsUpdate reports whether the existing Task
+// Scheduler entry named taskName should be recreated because it
+// doesn't already invoke wscript.exe (our hidden-window .vbs launcher
+// -- see writeLauncherVBScript). Used by registerSelfAsScheduledTask
+// to upgrade members who registered before this wscript-launcher
+// indirection existed -- without this check, merely confirming the
+// task exists and returning early would leave their original
+// exe-direct /TR (which flashes a console on every scheduled run) in
+// place forever.
+func schtasksActionNeedsUpdate(taskName string) (bool, error) {
+	out, err := exec.Command("schtasks", "/Query", "/TN", taskName, "/XML").Output()
+	if err != nil {
+		return false, err
+	}
+	command, err := parseSchtasksExecCommand(out)
+	if err != nil {
+		return false, err
+	}
+	// Command is normally just "wscript.exe" once we've registered our
+	// launcher (schtasks splits the launcher .vbs path itself into a
+	// separate <Arguments> element, since it was a separate quoted
+	// token in the original /TR string) -- checking for "wscript" here,
+	// rather than requiring an exact match, is deliberately lenient
+	// about a full vs. relative path to wscript.exe. Anything else
+	// (most commonly the .exe's own path, from before this launcher
+	// indirection existed) needs recreating.
+	return !strings.Contains(strings.ToLower(command), "wscript"), nil
+}
+
+// parseSchtasksExecCommand extracts the registered action's <Command>
+// from raw `schtasks /Query /TN <name> /XML` output, transcoding from
+// UTF-16 first if needed (see decodeUTF16IfNeeded). Split out from
+// schtasksActionNeedsUpdate as a pure function (no exec.Command
+// dependency) so it -- and the UTF-16 transcoding it relies on -- can
+// be unit tested directly against a captured real XML sample, without
+// needing an actual Windows schtasks.exe to shell out to.
+func parseSchtasksExecCommand(rawXML []byte) (string, error) {
+	// schtasks /Query /XML emits UTF-16LE with a BOM on stock Windows;
+	// encoding/xml's Decoder only understands UTF-8/US-ASCII directly,
+	// so a UTF-16 document would otherwise fail to parse with an
+	// "invalid character entity" or similar low-level error. Detect
+	// and transcode it first; a document that's already UTF-8 (e.g.
+	// under some non-default schtasks/locale combination) passes
+	// through untouched.
+	rawXML = decodeUTF16IfNeeded(rawXML)
+
+	// The transcoded bytes are valid UTF-8 now, but the XML
+	// declaration itself still literally says
+	// encoding="UTF-16" (schtasks writes that regardless of transport
+	// encoding) -- encoding/xml checks that declared name and refuses
+	// to proceed without a registered CharsetReader for anything other
+	// than UTF-8/US-ASCII, even though the bytes it's actually looking
+	// at are already UTF-8 at this point. Rewriting just the declared
+	// name to "UTF-8" (only when it says UTF-16; a document with no
+	// such declaration, or already declaring UTF-8, is left alone)
+	// avoids needing a CharsetReader/external dependency at all.
+	rawXML = rewriteUTF16XMLDeclaration(rawXML)
+
+	var parsed schtasksTaskXML
+	if err := xml.Unmarshal(rawXML, &parsed); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(parsed.Actions.Exec.Command), nil
+}
+
+// rewriteUTF16XMLDeclaration replaces a `UTF-16`/`utf-16` encoding
+// name in an XML declaration's encoding="..." attribute with `UTF-8`,
+// so encoding/xml (which understands the bytes are actually UTF-8
+// after decodeUTF16IfNeeded's transcoding, but only trusts its own
+// declared-encoding check, not the actual byte content) accepts the
+// document without needing a CharsetReader. Only touches the encoding
+// attribute inside the leading `<?xml ... ?>` declaration -- never
+// anywhere else in the document -- and only when it actually names
+// UTF-16, so a document already declaring UTF-8 (or no declaration at
+// all) passes through unchanged.
+func rewriteUTF16XMLDeclaration(b []byte) []byte {
+	const maxDeclScan = 256 // XML declarations are always short and at the very start of the document
+	scanLen := len(b)
+	if scanLen > maxDeclScan {
+		scanLen = maxDeclScan
+	}
+	declEnd := strings.Index(string(b[:scanLen]), "?>")
+	if declEnd == -1 {
+		return b
+	}
+	decl := string(b[:declEnd])
+	lowerDecl := strings.ToLower(decl)
+	idx := strings.Index(lowerDecl, "utf-16")
+	if idx == -1 {
+		return b
+	}
+	fixedDecl := decl[:idx] + "UTF-8" + decl[idx+len("utf-16"):]
+	return append([]byte(fixedDecl), b[declEnd:]...)
+}
+
+// decodeUTF16IfNeeded transcodes a UTF-16 (LE or BE) byte slice with a
+// byte-order-mark to UTF-8, which is what encoding/xml requires. Bytes
+// with no recognized BOM are returned unchanged (assumed already
+// UTF-8/ASCII, e.g. schtasks output under some environments).
+func decodeUTF16IfNeeded(b []byte) []byte {
+	var order binary.ByteOrder
+	switch {
+	case len(b) >= 2 && b[0] == 0xFF && b[1] == 0xFE:
+		order = binary.LittleEndian
+		b = b[2:]
+	case len(b) >= 2 && b[0] == 0xFE && b[1] == 0xFF:
+		order = binary.BigEndian
+		b = b[2:]
+	default:
+		return b
+	}
+	if len(b)%2 != 0 {
+		b = b[:len(b)-1]
+	}
+	u16s := make([]uint16, len(b)/2)
+	for i := range u16s {
+		u16s[i] = order.Uint16(b[i*2 : i*2+2])
+	}
+	return []byte(string(utf16.Decode(u16s)))
 }

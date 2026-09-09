@@ -102,6 +102,14 @@ alongside the installed-copy self-update, so a rebuilt/redistributed
 `.exe` (or a changed `-task-interval-minutes`/`-task-name`) always gets
 a matching, up-to-date launcher automatically.
 
+Members already registered before this launcher indirection existed
+have an existing Task Scheduler entry whose `/TR` points at the `.exe`
+directly. `registerSelfAsScheduledTask` detects this on their very next
+run (manual or scheduled) by inspecting the existing entry's actual
+`schtasks /Query /XML` action (`schtasksActionNeedsUpdate`) and
+recreates it to point at the launcher instead -- no separate migration
+step, uninstall, or admin action needed; it self-upgrades.
+
 ## Rebuilding after a Registration Secret rotation
 
 If an admin regenerates the Registration Secret (bedrock-chat admin

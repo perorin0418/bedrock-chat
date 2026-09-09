@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf16"
 )
 
 // installedCopyNeedsUpdate is plain file-size comparison with no
@@ -194,4 +195,120 @@ func TestWriteLauncherVBScriptOverwritesExistingFile(t *testing.T) {
 	if strings.Contains(string(content), "stale content") {
 		t.Fatal("writeLauncherVBScript did not overwrite stale existing .vbs content")
 	}
+}
+
+// realWorldSchtasksXMLSample is a representative (trimmed)
+// `schtasks /Query /TN ... /XML` document, based on Microsoft's own
+// documented Task Scheduler XML schema and a real captured export
+// (see e.g. https://tutorialreference.com/batch-scripting/examples/faq/batch-script-how-to-export-a-scheduled-task-to-xml),
+// with <Command>/<Arguments> substituted to match what
+// registerSelfAsScheduledTask actually registers: wscript.exe running
+// our launcher .vbs with //B.
+const realWorldSchtasksXMLSample = `<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Date>2026-01-01T00:00:00</Date>
+    <Author>DESKTOP-ABC\bob</Author>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT60M</Interval>
+      </Repetition>
+      <StartBoundary>2026-01-01T09:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <Enabled>true</Enabled>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>wscript.exe</Command>
+      <Arguments>//B "C:\Users\bob\.claude\claude_teams_member_agent\claude_teams_member_agent_launcher.vbs"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+`
+
+// realWorldSchtasksXMLSamplePreLauncher is the same shape, but for a
+// pre-launcher-indirection registration whose <Command> is the .exe
+// itself -- the exact state schtasksActionNeedsUpdate must detect as
+// stale so registerSelfAsScheduledTask upgrades it.
+const realWorldSchtasksXMLSamplePreLauncher = `<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Users\bob\.claude\claude_teams_member_agent\claude_teams_member_agent.exe</Command>
+      <Arguments>-unattended</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+`
+
+// TestParseSchtasksExecCommandUTF16WithBOM confirms parsing a document
+// exactly as schtasks /Query /XML actually emits it on stock Windows:
+// UTF-16LE with a byte-order-mark, which encoding/xml cannot parse
+// directly (see decodeUTF16IfNeeded's comments) -- so this exercises
+// that transcoding path end-to-end, not just the XML unmarshaling.
+func TestParseSchtasksExecCommandUTF16WithBOM(t *testing.T) {
+	utf16LE := encodeUTF16LEWithBOM(realWorldSchtasksXMLSample)
+
+	command, err := parseSchtasksExecCommand(utf16LE)
+	if err != nil {
+		t.Fatalf("parseSchtasksExecCommand: %v", err)
+	}
+	if command != "wscript.exe" {
+		t.Fatalf("parseSchtasksExecCommand returned %q, want %q", command, "wscript.exe")
+	}
+}
+
+// TestParseSchtasksExecCommandPlainUTF8 confirms the function also
+// accepts a document with no BOM (treated as already UTF-8/ASCII --
+// see decodeUTF16IfNeeded), so this doesn't regress if schtasks output
+// ever passes through some environment/encoding.
+func TestParseSchtasksExecCommandPlainUTF8(t *testing.T) {
+	command, err := parseSchtasksExecCommand([]byte(realWorldSchtasksXMLSample))
+	if err != nil {
+		t.Fatalf("parseSchtasksExecCommand: %v", err)
+	}
+	if command != "wscript.exe" {
+		t.Fatalf("parseSchtasksExecCommand returned %q, want %q", command, "wscript.exe")
+	}
+}
+
+// TestParseSchtasksExecCommandPreLauncherExe confirms parsing correctly
+// extracts a pre-launcher-indirection registration's <Command> (the
+// .exe's own path), which is the actual real-world input
+// schtasksActionNeedsUpdate must recognize as needing an upgrade.
+func TestParseSchtasksExecCommandPreLauncherExe(t *testing.T) {
+	command, err := parseSchtasksExecCommand([]byte(realWorldSchtasksXMLSamplePreLauncher))
+	if err != nil {
+		t.Fatalf("parseSchtasksExecCommand: %v", err)
+	}
+	want := `C:\Users\bob\.claude\claude_teams_member_agent\claude_teams_member_agent.exe`
+	if command != want {
+		t.Fatalf("parseSchtasksExecCommand returned %q, want %q", command, want)
+	}
+}
+
+// encodeUTF16LEWithBOM converts s to UTF-16LE bytes prefixed with a
+// byte-order-mark, mirroring the actual encoding schtasks /Query /XML
+// emits on stock Windows (see the "encoding=\"UTF-16\"" declaration in
+// realWorldSchtasksXMLSample itself, taken from a real capture).
+func encodeUTF16LEWithBOM(s string) []byte {
+	units := utf16.Encode([]rune(s))
+	buf := make([]byte, 2+len(units)*2)
+	buf[0], buf[1] = 0xFF, 0xFE // UTF-16LE BOM
+	for i, u := range units {
+		buf[2+i*2] = byte(u)
+		buf[2+i*2+1] = byte(u >> 8)
+	}
+	return buf
 }
