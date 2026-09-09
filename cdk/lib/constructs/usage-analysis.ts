@@ -1,7 +1,7 @@
 import { Construct } from "constructs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as athena from "aws-cdk-lib/aws-athena";
-import { CfnOutput, RemovalPolicy, Stack } from "aws-cdk-lib";
+import { CfnOutput, BundlingFileAccess, RemovalPolicy, Stack } from "aws-cdk-lib";
 import * as glue from "@aws-cdk/aws-glue-alpha";
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
@@ -246,6 +246,9 @@ export class UsageAnalysis extends Construct {
         TABLE_ARN: props.sourceDatabase.conversationTable.tableArn,
       },
       logRetention: logs.RetentionDays.THREE_MONTHS,
+      bundling: {
+        bundlingFileAccess: BundlingFileAccess.VOLUME_COPY,
+      },
     });
     exportHandler.role?.addToPrincipalPolicy(
       new iam.PolicyStatement({

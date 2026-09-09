@@ -1,4 +1,4 @@
-import { CfnOutput, Duration, Stack, StackProps } from "aws-cdk-lib";
+import { CfnOutput, BundlingFileAccess, Duration, Stack, StackProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as events from "aws-cdk-lib/aws-events";
@@ -137,6 +137,9 @@ export class ClaudeCodeCostSyncStack extends Stack {
         CLAUDE_CODE_NOTIFICATION_TOPIC_ARN: props.claudeCodeNotificationTopicArn,
       },
       logRetention: logs.RetentionDays.THREE_MONTHS,
+      bundling: {
+        bundlingFileAccess: BundlingFileAccess.VOLUME_COPY,
+      },
     });
 
     // CUR data itself is refreshed only a few times a day at most, so

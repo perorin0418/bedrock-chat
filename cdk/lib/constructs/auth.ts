@@ -4,6 +4,7 @@ import {
   Stack,
   CustomResource,
   RemovalPolicy,
+  BundlingFileAccess,
 } from "aws-cdk-lib";
 import {
   ProviderAttribute,
@@ -194,6 +195,9 @@ export class Auth extends Construct {
             "../../../backend/auth/check_email_domain"
           ),
           timeout: Duration.minutes(1),
+          bundling: {
+            bundlingFileAccess: BundlingFileAccess.VOLUME_COPY,
+          },
           environment: {
             ALLOWED_SIGN_UP_EMAIL_DOMAINS_STR: JSON.stringify(
               props.allowedSignUpEmailDomains
@@ -285,6 +289,9 @@ export class Auth extends Construct {
             "../../../backend/auth/add_user_to_groups"
           ),
           timeout: Duration.minutes(1),
+          bundling: {
+            bundlingFileAccess: BundlingFileAccess.VOLUME_COPY,
+          },
           environment: {
             USER_POOL_ID: userPool.userPoolId,
             AUTO_JOIN_USER_GROUPS: JSON.stringify(props.autoJoinUserGroups),

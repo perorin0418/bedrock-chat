@@ -1,4 +1,4 @@
-import { Duration, Stack } from "aws-cdk-lib";
+import { BundlingFileAccess, Duration, Stack } from "aws-cdk-lib";
 import * as python from "@aws-cdk/aws-lambda-python-alpha";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import * as iam from "aws-cdk-lib/aws-iam";
@@ -78,6 +78,9 @@ export class ClaudeTeamsUsageSync extends Construct {
           database.claudeTeamsUsageHistoryTable.tableName,
       },
       logRetention: logs.RetentionDays.THREE_MONTHS,
+      bundling: {
+        bundlingFileAccess: BundlingFileAccess.VOLUME_COPY,
+      },
     });
 
     new events.Rule(this, "ScheduleRule", {
