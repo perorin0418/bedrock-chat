@@ -102,17 +102,6 @@ func main() {
 	flag.Parse()
 	waitForEnterAtExit = *unattended
 
-	// Hide this process's own console window for unattended (Task
-	// Scheduler) runs only -- see hideConsoleWindow's comments in
-	// notify_windows.go for why this is done at runtime rather than by
-	// building with the windowsgui subsystem. A manual double-click run
-	// (unattended == false) is left alone: it still needs a visible
-	// console for the first-run claude setup-token prompt and any
-	// error output.
-	if *unattended {
-		hideConsoleWindow()
-	}
-
 	// Resolution order for api-endpoint: -api-endpoint flag >
 	// CLAUDE_TEAMS_AGENT_API_ENDPOINT env var > build-time default. The
 	// env var exists solely so registerSelfAsScheduledTask can persist
