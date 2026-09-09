@@ -102,3 +102,50 @@ func showUserNotification(title, message string) {
 		uintptr(mbOKOnly|mbIconExclamation|mbSystemModal|mbSetForeground),
 	)
 }
+
+// hideConsoleWindow hides this process's own console window. Called
+// only for -unattended runs (i.e. our self-registered Task Scheduler
+// re-runs -- see registerSelfAsScheduledTask, which always passes
+// -unattended), never for a manual double-click run: a member running
+// this by hand still needs to see setup-token's browser-approval
+// prompt and any error output, which waitForEnterIfInteractive relies
+// on being visible.
+//
+// Deliberately kept as "hide our own already-created console" rather
+// than switching the whole binary to the windowsgui subsystem (an
+// alternative considered and rejected): a windowsgui build never
+// allocates a console at all, for *any* run mode, which would silently
+// swallow the first-run interactive flow's prompts and error messages
+// too. Hiding at runtime, gated on -unattended, preserves the
+// interactive path unchanged and only affects the unattended scheduled
+// re-run, which has no one at the keyboard to see a console anyway.
+//
+// GetConsoleWindow returns the HWND of the console attached to this
+// process (0 if none, e.g. if a future change ever runs this
+// detached); ShowWindow(SW_HIDE) hides it without closing/detaching
+// it, so the process's stdout/stderr writes still succeed normally
+// (e.g. into a redirected log file), only the on-screen window itself
+// disappears. A failure here is purely cosmetic (the console just
+// stays visible), so it's only warned about, never fatal -- mirrors
+// showUserNotification's own never-break-the-run recover() above.
+func hideConsoleWindow() {
+	defer func() {
+		if r := recover(); r != nil {
+			warnf("(could not hide the console window: %v)", r)
+		}
+	}()
+
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+	user32 := syscall.NewLazyDLL("user32.dll")
+	procGetConsoleWindow := kernel32.NewProc("GetConsoleWindow")
+	procShowWindow := user32.NewProc("ShowWindow")
+
+	const swHide = 0
+
+	hwnd, _, _ := procGetConsoleWindow.Call()
+	if hwnd == 0 {
+		// No console attached (nothing to hide) -- not an error.
+		return
+	}
+	procShowWindow.Call(hwnd, uintptr(swHide))
+}
