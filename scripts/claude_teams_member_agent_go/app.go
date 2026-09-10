@@ -17,6 +17,10 @@ type appContext struct {
 	skipTaskRegistration bool
 	configPath           string
 	credentialsPath      string
+	// Explicit Claude Code CLI location from -claude-path /
+	// CLAUDE_TEAMS_AGENT_CLAUDE_PATH. Empty means "search %PATH% and
+	// the well-known install locations" -- see claudecli.go.
+	claudeCLIPath string
 	// Whether -config-path/-credentials-path were explicitly passed
 	// (vs. resolved from the default %USERPROFILE%\.claude\... path).
 	// Needed so registerSelfAsScheduledTask only re-passes them to the

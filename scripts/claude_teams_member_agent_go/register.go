@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -37,14 +36,27 @@ func (a *appContext) registerThisMachine() (*registerResponse, error) {
 	// the member realizing it. Always running setup-token and having
 	// the member paste its output guarantees the token actually sent
 	// is the narrow-scope one.
+	// Resolve the CLI before announcing the browser step: a member
+	// whose install simply isn't on %PATH% should get the actionable
+	// "here's where I looked / pass -claude-path" message, not a
+	// "a browser window will open" promise followed by a raw
+	// exec-not-found error. See claudecli.go for the layouts probed.
+	cli, err := resolveClaudeCLI(a.claudeCLIPath, defaultClaudeCLIProbe())
+	if err != nil {
+		return nil, err
+	}
+	if cli.Source != "found on PATH" {
+		infof("Using Claude Code CLI at %s (%s).", cli.Display(), cli.Source)
+	}
+
 	infof("Running 'claude setup-token' -- a browser window will open for you to approve.")
 	infof("It will print a long-lived OAuth token to this terminal when done. It does NOT save that token anywhere -- copy it, you'll be asked to paste it below.")
-	cmd := exec.Command("claude", "setup-token")
+	cmd := cli.newCommand("setup-token")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("'claude setup-token' failed: %w. Fix the login and re-run this program", err)
+		return nil, fmt.Errorf("'claude setup-token' (%s) failed: %w. Fix the login and re-run this program", cli.Display(), err)
 	}
 	infof("")
 
@@ -67,6 +79,7 @@ func (a *appContext) registerThisMachine() (*registerResponse, error) {
 	displayName := a.displayName
 	if strings.TrimSpace(displayName) == "" {
 		displayName, err = resolveDisplayName()
+
 		if err != nil {
 			return nil, err
 		}

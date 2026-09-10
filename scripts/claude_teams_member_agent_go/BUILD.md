@@ -145,3 +145,38 @@ this `.exe` -- same file path, same JSON shape (snake_case
 `token_id`/`ingest_secret`). Just distribute the new `.exe`; no
 re-registration needed. See the top-of-file comment in `main.go` for
 the full rationale for this rewrite.
+
+## If a member sees "could not find the Claude Code CLI"
+
+The first-run flow shells out to `claude setup-token`. Earlier versions
+invoked it by bare name only, so it failed with
+`exec: "claude": executable file not found in %PATH%` whenever the CLI
+was installed but not visible on `%PATH%` -- most commonly because the
+native installer's `setx` PATH change only reaches *newly created*
+processes, so any already-open console (or a Task Scheduler run) never
+sees it, or because an `npm -g` install lives in `%APPDATA%\npm` and
+that directory isn't on the user's PATH.
+
+Resolution now falls back automatically (see `claudecli.go`):
+
+1. `-claude-path` flag, else the `CLAUDE_TEAMS_AGENT_CLAUDE_PATH`
+   environment variable, if either is set. An explicit value that
+   doesn't exist is a hard error -- it is never silently ignored.
+2. `%PATH%` (unchanged previous behavior; a healthy install still
+   takes this route).
+3. Well-known install directories: `%USERPROFILE%\.local\bin`,
+   `%USERPROFILE%\.claude\local`, `%USERPROFILE%\.claude\bin`,
+   `%APPDATA%\npm`, `%LOCALAPPDATA%\npm`,
+   `%LOCALAPPDATA%\Programs\claude`, `%ProgramFiles%\nodejs`.
+
+Only `claude.exe`, `claude.cmd` and `claude.bat` are considered; the
+extensionless `claude` next to a Windows native install is a POSIX
+shell script that `CreateProcess` cannot launch. A `.cmd`/`.bat` entry
+point is run through `cmd.exe /c` automatically.
+
+If all of that still fails, the member gets an error listing every
+directory searched plus a `where claude` hint, and can pin the path:
+
+```powershell
+.\claude_teams_member_agent.exe -claude-path "C:\Users\you\.local\bin\claude.exe"
+```
