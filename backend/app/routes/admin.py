@@ -29,6 +29,7 @@ from app.usecases.claude_teams_admin import (
     create_claude_teams_token,
     delete_claude_teams_token_usecase,
     get_claude_teams_registration_secret,
+    get_claude_teams_token_last_successful_usage,
     get_claude_teams_token_latest_usage,
     list_claude_teams_tokens,
     regenerate_claude_teams_registration_secret,
@@ -217,6 +218,9 @@ def _to_claude_teams_token_output(token) -> ClaudeTeamsTokenOutput:
         last_used_at=token.last_used_at,
         latest_usage=_to_claude_teams_usage_snapshot_output(
             get_claude_teams_token_latest_usage(token.token_id)
+        ),
+        last_successful_usage=_to_claude_teams_usage_snapshot_output(
+            get_claude_teams_token_last_successful_usage(token.token_id)
         ),
     )
 

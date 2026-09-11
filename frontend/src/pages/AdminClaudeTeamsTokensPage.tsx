@@ -6,7 +6,10 @@ import InputText from '../components/InputText';
 import Toggle from '../components/Toggle';
 import DialogConfirmDeleteClaudeTeamsToken from '../components/DialogConfirmDeleteClaudeTeamsToken';
 import useClaudeTeamsTokens from '../hooks/useClaudeTeamsTokens';
-import { ClaudeTeamsToken } from '../@types/claude-teams';
+import {
+  ClaudeTeamsToken,
+  ClaudeTeamsUsageSnapshot,
+} from '../@types/claude-teams';
 
 // datetime-local <input> values are local time with no timezone info
 // ("YYYY-MM-DDTHH:mm"); Date treats that as local time when constructed
@@ -34,43 +37,15 @@ const formatResetsAt = (value: string | null): string => {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 };
 
-const UsageBadge: React.FC<{
-  token: ClaudeTeamsToken;
-}> = ({ token }) => {
+const formatSampledAt = (sampledAtMs: number): string =>
+  new Date(sampledAtMs).toLocaleString();
+
+const UsageRows: React.FC<{
+  usage: ClaudeTeamsUsageSnapshot;
+}> = ({ usage }) => {
   const { t } = useTranslation();
-  const usage = token.latestUsage;
-
-  if (!usage) {
-    return (
-      <span className="text-xs text-gray">
-        {t('admin.claudeTeamsTokens.label.noUsageData')}
-      </span>
-    );
-  }
-
-  if (usage.isTokenExpired) {
-    return (
-      <span className="rounded bg-red px-2 py-0.5 text-xs font-bold text-aws-font-color-white-light">
-        {t('admin.claudeTeamsTokens.label.tokenExpired')}
-      </span>
-    );
-  }
-
-  if (usage.fetchStatus === 'error') {
-    const isScopeError = usage.fetchErrorMessage
-      ?.toLowerCase()
-      .includes('user:profile');
-    return (
-      <span className="text-xs text-aws-font-color-gray">
-        {isScopeError
-          ? t('admin.claudeTeamsTokens.label.fetchErrorScope')
-          : t('admin.claudeTeamsTokens.label.fetchError')}
-      </span>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-0.5 text-xs text-gray">
+    <>
       <span>
         {t('admin.claudeTeamsTokens.label.fiveHourUsage')}:{' '}
         {formatUtilization(usage.fiveHourUtilization)}（
@@ -83,6 +58,75 @@ const UsageBadge: React.FC<{
         {t('admin.claudeTeamsTokens.label.resetsAt')}:{' '}
         {formatResetsAt(usage.sevenDayResetsAt)}）
       </span>
+    </>
+  );
+};
+
+const UsageBadge: React.FC<{
+  token: ClaudeTeamsToken;
+}> = ({ token }) => {
+  const { t } = useTranslation();
+  const usage = token.latestUsage;
+  const lastSuccessful = token.lastSuccessfulUsage;
+
+  if (!usage) {
+    return (
+      <span className="text-xs text-gray">
+        {t('admin.claudeTeamsTokens.label.noUsageData')}
+      </span>
+    );
+  }
+
+  // The latest sample failed (token expired/revoked, missing scope, or a
+  // transient fetch error). Rather than hiding the numbers entirely, keep
+  // showing the last reading that actually succeeded, labelled with the
+  // time it was sampled so the admin can judge how stale it is.
+  const isFailed = usage.isTokenExpired || usage.fetchStatus === 'error';
+  if (isFailed) {
+    const isScopeError = usage.fetchErrorMessage
+      ?.toLowerCase()
+      .includes('user:profile');
+    const errorLabel = usage.isTokenExpired
+      ? t('admin.claudeTeamsTokens.label.tokenExpired')
+      : isScopeError
+        ? t('admin.claudeTeamsTokens.label.fetchErrorScope')
+        : t('admin.claudeTeamsTokens.label.fetchError');
+    return (
+      <div className="flex flex-col gap-0.5 text-xs text-gray">
+        <span
+          className={
+            usage.isTokenExpired
+              ? 'w-fit rounded bg-red px-2 py-0.5 font-bold text-aws-font-color-white-light'
+              : 'text-aws-font-color-gray'
+          }>
+          {errorLabel}
+        </span>
+        {lastSuccessful ? (
+          <>
+            <span className="text-aws-font-color-gray">
+              {t('admin.claudeTeamsTokens.label.lastSuccessfulAt', {
+                datetime: formatSampledAt(lastSuccessful.sampledAt),
+              })}
+            </span>
+            <UsageRows usage={lastSuccessful} />
+          </>
+        ) : (
+          <span className="text-aws-font-color-gray">
+            {t('admin.claudeTeamsTokens.label.noUsageData')}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5 text-xs text-gray">
+      <span className="text-aws-font-color-gray">
+        {t('admin.claudeTeamsTokens.label.sampledAt', {
+          datetime: formatSampledAt(usage.sampledAt),
+        })}
+      </span>
+      <UsageRows usage={usage} />
     </div>
   );
 };

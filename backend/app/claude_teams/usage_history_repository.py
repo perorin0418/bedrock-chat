@@ -108,6 +108,45 @@ def get_latest_usage_snapshot(token_id: str) -> ClaudeTeamsUsageHistoryItem | No
     return _item_to_model(items[0])
 
 
+# How far back the "last successful sample" lookup scans before giving
+# up. Snapshots are hourly, so this covers a few days of consecutive
+# failures without letting a long-dead token trigger an unbounded scan.
+LAST_SUCCESS_SCAN_LIMIT = 200
+
+
+def get_latest_successful_usage_snapshot(
+    token_id: str,
+) -> ClaudeTeamsUsageHistoryItem | None:
+    """Return the most recent snapshot whose fetch actually succeeded
+    (FetchStatus == "ok"), scanning backwards from the newest row.
+
+    Used by the admin screen so that, when the latest sample failed, the
+    last known-good utilization can still be shown alongside the time it
+    was sampled, instead of only an error label."""
+    table = get_claude_teams_usage_history_table_client()
+    key_condition = Key("TokenId").eq(token_id)
+    last_evaluated_key = None
+    scanned = 0
+    while scanned < LAST_SUCCESS_SCAN_LIMIT:
+        kwargs = {
+            "KeyConditionExpression": key_condition,
+            "ScanIndexForward": False,
+            "Limit": LAST_SUCCESS_SCAN_LIMIT - scanned,
+        }
+        if last_evaluated_key:
+            kwargs["ExclusiveStartKey"] = last_evaluated_key
+        response = table.query(**kwargs)
+        items = response.get("Items", [])
+        scanned += len(items)
+        for item in items:
+            if item.get("FetchStatus") == "ok":
+                return _item_to_model(item)
+        last_evaluated_key = response.get("LastEvaluatedKey")
+        if not last_evaluated_key:
+            break
+    return None
+
+
 def _to_decimal(value) -> Decimal | None:
     if value is None:
         return None

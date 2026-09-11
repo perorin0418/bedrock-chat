@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, ".")
 from app.claude_teams.usage_history_repository import (
+    get_latest_successful_usage_snapshot,
     get_latest_usage_snapshot,
     list_usage_history,
     write_usage_snapshot,
@@ -180,6 +181,59 @@ class TestClaudeTeamsUsageHistoryRepository(unittest.TestCase):
 
         item = self.mock_table.put_item.call_args.kwargs["Item"]
         self.assertEqual(item["SampledAtMs"], 1_700_000_000_000)
+
+
+class TestGetLatestSuccessfulUsageSnapshot(TestClaudeTeamsUsageHistoryRepository):
+    def test_returns_newest_ok_row_skipping_failed_ones(self):
+        self.mock_table.query.return_value = {
+            "Items": [
+                {
+                    "TokenId": "tok-1",
+                    "SampledAtMs": 1_700_000_100_000,
+                    "FetchStatus": "error",
+                    "FetchErrorMessage": "boom",
+                },
+                {
+                    "TokenId": "tok-1",
+                    "SampledAtMs": 1_700_000_000_000,
+                    "FetchStatus": "ok",
+                    "FiveHourUtilization": Decimal("42.5"),
+                    "FiveHourResetsAt": "2026-05-14T19:40:00Z",
+                },
+            ]
+        }
+
+        item = get_latest_successful_usage_snapshot("tok-1")
+
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(item.sampled_at_ms, 1_700_000_000_000)
+        self.assertEqual(item.five_hour_utilization, 42.5)
+        self.assertFalse(self.mock_table.query.call_args.kwargs["ScanIndexForward"])
+
+    def test_follows_pagination_until_an_ok_row_is_found(self):
+        self.mock_table.query.side_effect = [
+            {
+                "Items": [{"TokenId": "tok-1", "SampledAtMs": 3, "FetchStatus": "auth_error"}],
+                "LastEvaluatedKey": {"TokenId": "tok-1", "SampledAtMs": 3},
+            },
+            {
+                "Items": [{"TokenId": "tok-1", "SampledAtMs": 2, "FetchStatus": "ok"}],
+            },
+        ]
+
+        item = get_latest_successful_usage_snapshot("tok-1")
+
+        assert item is not None
+        self.assertEqual(item.sampled_at_ms, 2)
+        self.assertEqual(self.mock_table.query.call_count, 2)
+
+    def test_returns_none_when_no_successful_row_exists(self):
+        self.mock_table.query.return_value = {
+            "Items": [{"TokenId": "tok-1", "SampledAtMs": 1, "FetchStatus": "error"}]
+        }
+
+        self.assertIsNone(get_latest_successful_usage_snapshot("tok-1"))
 
 
 if __name__ == "__main__":
