@@ -28,6 +28,11 @@ class ClaudeTeamsTokenOutput(BaseSchema):
     # has been recorded yet (None until the first sync cycle after
     # registration). See usage_history_repository for field semantics.
     latest_usage: ClaudeTeamsUsageSnapshotOutput | None = None
+    # Most recent snapshot whose fetch succeeded. Same row as
+    # `latest_usage` when the latest sample succeeded; when it failed,
+    # this is the older still-meaningful reading the UI falls back to
+    # (its `sampled_at` tells the admin how stale the numbers are).
+    last_successful_usage: ClaudeTeamsUsageSnapshotOutput | None = None
 
 
 class CreateClaudeTeamsTokenInput(BaseSchema):

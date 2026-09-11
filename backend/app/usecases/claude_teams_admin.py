@@ -20,6 +20,7 @@ from app.claude_teams.token_secrets import (
 )
 from app.claude_teams.usage_history_repository import (
     ClaudeTeamsUsageHistoryItem,
+    get_latest_successful_usage_snapshot,
     get_latest_usage_snapshot,
     list_usage_history,
     write_usage_snapshot,
@@ -62,6 +63,15 @@ def get_claude_teams_token_latest_usage(
     snapshot for `token_id`, or None if the hourly sync hasn't run for
     this token yet."""
     return get_latest_usage_snapshot(token_id)
+
+
+def get_claude_teams_token_last_successful_usage(
+    token_id: str,
+) -> ClaudeTeamsUsageHistoryItem | None:
+    """Return the most recent snapshot that was fetched successfully, so
+    the admin screen can fall back to the last known-good utilization
+    (with its sampling time) when the latest sample failed."""
+    return get_latest_successful_usage_snapshot(token_id)
 
 
 def build_claude_teams_usage_history_csv(

@@ -767,6 +767,8 @@ const translation: typeof en = {
           sevenDayUsage: '7日制限',
           resetsAt: 'リセット',
           noUsageData: '未取得',
+          sampledAt: '{{datetime}} 時点',
+          lastSuccessfulAt: '最終取得成功: {{datetime}} 時点',
           fetchError: '取得エラー',
           fetchErrorScope: 'スコープ不足（要 user:profile）',
           csvDownload: 'CSVダウンロード',

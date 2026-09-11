@@ -20,6 +20,10 @@ export type ClaudeTeamsToken = {
   createdAt: number;
   lastUsedAt: number | null;
   latestUsage: ClaudeTeamsUsageSnapshot | null;
+  // Most recent snapshot whose fetch succeeded. Identical to latestUsage
+  // when the latest sample succeeded; otherwise the older, still-valid
+  // reading shown as a fallback (sampledAt shows how stale it is).
+  lastSuccessfulUsage: ClaudeTeamsUsageSnapshot | null;
 };
 
 // Only present in the response to createToken (registration time).
