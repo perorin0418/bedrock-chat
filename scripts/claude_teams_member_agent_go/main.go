@@ -96,11 +96,28 @@ func main() {
 	taskIntervalMinutes := flag.Int("task-interval-minutes", 60, "How often the self-registered Task Scheduler entry re-runs this exe.")
 	taskName := flag.String("task-name", defaultTaskName, "Name of the Task Scheduler entry this exe registers/looks for.")
 	skipTaskRegistration := flag.Bool("skip-task-registration", false, "Skip the Task Scheduler self-registration step entirely.")
+	skipSelfUpdate := flag.Bool("skip-self-update", false, "Skip the automatic update of the installed copy from the admin's published release. Use to pin this machine to the current build.")
+	showVersion := flag.Bool("version", false, "Print this exe's build version (as baked in via -ldflags; see BUILD.md) and exit.")
 	configPath := flag.String("config-path", "", "Override the local state file path (token_id/ingest_secret). Defaults to %USERPROFILE%\\.claude\\claude_teams_member_agent.config.json, or CLAUDE_TEAMS_AGENT_CONFIG_PATH if set.")
 	credentialsPath := flag.String("credentials-path", "", "Override the local Claude Code CLI credentials file path, used only for usage-limit tracking. Defaults to %USERPROFILE%\\.claude\\.credentials.json, or CLAUDE_TEAMS_AGENT_CREDENTIALS_PATH if set.")
 	unattended := flag.Bool("unattended", false, "Set automatically by the self-registered Task Scheduler entry; skips the 'press Enter to close' prompt at exit that a manual double-click run shows. Do not pass this by hand.")
+	claudePath := flag.String("claude-path", "", "Full path to the Claude Code CLI executable (e.g. C:\\Users\\you\\.local\\bin\\claude.exe). Only needed when it is not on %PATH% and not in a standard install location; defaults to CLAUDE_TEAMS_AGENT_CLAUDE_PATH if set.")
 	flag.Parse()
 	waitForEnterAtExit = *unattended
+
+	// Handled before any config/endpoint validation below: `-version`
+	// must work on a bare `go build` with nothing baked in, since its
+	// whole purpose is telling an admin which build a member is on
+	// (including "unset", i.e. a build that self-updating skips -- see
+	// updater.go's agentVersion).
+	if *showVersion {
+		if strings.TrimSpace(agentVersion) == "" {
+			fmt.Println("claude_teams_member_agent (version not set at build time; self-update disabled)")
+		} else {
+			fmt.Printf("claude_teams_member_agent %s\n", agentVersion)
+		}
+		return
+	}
 
 	// Resolution order for api-endpoint: -api-endpoint flag >
 	// CLAUDE_TEAMS_AGENT_API_ENDPOINT env var > build-time default. The
@@ -155,6 +172,13 @@ func main() {
 		}
 	}
 
+	// -claude-path > CLAUDE_TEAMS_AGENT_CLAUDE_PATH > auto-discovery
+	// (PATH, then the well-known install locations -- see claudecli.go).
+	resolvedClaudePath := strings.TrimSpace(*claudePath)
+	if resolvedClaudePath == "" {
+		resolvedClaudePath = strings.TrimSpace(os.Getenv(claudeCLIPathEnv))
+	}
+
 	app := &appContext{
 		apiEndpoint:               strings.TrimRight(resolvedAPIEndpoint, "/"),
 		registrationSecret:        *registrationSecret,
@@ -162,10 +186,12 @@ func main() {
 		taskIntervalMinutes:       *taskIntervalMinutes,
 		taskName:                  *taskName,
 		skipTaskRegistration:      *skipTaskRegistration,
+		skipSelfUpdate:            *skipSelfUpdate,
 		configPath:                resolvedConfigPath,
 		credentialsPath:           resolvedCredentialsPath,
 		configPathOverridden:      configPathOverridden,
 		credentialsPathOverridden: credentialsPathOverridden,
+		claudeCLIPath:             resolvedClaudePath,
 	}
 
 	app.run()

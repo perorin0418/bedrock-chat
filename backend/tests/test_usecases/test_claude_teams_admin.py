@@ -4,11 +4,13 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, ".")
 from app.usecases.claude_teams_admin import (
+    AgentReleaseUnavailableError,
     InvalidIngestSecretError,
     InvalidRegistrationSecretError,
     build_claude_teams_usage_history_csv,
     create_claude_teams_token,
     delete_claude_teams_token_usecase,
+    get_agent_release,
     get_claude_teams_registration_secret,
     get_claude_teams_token_latest_usage,
     get_claude_teams_token_status,
@@ -369,6 +371,147 @@ class TestClaudeTeamsAdminUsecase(unittest.TestCase):
             )
         mock_create_token.assert_not_called()
         mock_store_secret.assert_not_called()
+
+
+class TestGetAgentRelease(unittest.TestCase):
+    """The agent auto-update lookup. Authenticated with the same
+    per-token ingest_secret as the usage-snapshot push, which is what
+    keeps the release binary (and therefore the org-wide Registration
+    Secret baked into it) from being downloadable by anyone who merely
+    learns a URL."""
+
+    def _enabled_token(self, ingest_secret: str = "ingest-secret-1"):
+        return ClaudeTeamsTokenItem(
+            token_id="tok-1",
+            display_name="member-pc",
+            enabled=True,
+            created_at=1,
+            ingest_secret=ingest_secret,
+        )
+
+    @patch("app.usecases.claude_teams_admin.generate_agent_download_url")
+    @patch("app.usecases.claude_teams_admin.get_agent_release_manifest")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_returns_version_digest_and_signed_url(
+        self, mock_get_token, mock_manifest, mock_presign
+    ):
+        mock_get_token.return_value = self._enabled_token()
+        mock_manifest.return_value = {
+            "version": "2026.09.10-abc1234",
+            "sha256": "b" * 64,
+            "key": "releases/2026.09.10-abc1234/claude_teams_member_agent.exe",
+        }
+        mock_presign.return_value = "https://signed.example/agent.exe"
+
+        result = get_agent_release(token_id="tok-1", ingest_secret="ingest-secret-1")
+
+        mock_presign.assert_called_once_with(
+            "releases/2026.09.10-abc1234/claude_teams_member_agent.exe"
+        )
+        self.assertEqual(
+            result,
+            {
+                "version": "2026.09.10-abc1234",
+                "sha256": "b" * 64,
+                "download_url": "https://signed.example/agent.exe",
+            },
+        )
+
+    @patch("app.usecases.claude_teams_admin.generate_agent_download_url")
+    @patch("app.usecases.claude_teams_admin.get_agent_release_manifest")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_rejects_wrong_ingest_secret_without_touching_the_bucket(
+        self, mock_get_token, mock_manifest, mock_presign
+    ):
+        mock_get_token.return_value = self._enabled_token()
+
+        with self.assertRaises(InvalidIngestSecretError):
+            get_agent_release(token_id="tok-1", ingest_secret="wrong-secret")
+        # No manifest read and, crucially, no presigned URL minted: an
+        # unauthenticated caller must never obtain a download link.
+        mock_manifest.assert_not_called()
+        mock_presign.assert_not_called()
+
+    @patch("app.usecases.claude_teams_admin.generate_agent_download_url")
+    @patch("app.usecases.claude_teams_admin.get_agent_release_manifest")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_rejects_unknown_token_id(self, mock_get_token, mock_manifest, mock_presign):
+        mock_get_token.return_value = None
+
+        with self.assertRaises(InvalidIngestSecretError):
+            get_agent_release(token_id="tok-missing", ingest_secret="anything")
+        mock_presign.assert_not_called()
+
+    @patch("app.usecases.claude_teams_admin.generate_agent_download_url")
+    @patch("app.usecases.claude_teams_admin.get_agent_release_manifest")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_serves_a_disabled_token_too(
+        self, mock_get_token, mock_manifest, mock_presign
+    ):
+        # A member whose chat-side token was disabled still runs the
+        # agent (usage reporting keeps working, and they need the fix in
+        # a newer build most of all), so `enabled` deliberately does not
+        # gate updates -- unlike the chat-token status route, whose whole
+        # purpose is reporting that flag.
+        token = self._enabled_token()
+        token.enabled = False
+        mock_get_token.return_value = token
+        mock_manifest.return_value = {"version": "v2", "sha256": "c" * 64, "key": "k"}
+        mock_presign.return_value = "https://signed.example/agent.exe"
+
+        result = get_agent_release(token_id="tok-1", ingest_secret="ingest-secret-1")
+
+        self.assertEqual(result["version"], "v2")
+
+    @patch("app.usecases.claude_teams_admin.generate_agent_download_url")
+    @patch("app.usecases.claude_teams_admin.get_agent_release_manifest")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_no_release_configured_raises_unavailable(
+        self, mock_get_token, mock_manifest, mock_presign
+    ):
+        from app.claude_teams.agent_release_repository import (
+            AgentReleaseNotConfiguredError,
+        )
+
+        mock_get_token.return_value = self._enabled_token()
+        mock_manifest.side_effect = AgentReleaseNotConfiguredError("no bucket")
+
+        with self.assertRaises(AgentReleaseUnavailableError):
+            get_agent_release(token_id="tok-1", ingest_secret="ingest-secret-1")
+        mock_presign.assert_not_called()
+
+    @patch("app.usecases.claude_teams_admin.generate_agent_download_url")
+    @patch("app.usecases.claude_teams_admin.get_agent_release_manifest")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_manifest_without_sha256_is_refused_not_served_unverified(
+        self, mock_get_token, mock_manifest, mock_presign
+    ):
+        # Failing closed keeps the "install unverified bytes vs. get
+        # silently stuck" decision out of the agent entirely.
+        mock_get_token.return_value = self._enabled_token()
+        mock_manifest.return_value = {"version": "v2", "key": "releases/v2/agent.exe"}
+
+        with self.assertRaises(AgentReleaseUnavailableError):
+            get_agent_release(token_id="tok-1", ingest_secret="ingest-secret-1")
+        mock_presign.assert_not_called()
+
+    @patch("app.usecases.claude_teams_admin.generate_agent_download_url")
+    @patch("app.usecases.claude_teams_admin.get_agent_release_manifest")
+    @patch("app.usecases.claude_teams_admin.get_token")
+    def test_manifest_without_version_or_key_is_refused(
+        self, mock_get_token, mock_manifest, mock_presign
+    ):
+        mock_get_token.return_value = self._enabled_token()
+
+        for incomplete in (
+            {"sha256": "d" * 64, "key": "releases/v2/agent.exe"},
+            {"version": "v2", "sha256": "d" * 64},
+            {"version": "   ", "sha256": "d" * 64, "key": "k"},
+        ):
+            mock_manifest.return_value = incomplete
+            with self.assertRaises(AgentReleaseUnavailableError):
+                get_agent_release(token_id="tok-1", ingest_secret="ingest-secret-1")
+        mock_presign.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -119,7 +119,73 @@ registrations need the new secret. Rebuild the `.exe` with the new
 value and distribute it to any new members only; existing members do
 not need to update anything.
 
-## Redistributing an updated `.exe` to existing members
+## Publishing an update to already-registered members
+
+Members' installed copies auto-update. On every scheduled run, the
+installed `.exe` asks bedrock-chat which version it should be on and
+replaces itself if the answer differs (see `updater.go`). Rolling out a
+fix therefore means publishing a build, not chasing members to
+double-click anything.
+
+```bash
+# 1. Build (build.bat bakes in a version and prints it plus the SHA256).
+scripts/claude_teams_member_agent_go/build.bat
+
+# 2. Publish. The bucket name comes from the CDK output
+#    `ClaudeTeamsAgentReleaseBucketName`.
+scripts/publish_claude_teams_agent_release.sh \
+    --bucket  bedrock-chat-claudeteamsagentreleasebucket-xxxxxxxx \
+    --exe     scripts/claude_teams_member_agent_go/claude_teams_member_agent.exe \
+    --version 2026.09.10-1430-abc1234
+```
+
+The `--version` must match what the binary reports
+(`claude_teams_member_agent.exe -version`); the publish script checks
+this where it can, because a mismatch would make every member
+re-download the same binary on every run forever.
+
+How it works, and why it is built this way:
+
+- **The manifest is the source of truth.** `manifest.json` at the
+  bucket root names the `version`, `sha256` and object `key` members
+  should be on. Agents compare it to their own baked-in version for
+  *inequality*, not "newer than", so **rolling back is just pointing the
+  manifest at a previously uploaded key** and every member follows on
+  their next run. Releases are uploaded under version-scoped keys and
+  the bucket is versioned + `RETAIN`ed so older builds stay available
+  for exactly that.
+- **The bucket is private and the download is a short-lived presigned
+  URL**, minted only by
+  `POST /claude-teams-tokens/{token_id}/agent-version` after the caller
+  presents a valid per-token `ingest_secret`. This matters because the
+  `.exe` carries the org-wide Registration Secret baked in: a publicly
+  readable object would let anyone who learns the URL obtain that secret
+  and add tokens to the pool. Only machines already registered in the
+  pool can download the binary. The secret travels in the POST body,
+  not a query string, to keep it out of access logs and proxies.
+- **The agent verifies the SHA256 before installing.** That check is
+  what makes the download URL safe to treat as untrusted transport: bytes
+  that don't match the digest the authenticated API reported are deleted,
+  never installed. The backend refuses to publish a release with no
+  digest, and the agent refuses to install one, so there is no path that
+  ends in unverified bytes executing on a member's machine.
+- **Nothing restarts mid-run.** The new binary replaces the installed
+  copy on disk (two renames, keeping the outgoing one as `.exe.old`, since
+  Windows permits renaming but not overwriting a running image) and takes
+  effect on the *next* scheduled run. The `.old` file is removed the run
+  after that, when it is no longer the executing image.
+- **Every failure is non-fatal.** A failed check, download, digest
+  mismatch, or swap logs a warning, leaves the working version in place,
+  and retries next run. Usage reporting is unaffected either way.
+
+If a deployment publishes no manifest, the endpoint answers 404 and
+agents silently do nothing -- hand-distribution (below) keeps working
+unchanged.
+
+To pin one machine to its current build (e.g. to reproduce a bug), run
+it with `-skip-self-update`.
+
+## Hand-distributing an updated `.exe` (bootstrap and recovery)
 
 Every run started from a location other than the installed copy
 itself (i.e. any manual double-click of the admin-distributed `.exe`)
@@ -135,7 +201,24 @@ existing scheduled task then keeps running the new version, with no
 re-registration needed. (The scheduled re-run itself runs the
 installed copy directly, so it has no separate newer source to update
 itself from -- a member always needs to double-click the
-newly-distributed `.exe` at least once for an update to take effect.)
+newly-distributed `.exe` at least once for this particular path to take
+effect -- which is why the release channel above exists.)
+
+This path is still needed, and still supported, for two things the
+release channel structurally cannot cover:
+
+- **Bootstrap.** A brand-new member has no local config yet, so they
+  hold no `ingest_secret` and cannot call the authenticated version
+  endpoint at all. The first `.exe` always arrives by hand.
+- **Recovery.** If a member's release check is failing (network policy,
+  a bad manifest, a bug in the updater itself), handing them a fresh
+  `.exe` to double-click still fixes them.
+
+One consequence worth knowing: because this path compares file *size*
+rather than version, double-clicking an *older* distributed `.exe`
+downgrades the installed copy. That is self-correcting -- the same run
+then checks the release channel and pulls the published version back
+down.
 
 ## Migrating from the old .ps1/.bat pair
 
@@ -145,3 +228,38 @@ this `.exe` -- same file path, same JSON shape (snake_case
 `token_id`/`ingest_secret`). Just distribute the new `.exe`; no
 re-registration needed. See the top-of-file comment in `main.go` for
 the full rationale for this rewrite.
+
+## If a member sees "could not find the Claude Code CLI"
+
+The first-run flow shells out to `claude setup-token`. Earlier versions
+invoked it by bare name only, so it failed with
+`exec: "claude": executable file not found in %PATH%` whenever the CLI
+was installed but not visible on `%PATH%` -- most commonly because the
+native installer's `setx` PATH change only reaches *newly created*
+processes, so any already-open console (or a Task Scheduler run) never
+sees it, or because an `npm -g` install lives in `%APPDATA%\npm` and
+that directory isn't on the user's PATH.
+
+Resolution now falls back automatically (see `claudecli.go`):
+
+1. `-claude-path` flag, else the `CLAUDE_TEAMS_AGENT_CLAUDE_PATH`
+   environment variable, if either is set. An explicit value that
+   doesn't exist is a hard error -- it is never silently ignored.
+2. `%PATH%` (unchanged previous behavior; a healthy install still
+   takes this route).
+3. Well-known install directories: `%USERPROFILE%\.local\bin`,
+   `%USERPROFILE%\.claude\local`, `%USERPROFILE%\.claude\bin`,
+   `%APPDATA%\npm`, `%LOCALAPPDATA%\npm`,
+   `%LOCALAPPDATA%\Programs\claude`, `%ProgramFiles%\nodejs`.
+
+Only `claude.exe`, `claude.cmd` and `claude.bat` are considered; the
+extensionless `claude` next to a Windows native install is a POSIX
+shell script that `CreateProcess` cannot launch. A `.cmd`/`.bat` entry
+point is run through `cmd.exe /c` automatically.
+
+If all of that still fails, the member gets an error listing every
+directory searched plus a `where claude` hint, and can pin the path:
+
+```powershell
+.\claude_teams_member_agent.exe -claude-path "C:\Users\you\.local\bin\claude.exe"
+```

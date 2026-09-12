@@ -122,3 +122,41 @@ class ClaudeTeamsTokenStatusOutput(BaseSchema):
     route/usecase docstrings for what this is for."""
 
     enabled: bool
+
+
+class ClaudeTeamsAgentReleaseInput(BaseSchema):
+    """Body for POST /claude-teams-tokens/{token_id}/agent-version.
+
+    A POST with the secret in the body, rather than a GET with
+    `?ingest_secret=...` like the neighbouring `/status` route, because
+    this one's response is a download URL for a binary that carries the
+    org-wide Registration Secret: query strings are recorded verbatim in
+    API Gateway access logs, CloudWatch, and any corporate proxy in
+    between, so keeping this particular credential out of a URL narrows
+    where it comes to rest. (`/status` predates this and only returns a
+    boolean; it is left as-is rather than broken for every already
+    installed agent.)"""
+
+    ingest_secret: str
+
+
+class ClaudeTeamsAgentReleaseOutput(BaseSchema):
+    """Response for GET /claude-teams-tokens/{token_id}/agent-version,
+    which a member's installed claude_teams_member_agent.exe polls on
+    every scheduled run to self-update (see
+    scripts/claude_teams_member_agent_go/updater.go).
+
+    `sha256` is the expected hex digest of the .exe at `download_url`.
+    The agent verifies the bytes it downloads against it before
+    installing, so this field is load-bearing for safety, not
+    informational -- a release with no digest is refused server-side
+    rather than sent without one (see get_agent_release).
+
+    `download_url` is a short-lived presigned S3 GET URL (minutes, see
+    DOWNLOAD_URL_EXPIRATION_SECONDS), not a durable link: the release
+    bucket is private precisely so that only machines presenting a valid
+    per-token ingest_secret can obtain the binary."""
+
+    version: str
+    sha256: str
+    download_url: str

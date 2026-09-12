@@ -35,20 +35,29 @@ verified in the usecase layer with a constant-time comparison:
     token" only.
   - `ingest_secret`: one value per pool token (see
     ClaudeTeamsTokenCreateOutput / ClaudeTeamsSelfRegisterOutput),
-    authorizing "push a usage snapshot for this one token_id" only.
+    authorizing, for this one token_id only: pushing a usage snapshot,
+    reading whether its chat-side token is still enabled, and asking
+    which agent version to run (which also yields a short-lived
+    presigned URL to download it -- see
+    app/claude_teams/agent_release_repository.py for why that download
+    must be gated at all).
 """
 
 import logging
 
 from app.routes.schemas.claude_teams import (
+    ClaudeTeamsAgentReleaseInput,
+    ClaudeTeamsAgentReleaseOutput,
     ClaudeTeamsSelfRegisterInput,
     ClaudeTeamsSelfRegisterOutput,
     ClaudeTeamsTokenStatusOutput,
     ClaudeTeamsUsageSnapshotIngestInput,
 )
 from app.usecases.claude_teams_admin import (
+    AgentReleaseUnavailableError,
     InvalidIngestSecretError,
     InvalidRegistrationSecretError,
+    get_agent_release,
     get_claude_teams_token_status,
     ingest_claude_teams_usage_snapshot,
     self_register_claude_teams_token,
@@ -123,3 +132,41 @@ def get_claude_teams_token_status_route(token_id: str, ingest_secret: str):
         logger.warning(f"Rejected token-status check for token_id={token_id}: bad secret")
         raise HTTPException(status_code=401, detail="Invalid token_id or ingest_secret.")
     return ClaudeTeamsTokenStatusOutput(enabled=enabled)
+
+
+@router.post(
+    "/claude-teams-tokens/{token_id}/agent-version",
+    response_model=ClaudeTeamsAgentReleaseOutput,
+)
+def post_claude_teams_agent_version(token_id: str, body: ClaudeTeamsAgentReleaseInput):
+    """Report the currently published claude_teams_member_agent.exe
+    version, with a short-lived presigned download URL, so an already
+    installed agent can self-update on its next scheduled run instead of
+    waiting for an admin to hand every member a rebuilt .exe by hand.
+
+    Authenticated by the same per-token `ingest_secret` as the two routes
+    above (see module docstring), which is what keeps the release binary
+    -- and therefore the org-wide Registration Secret baked into it --
+    from being downloadable by anyone who merely learns the URL.
+
+    404 means "this deployment publishes no agent release" (no bucket, no
+    manifest, or an incomplete one), which is a normal, non-error state
+    for a deployment where the admin still distributes updates manually.
+    The agent treats it as a no-op."""
+    try:
+        release = get_agent_release(token_id=token_id, ingest_secret=body.ingest_secret)
+    except InvalidIngestSecretError:
+        logger.warning(
+            f"Rejected agent-version check for token_id={token_id}: bad secret"
+        )
+        raise HTTPException(
+            status_code=401, detail="Invalid token_id or ingest_secret."
+        )
+    except AgentReleaseUnavailableError as e:
+        logger.info(f"No agent release available for token_id={token_id}: {e}")
+        raise HTTPException(status_code=404, detail="No agent release is published.")
+    return ClaudeTeamsAgentReleaseOutput(
+        version=release["version"],
+        sha256=release["sha256"],
+        download_url=release["download_url"],
+    )

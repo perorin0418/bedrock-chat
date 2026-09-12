@@ -609,6 +609,17 @@ catch {
         # .credentials.json. Run 'claude login' (or just use the CLI
         # normally) to refresh it instead.
         $errorMessage = '401 Unauthorized calling /api/oauth/usage with this machine''s .claude\.credentials.json accessToken (expired or revoked) -- run claude login on this machine to refresh it. This is unrelated to the chat-side token registered at first run, which is unaffected.'
+        # NOTE: the Go .exe that supersedes this script (see
+        # scripts/claude_teams_member_agent_go) deliberately no longer
+        # shows this particular popup. The local login it reads lapses
+        # within hours of not using Claude Code and is never refreshed
+        # here, so for a member not currently using Claude Code this
+        # 401 is the normal state, and the dialog fired on every
+        # scheduled run with nothing for them to act on. Left in place
+        # here only because this script is retained as the historical
+        # 1:1 reference for the rewrite, not because anyone should run
+        # it -- see docs/CLAUDE_TEAMS_OAUTH.md, "Why an expired local
+        # login is silent".
         Show-UserNotification -Title 'Claude Teams: usage tracking needs re-login' `
             -Message "Your Claude Code login has expired, so 5-hour/7-day usage tracking stopped working (chat itself is unaffected). Run 'claude login' in a terminal to fix it -- tracking resumes automatically on the next scheduled run, or re-run claude_teams_member_agent.bat now to confirm it right away."
     }
