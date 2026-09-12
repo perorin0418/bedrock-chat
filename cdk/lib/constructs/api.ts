@@ -40,6 +40,15 @@ export interface ApiProps {
   readonly bedrockRegion: string;
   readonly documentBucket: IBucket;
   readonly largeMessageBucket: IBucket;
+  /**
+   * Private bucket holding published claude_teams_member_agent.exe
+   * releases and their manifest.json, read by the
+   * `/claude-teams-tokens/{token_id}/agent-version` route so already
+   * installed member agents can self-update (see
+   * `ClaudeTeamsAgentReleaseBucket` in bedrock-chat-stack.ts and
+   * backend/app/claude_teams/agent_release_repository.py).
+   */
+  readonly claudeTeamsAgentReleaseBucket: IBucket;
   readonly apiPublishProject: codebuild.IProject;
   readonly bedrockCustomBotProject: codebuild.IProject;
   readonly bedrockSharedKnowledgeBasesProject: codebuild.IProject;
@@ -265,6 +274,13 @@ export class Api extends Construct {
     props.usageAnalysis?.resultOutputBucket.grantReadWrite(handlerRole);
     props.usageAnalysis?.ddbBucket.grantRead(handlerRole);
     props.largeMessageBucket.grantReadWrite(handlerRole);
+    // Read-only, deliberately: releases are published by an admin
+    // out-of-band (see BUILD.md's "Publishing an update"), never by the
+    // API Lambda. The route only reads manifest.json and signs a GET for
+    // one object, so write access here would add nothing but the ability
+    // for a compromised API handler to serve members a binary of its own
+    // choosing.
+    props.claudeTeamsAgentReleaseBucket.grantRead(handlerRole);
     props.rateLimitFiveHourParam.grantRead(handlerRole);
     props.rateLimitSevenDayParam.grantRead(handlerRole);
     database.claudeTeamsTokenTable.grantReadWriteData(handlerRole);
@@ -332,6 +348,8 @@ export class Api extends Construct {
         CLAUDE_TEAMS_TOKEN_TABLE_NAME: database.claudeTeamsTokenTable.tableName,
         CLAUDE_TEAMS_USAGE_HISTORY_TABLE_NAME:
           database.claudeTeamsUsageHistoryTable.tableName,
+        CLAUDE_TEAMS_AGENT_RELEASE_BUCKET:
+          props.claudeTeamsAgentReleaseBucket.bucketName,
         MCP_OAUTH_REDIRECT_URI: `${api.apiEndpoint}/mcp/oauth/callback`,
         FRONTEND_URL: props.frontendUrl,
         RATE_LIMIT_FIVE_HOUR_PARAM_NAME: props.rateLimitFiveHourParam.parameterName,
@@ -423,6 +441,19 @@ export class Api extends Construct {
       path: "/claude-teams-tokens/{token_id}/status",
       integration,
       methods: [HttpMethod.GET],
+    });
+    // Same script, on every scheduled run: asks which
+    // claude_teams_member_agent.exe version it should be on and gets a
+    // short-lived presigned download URL if it's behind, so an admin's
+    // rebuilt .exe reaches every member without hand-distribution (see
+    // backend/app/claude_teams/agent_release_repository.py). POST, not
+    // GET, so the ingest_secret stays out of access logs -- the response
+    // grants download of a binary carrying the org-wide Registration
+    // Secret, so that credential is worth keeping out of URLs.
+    api.addRoutes({
+      path: "/claude-teams-tokens/{token_id}/agent-version",
+      integration,
+      methods: [HttpMethod.POST],
     });
 
     this.api = api;

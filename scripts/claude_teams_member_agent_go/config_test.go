@@ -55,34 +55,42 @@ func TestReadLocalConfigMatchesPS1JSONShape(t *testing.T) {
 	}
 }
 
-func TestReadLocalAccessTokenMissingFile(t *testing.T) {
-	_, err := readLocalAccessToken(filepath.Join(t.TempDir(), "missing.json"))
+func TestReadLocalCredentialsMissingFile(t *testing.T) {
+	_, err := readLocalCredentials(filepath.Join(t.TempDir(), "missing.json"))
 	if err == nil {
 		t.Fatal("expected an error for a missing credentials file")
 	}
 }
 
-func TestReadLocalAccessTokenExtractsNestedField(t *testing.T) {
+func TestReadLocalCredentialsExtractsNestedFields(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "creds.json")
-	data := `{"claudeAiOauth":{"accessToken":"tok-xyz","refreshToken":"should-be-ignored"}}`
+	// refreshToken and expiresAt are now read too (they gate and enable
+	// the expired-only refresh -- see resolveLocalAccessToken).
+	data := `{"claudeAiOauth":{"accessToken":"tok-xyz","refreshToken":"refresh-abc","expiresAt":1788864851847}}`
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatalf("writing fixture: %v", err)
 	}
-	token, err := readLocalAccessToken(path)
+	creds, err := readLocalCredentials(path)
 	if err != nil {
-		t.Fatalf("readLocalAccessToken: %v", err)
+		t.Fatalf("readLocalCredentials: %v", err)
 	}
-	if token != "tok-xyz" {
-		t.Fatalf("want tok-xyz, got %q", token)
+	if creds.AccessToken != "tok-xyz" {
+		t.Fatalf("want tok-xyz, got %q", creds.AccessToken)
+	}
+	if creds.RefreshToken != "refresh-abc" {
+		t.Fatalf("want refresh-abc, got %q", creds.RefreshToken)
+	}
+	if creds.ExpiresAt != 1788864851847 {
+		t.Fatalf("want expiresAt 1788864851847, got %d", creds.ExpiresAt)
 	}
 }
 
-func TestReadLocalAccessTokenMissingAccessTokenField(t *testing.T) {
+func TestReadLocalCredentialsMissingAccessTokenField(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "creds.json")
 	if err := os.WriteFile(path, []byte(`{"claudeAiOauth":{}}`), 0o600); err != nil {
 		t.Fatalf("writing fixture: %v", err)
 	}
-	_, err := readLocalAccessToken(path)
+	_, err := readLocalCredentials(path)
 	if err == nil {
 		t.Fatal("expected an error when accessToken is absent")
 	}

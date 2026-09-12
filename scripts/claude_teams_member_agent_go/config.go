@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // localConfig mirrors the JSON shape the .ps1 version wrote (and what
@@ -49,34 +50,146 @@ func writeLocalConfig(path string, cfg localConfig) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-// credentialsFile mirrors only the one field this agent needs out of
+// credentialsFile mirrors the fields this agent needs out of
 // %USERPROFILE%\.claude\.credentials.json (the local Claude Code CLI's
 // own login state, used ONLY for the usage-limit tracking lookup --
 // unrelated to the chat-side token, which comes from pasting `claude
 // setup-token` output at first run instead. See main package docs and
 // docs/CLAUDE_TEAMS_OAUTH.md).
+//
+// Read-only as far as this struct is concerned: writing a refreshed
+// token back goes through writeRefreshedAccessToken, which edits the
+// raw JSON instead of re-serializing this struct, precisely so the
+// fields listed here staying a subset of the real file is safe. See
+// that function for why that matters.
 type credentialsFile struct {
 	ClaudeAiOauth struct {
-		AccessToken string `json:"accessToken"`
+		AccessToken  string `json:"accessToken"`
+		RefreshToken string `json:"refreshToken"`
+		// Epoch milliseconds. Claude Code writes this alongside the
+		// token; an absent/zero value is treated as "unknown", which
+		// this agent deliberately reads as not-yet-expired (see
+		// localCredentials.isExpired).
+		ExpiresAt int64 `json:"expiresAt"`
 	} `json:"claudeAiOauth"`
 }
 
-func readLocalAccessToken(path string) (string, error) {
+// localCredentials is what the rest of the program works with: the
+// local Claude Code login's access token, the refresh token needed to
+// renew it, and when the access token lapses.
+type localCredentials struct {
+	AccessToken  string
+	RefreshToken string
+	// Epoch milliseconds, or 0 when the file didn't say.
+	ExpiresAt int64
+}
+
+// expiryLeeway treats a token that is about to lapse as already
+// lapsed. Without it, a token with seconds left passes the check here
+// and then fails at Anthropic moments later, costing this run its
+// usage sample for no reason -- the request, and any retry inside it,
+// takes non-zero time.
+const expiryLeeway = 2 * time.Minute
+
+// isExpired reports whether the access token has lapsed (or is about
+// to).
+//
+// An unknown expiry (no expiresAt in the file) is deliberately treated
+// as NOT expired. This is the conservative direction: the only thing
+// this predicate gates is whether to spend the refresh token (see
+// refreshLocalCredentials), and refreshing on a guess would rotate a
+// credential the member's own Claude Code CLI is relying on. Being
+// wrong the other way merely means one 401, which the caller already
+// handles.
+func (c localCredentials) isExpired(now time.Time) bool {
+	if c.ExpiresAt == 0 {
+		return false
+	}
+	return now.Add(expiryLeeway).UnixMilli() >= c.ExpiresAt
+}
+
+func readLocalCredentials(path string) (*localCredentials, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("Claude Code credentials file not found at: %s", path)
+			return nil, fmt.Errorf("Claude Code credentials file not found at: %s", path)
 		}
-		return "", err
+		return nil, err
 	}
 	var creds credentialsFile
 	if err := json.Unmarshal(data, &creds); err != nil {
-		return "", fmt.Errorf("parsing %s: %w", path, err)
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
 	if creds.ClaudeAiOauth.AccessToken == "" {
-		return "", fmt.Errorf("no claudeAiOauth.accessToken found in %s", path)
+		return nil, fmt.Errorf("no claudeAiOauth.accessToken found in %s", path)
 	}
-	return creds.ClaudeAiOauth.AccessToken, nil
+	return &localCredentials{
+		AccessToken:  creds.ClaudeAiOauth.AccessToken,
+		RefreshToken: creds.ClaudeAiOauth.RefreshToken,
+		ExpiresAt:    creds.ClaudeAiOauth.ExpiresAt,
+	}, nil
+}
+
+// writeRefreshedCredentials stores a renewed access/refresh token pair
+// back into the Claude Code credentials file.
+//
+// Decoded into a generic map and re-encoded, rather than marshalling
+// credentialsFile, because this file belongs to the Claude Code CLI,
+// not to this agent. It carries fields this program deliberately does
+// not model (refreshTokenExpiresAt, scopes, subscriptionType,
+// rateLimitTier, trustedDeviceToken, and whatever Anthropic adds next),
+// and re-serializing a narrow struct over it would silently delete
+// every one of them -- breaking the member's own CLI far more
+// thoroughly than the expired token this is trying to fix. A map
+// round-trip preserves unknown keys untouched and edits only the three
+// values being renewed.
+//
+// Written via a temp file + rename so a crash or a full disk cannot
+// leave the member with a truncated, unparseable credentials file;
+// rename within the same directory is atomic, so the file is either
+// the old contents or the new ones, never half of each. Permissions
+// are kept at 0600, matching what the CLI itself writes for a file
+// holding bearer credentials.
+func writeRefreshedCredentials(path string, updated localCredentials) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("parsing %s: %w", path, err)
+	}
+
+	oauth, ok := raw["claudeAiOauth"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("%s has no claudeAiOauth object to update", path)
+	}
+	oauth["accessToken"] = updated.AccessToken
+	if updated.RefreshToken != "" {
+		oauth["refreshToken"] = updated.RefreshToken
+	}
+	if updated.ExpiresAt != 0 {
+		oauth["expiresAt"] = updated.ExpiresAt
+	}
+
+	// Indented to match the CLI's own formatting closely enough that a
+	// member opening the file doesn't find it mangled into one line.
+	encoded, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, encoded, 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		// Don't leave a stray .tmp behind for the CLI or the next run
+		// to trip over.
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 // emailAddressPattern extracts oauthAccount.emailAddress out of

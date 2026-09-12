@@ -132,7 +132,9 @@ percentages:
   refresh_token-rotation conflict risk that would come from
   bedrock-chat holding and refreshing a token the member is also
   actively using locally (whichever side refreshes last invalidates
-  the other's copy). The chat-side token (the narrow, inference-only
+  the other's copy). Refreshing happens only on the member's own
+  machine, and only when the token has already lapsed -- see
+  "Refreshing the local login" below. The chat-side token (the narrow, inference-only
   one `claude setup-token` prints, pasted by the member) is sent to
   bedrock-chat exactly once, at first-run self-registration (see
   Setup) -- the same one-time transfer that pasting it into the admin
@@ -142,14 +144,81 @@ percentages:
   from this script fail and it reports `fetch_status: "auth_error"` or
   `"error"` for the usage-tracking signal -- this does **not** mean the
   chat-side token (registered separately, from the pasted
-  `setup-token` output) is invalid. On the specific `auth_error` (401)
-  case, the script also shows a Windows desktop dialog (a
-  `WScript.Shell` popup, auto-dismissing after 50 minutes so an
-  unattended run doesn't block forever) on
-  that machine prompting the member to run `claude login` (best-effort;
-  a notification failure never breaks the rest of the script). Nothing
-  further needs to be done beyond that -- the recurring scheduled run
-  picks up the refreshed login automatically next time.
+  `setup-token` output) is invalid. This is reported to the admin page
+  but, deliberately, **shows the member nothing** -- see below.
+
+#### Refreshing the local login
+
+The local Claude Code access token lapses within hours of the CLI not
+being used, so without renewal a member who isn't actively using Claude
+Code reports `auth_error` on nearly every scheduled run.
+
+The agent therefore refreshes it, **but only once it has already
+expired**. That condition is the whole safety argument:
+
+- OAuth refresh tokens rotate: whoever refreshes last invalidates the
+  other side's copy. Refreshing a *live* token could log the member out
+  of the CLI they are working in at that moment. Breaking someone's real
+  work to collect a usage statistic is plainly the wrong trade.
+- An already-expired access token means the CLI is not currently in use
+  (Claude Code renews it as it goes). There is no live session to
+  disturb, the token is dead to both sides, and renewing it is exactly
+  what the CLI itself would do on next launch.
+
+Consequently an **unknown** expiry (no `expiresAt` in the file) is
+treated as *not* expired: guessing would risk rotating a credential a
+live CLI depends on, whereas being wrong the other way costs only a
+single 401 that the existing path already handles.
+
+The refresh uses the same public OAuth client the CLI uses
+(`https://platform.claude.com/v1/oauth/token`, Claude Code's client ID,
+JSON body), so the token obtained is the one the CLI would have got.
+Implementation notes worth knowing:
+
+- **The credentials file is rewritten by editing its raw JSON**, not by
+  re-serializing the agent's own struct. It carries fields this agent
+  does not model (`refreshTokenExpiresAt`, `scopes`,
+  `subscriptionType`, `rateLimitTier`, `trustedDeviceToken`, and
+  whatever Anthropic adds next); overwriting them would break the
+  member's CLI far worse than the expired token being fixed. Written
+  via temp-file + atomic rename at `0600`.
+- **The rotated refresh token is stored**; keeping the spent one would
+  make the next refresh fail.
+- **Failure is never fatal.** A failed refresh falls back to the
+  expired token, so the usual 401 → `auth_error` path runs exactly as
+  it did before this existed.
+- **Refresh errors carry a status code only**, never the response body,
+  which on this endpoint can echo token material into logs and the
+  stored `fetch_error_message`.
+
+#### Why an expired local login is silent
+
+The agent briefly showed a desktop dialog on the `auth_error` (401)
+case, asking the member to run `claude login`. That was removed.
+
+The local Claude Code login this reads expires within hours of not
+using Claude Code, and the agent never refreshes it. So for any member
+who simply isn't using Claude Code at the moment, a 401 here is the
+normal, expected state rather than a fault -- and the dialog fired on
+every scheduled run, nagging precisely the people with nothing to act
+on. What it asked them to restore was worth little anyway: usage-limit
+percentages for someone who, by definition, is not consuming usage.
+
+The snapshot is still posted as `auth_error`, so the admin page
+reflects reality, and the warning still goes to stderr for anyone
+running the exe by hand. If the member does start using Claude Code
+again, the next scheduled run picks the refreshed login up on its own.
+
+With the refresh above in place, a 401 here is now much rarer -- it
+means the refresh itself failed or was impossible (no refresh token,
+refresh token expired, network blocked). Those are still nothing a
+member can usefully act on from a dialog, so the reasoning is
+unchanged.
+
+Contrast with the chat-token case below, which keeps its dialog: that
+one is rare rather than routine, invisible to the member by
+construction, costly to leave broken (their seat serves no chat), and
+fixable by a single double-click. This one is none of those.
 
 ### Chat-token expiry detection
 
@@ -195,6 +264,83 @@ Two independent, unrelated signals are recorded — do not conflate them:
   endpoint) — this is the "期限切れ" state shown on the admin screen.
   `"error"` covers any other failure — this does **not** mean the token
   is invalid for chat, only that its usage-limit status can't be read.
+
+## Agent auto-update
+
+The member agent (`scripts/claude_teams_member_agent_go`) updates itself
+from a release channel, so an admin fix reaches every member without
+asking anyone to re-download anything. Build and publish steps are in
+that folder's `BUILD.md`; this section covers the design and its trust
+model.
+
+**Flow.** An admin builds the `.exe` with a version baked in
+(`-X main.agentVersion=...`), uploads it to a private S3 bucket under a
+version-scoped key, then uploads a `manifest.json` naming the `version`,
+`sha256` and `key`. On every scheduled run, a member's installed copy
+calls:
+
+- `POST /claude-teams-tokens/{token_id}/agent-version` with
+  `{"ingest_secret": "..."}` -- authenticated by the same per-token
+  secret as the usage-snapshot push and the status check (no new
+  credential), likewise un-Cognito-authenticated. It answers
+  `{version, sha256, downloadUrl}`, where `downloadUrl` is a
+  5-minute presigned S3 GET. A 404 means this deployment publishes no
+  release, which agents treat as a silent no-op.
+
+If the reported version differs from its own, the agent downloads it,
+verifies the SHA256, and swaps it in.
+
+**Why the bucket is private and the download is presigned.** The `.exe`
+carries the org-wide Registration Secret baked in at build time (the
+same exposure the old `.bat` had in plaintext). Anyone who can download
+the binary can therefore add tokens to the pool via
+`/claude-teams-tokens/register`. Publishing it at a guessable URL would
+widen that from "members the admin handed it to" to "anyone who learns
+the URL", so the download requires an `ingest_secret` -- i.e. only
+machines *already in the pool* can fetch it. Note this does not make the
+download defense stronger than the Registration Secret itself: a member
+who already holds the binary can read the secret out of it either way.
+The secret is sent in a POST body rather than a query string (unlike the
+older `/status` route) so it stays out of API Gateway access logs and
+corporate proxies.
+
+**Why the SHA256 check is load-bearing.** It is what lets the presigned
+URL be treated as untrusted transport. Bytes that don't match the digest
+the authenticated API reported are deleted, never installed. The backend
+refuses to publish a release without a digest and the agent refuses to
+install one, so no path ends in unverified bytes executing on a member's
+machine.
+
+**Rollback.** Version comparison is deliberately *inequality*, not
+"newer than": the manifest is the single source of truth for what
+members should run, so pointing it at a previously uploaded key rolls
+every member back on their next run. The bucket is versioned and
+`RETAIN`ed so older builds stay available for that.
+
+**Why no in-place restart.** The download replaces the *installed copy*
+on disk and takes effect on the next scheduled run. Two renames are
+used, keeping the outgoing binary as `.exe.old` (Windows permits
+renaming a running image but not overwriting it), and the `.old` file is
+removed on the run after that, once it is no longer the executing image.
+Executing a freshly downloaded binary immediately would leave no window
+in which a bad release could be noticed, for no benefit given the agent
+re-runs hourly anyway. If the swap's second rename fails, the original
+is restored -- a scheduled task pointing at a missing `.exe` would
+silently stop reporting usage forever, which is worse than staying on an
+old version.
+
+**Failure handling.** Every step (check, download, digest, swap) warns
+and gives up for that run, leaving the working version in place. Usage
+reporting happens after the update attempt and is unaffected either way.
+Builds with no version baked in (a bare `go build`) skip updating
+entirely, since they cannot tell whether the published release differs
+from themselves. `-skip-self-update` pins a machine to its current
+build.
+
+**Hand-distribution still exists** for the two cases the channel cannot
+cover: bootstrap (a new member holds no `ingest_secret` yet, so cannot
+call the endpoint at all) and recovery (a member whose release check is
+broken).
 
 ## Behavior
 

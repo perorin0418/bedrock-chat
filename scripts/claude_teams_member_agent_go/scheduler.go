@@ -33,6 +33,18 @@ import (
 // case (a rebuilt .exe almost never happens to land on the exact same
 // byte count) while avoiding a redundant disk write when they already
 // match, e.g. every routine scheduled re-run once installed.
+//
+// Since the release-channel self-update landed (updater.go), this
+// hand-distribution path is no longer the only way a member gets a new
+// version -- but it is kept as-is, and deliberately still overwrites on
+// any size difference rather than consulting versions: it is the
+// bootstrap path (a first-ever install has no config and so cannot
+// call the ingest_secret-authenticated version endpoint at all), and
+// it is the recovery path when a member's release check is failing.
+// The one odd case it allows -- double-clicking an *older*
+// admin-distributed .exe, which downgrades the installed copy -- is
+// self-correcting: the very same run then checks the release channel
+// and pulls the published version back down.
 func copySelfToFixedLocation() string {
 	selfPath, err := os.Executable()
 	if err != nil {
@@ -46,13 +58,13 @@ func copySelfToFixedLocation() string {
 		selfPath = resolved
 	}
 
-	home, err := os.UserHomeDir()
+	// Shared with updater.go so the self-update and the scheduled-task
+	// registration can never disagree about where the installed copy is.
+	installDir, installedPath, err := installedAgentPaths()
 	if err != nil {
 		warnf("could not determine home directory (%v). The scheduled task will point at this exe's current path instead.", err)
 		return selfPath
 	}
-	installDir := filepath.Join(home, ".claude", "claude_teams_member_agent")
-	installedPath := filepath.Join(installDir, "claude_teams_member_agent.exe")
 
 	if selfPath == installedPath {
 		// Already running from the fixed location (e.g. a Task

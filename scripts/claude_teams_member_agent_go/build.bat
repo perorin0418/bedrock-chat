@@ -71,7 +71,22 @@ if errorlevel 1 (
 echo Building claude_teams_member_agent.exe for Windows/amd64...
 set GOOS=windows
 set GOARCH=amd64
-go build -ldflags "-X main.defaultAPIEndpoint=%API_ENDPOINT% -X main.defaultRegistrationSecret=%REGISTRATION_SECRET%" -o claude_teams_member_agent.exe .
+
+REM AGENT_VERSION identifies this build to the auto-update release
+REM channel (see updater.go). It must differ from the previously
+REM published build, or members already on that version see no reason to
+REM update. Derived from the date plus the repo's git short SHA when
+REM available; falling back to date+time keeps two builds from the same
+REM commit distinguishable.
+for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set GIT_SHA=%%i
+for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy.MM.dd-HHmm"') do set BUILD_STAMP=%%i
+if "%GIT_SHA%"=="" (
+    set AGENT_VERSION=%BUILD_STAMP%
+) else (
+    set AGENT_VERSION=%BUILD_STAMP%-%GIT_SHA%
+)
+
+go build -ldflags "-X main.defaultAPIEndpoint=%API_ENDPOINT% -X main.defaultRegistrationSecret=%REGISTRATION_SECRET% -X main.agentVersion=%AGENT_VERSION%" -o claude_teams_member_agent.exe .
 if errorlevel 1 (
     echo ERROR: build failed. See output above.
     exit /b 1
@@ -79,6 +94,14 @@ if errorlevel 1 (
 
 echo.
 echo SUCCESS: claude_teams_member_agent.exe built in %~dp0
-echo Distribute this one file to every member. They just double-click it.
+echo Version: %AGENT_VERSION%
+echo.
+echo For a NEW member: hand them this one file; they just double-click it.
+echo.
+echo To roll this build out to members who are ALREADY registered, publish
+echo it to the release bucket instead of hand-distributing it -- see
+echo BUILD.md, "Publishing an update to already-registered members".
+echo Its SHA256 (needed for the manifest) is:
+certutil -hashfile claude_teams_member_agent.exe SHA256 | findstr /v ":"
 echo.
 pause

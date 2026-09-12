@@ -217,6 +217,40 @@ export class BedrockChatStack extends cdk.Stack {
       serverAccessLogsPrefix: "LargeMessageBucket",
     });
 
+    // Published claude_teams_member_agent.exe releases + manifest.json,
+    // read only by the API Lambda's ingest_secret-authenticated
+    // `/claude-teams-tokens/{token_id}/agent-version` route so already
+    // installed member agents can self-update (see
+    // scripts/claude_teams_member_agent_go/updater.go).
+    //
+    // BLOCK_ALL public access is the whole point, not boilerplate: the
+    // .exe carries the org-wide Claude Teams Registration Secret baked
+    // in at build time, so a publicly readable object here would let
+    // anyone who learns the URL obtain that secret and add tokens to the
+    // pool. Downloads are only ever handed out as short-lived presigned
+    // URLs to machines already holding a per-token ingest_secret.
+    //
+    // RETAIN (unlike LargeMessageBucket's DESTROY): these objects are
+    // release artifacts an admin built and uploaded by hand, not
+    // regenerable runtime data, and rolling back to a previous version
+    // means pointing the manifest at an older object that must still
+    // exist. Versioned for the same reason -- an accidental overwrite of
+    // a release under an already-published key stays recoverable.
+    const claudeTeamsAgentReleaseBucket = new Bucket(
+      this,
+      "ClaudeTeamsAgentReleaseBucket",
+      {
+        encryption: BucketEncryption.S3_MANAGED,
+        blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+        enforceSSL: true,
+        versioned: true,
+        removalPolicy: RemovalPolicy.RETAIN,
+        objectOwnership: ObjectOwnership.BUCKET_OWNER_ENFORCED,
+        serverAccessLogsBucket: accessLogBucket,
+        serverAccessLogsPrefix: "ClaudeTeamsAgentReleaseBucket",
+      }
+    );
+
     const rateLimitFiveHourParam = new ssm.StringParameter(
       this,
       "RateLimitFiveHourUsdLimitParam",
@@ -281,6 +315,7 @@ export class BedrockChatStack extends cdk.Stack {
       embeddingStateMachine: embedding.stateMachine,
       usageAnalysis,
       largeMessageBucket,
+      claudeTeamsAgentReleaseBucket,
       enableBedrockGlobalInference:
         props.enableBedrockGlobalInference,
       enableBedrockCrossRegionInference:
@@ -446,6 +481,13 @@ export class BedrockChatStack extends cdk.Stack {
     new CfnOutput(this, "ClaudeTeamsUsageSyncRoleArnExport", {
       value: database.claudeTeamsUsageSyncRole.roleArn,
       exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeTeamsUsageSyncRoleArn`,
+    });
+    // Where an admin uploads a rebuilt claude_teams_member_agent.exe and
+    // its manifest.json to roll it out to every already-registered
+    // member (see scripts/claude_teams_member_agent_go/BUILD.md).
+    new CfnOutput(this, "ClaudeTeamsAgentReleaseBucketName", {
+      value: claudeTeamsAgentReleaseBucket.bucketName,
+      exportName: `${props.envPrefix}${sepHyphen}BedrockClaudeChatClaudeTeamsAgentReleaseBucketName`,
     });
     new CfnOutput(this, 'EmbeddingStateMachineArn', {
       value: embedding.stateMachine.stateMachineArn,

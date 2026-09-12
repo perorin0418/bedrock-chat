@@ -8,6 +8,27 @@ import (
 	"time"
 )
 
+// notifyUser is the seam through which every desktop notification in
+// this package is raised. Production code leaves it nil, which means
+// "call the real showUserNotification" (a modal MessageBoxW on
+// Windows); tests substitute a recorder so they can assert on whether a
+// member would actually be interrupted.
+//
+// Worth a seam of its own because "does this situation deserve a modal
+// dialog on a member's screen?" is a product decision that has already
+// been got wrong once: a popup fired on every scheduled run for an
+// expired local Claude Code login, which is the *normal* state for
+// anyone not currently using Claude Code (see reportUsageFailure).
+var notifyUser func(title, message string)
+
+func (a *appContext) notify(title, message string) {
+	if notifyUser != nil {
+		notifyUser(title, message)
+		return
+	}
+	showUserNotification(title, message)
+}
+
 type appContext struct {
 	apiEndpoint          string
 	registrationSecret   string
@@ -15,8 +36,12 @@ type appContext struct {
 	taskIntervalMinutes  int
 	taskName             string
 	skipTaskRegistration bool
-	configPath           string
-	credentialsPath      string
+	// Opt out of the release-channel self-update (see updater.go) while
+	// still keeping the scheduled task. For an admin pinning a member
+	// to a specific build to reproduce a problem, and for tests.
+	skipSelfUpdate  bool
+	configPath      string
+	credentialsPath string
 	// Explicit Claude Code CLI location from -claude-path /
 	// CLAUDE_TEAMS_AGENT_CLAUDE_PATH. Empty means "search %PATH% and
 	// the well-known install locations" -- see claudecli.go.
@@ -91,14 +116,7 @@ func (a *appContext) run() {
 				ingestSecret = regResp.IngestSecret
 			} else {
 				warnf("bedrock-chat reports this machine's chat-side token as no longer usable. Re-run claude_teams_member_agent.exe (double-click it) to register a fresh one.")
-				installDir := filepath.Join(homeDirOrEmpty(), ".claude", "claude_teams_member_agent")
-				showUserNotification(
-					"Claude Teams: chat token needs renewing",
-					fmt.Sprintf(
-						"The Claude token you shared with bedrock-chat for chat has stopped working (expired or revoked), so your seat is no longer serving chat requests. To fix it, double-click claude_teams_member_agent.exe in %s -- it will run 'claude setup-token' and register the new token for you. Usage reporting keeps working in the meantime.",
-						installDir,
-					),
-				)
+				a.notifyChatTokenDisabled()
 			}
 		}
 	}
@@ -107,9 +125,25 @@ func (a *appContext) run() {
 		a.registerSelfAsScheduledTask()
 	}
 
+	// Auto-update the installed copy from the admin's published release,
+	// if this deployment publishes one. Placed after task registration
+	// (so a brand-new install is already scheduled and self-healing
+	// before anything replaces its binary) and before the usage report
+	// (so a failed/slow update can never be mistaken for a usage-
+	// reporting failure -- and, since the swap only takes effect on the
+	// *next* scheduled run, this run still reports usage with the
+	// version it started as either way).
+	//
+	// Skipped entirely when -skip-task-registration was passed: that
+	// flag means "don't manage anything about my installation", and
+	// silently replacing the installed .exe would contradict it.
+	if !a.skipTaskRegistration && !a.skipSelfUpdate {
+		a.selfUpdateIfNeeded(tokenID, ingestSecret)
+	}
+
 	sampledAtMs := time.Now().UnixMilli()
 
-	accessToken, err := readLocalAccessToken(a.credentialsPath)
+	accessToken, err := a.resolveLocalAccessToken()
 	if err != nil {
 		fatalf("%v", err)
 	}
@@ -140,6 +174,91 @@ func (a *appContext) run() {
 	infof("OK: reported 5h=%.0f%% 7d=%.0f%% for token_id=%s", fiveHourUtil, sevenDayUtil, tokenID)
 }
 
+// resolveLocalAccessToken returns the access token to query
+// Anthropic's usage endpoint with, refreshing the member's local Claude
+// Code login first if -- and only if -- that login has already expired.
+//
+// "Only if already expired" is the entire safety argument, so it is
+// worth stating plainly. This file belongs to the member's own Claude
+// Code CLI, and OAuth refresh tokens rotate: whoever refreshes last
+// invalidates the other side's copy. Refreshing a *live* token would
+// therefore risk logging the member out of the CLI they are actively
+// using -- breaking their real work to collect a usage statistic, which
+// is plainly the wrong trade. But an already-expired access token means
+// the CLI is not currently in use (Claude Code refreshes it as it goes,
+// and it lapses within hours of disuse), so there is no live session to
+// disturb: the token is dead to both sides, and renewing it is the
+// action the CLI itself would take on next launch.
+//
+// A refresh failure is never fatal here. The existing (expired) token
+// is returned and used anyway, so the usual 401 path runs and reports
+// auth_error exactly as it did before this existed. That keeps the
+// worst case identical to the old behavior rather than worse than it.
+func (a *appContext) resolveLocalAccessToken() (string, error) {
+	creds, err := readLocalCredentials(a.credentialsPath)
+	if err != nil {
+		return "", err
+	}
+
+	if !creds.isExpired(time.Now()) {
+		return creds.AccessToken, nil
+	}
+	if creds.RefreshToken == "" {
+		// Nothing to refresh with (an old credentials file, or one
+		// written by a flow that stores no refresh token). Fall through
+		// to the 401 path rather than failing the whole run.
+		return creds.AccessToken, nil
+	}
+
+	infof("The local Claude Code login has expired; refreshing it to read usage limits...")
+	refreshed, statusCode, err := refreshAnthropicToken(creds.RefreshToken)
+	if err != nil {
+		warnf("could not refresh the local Claude Code login (HTTP %d: %v). Continuing with the expired token; usage will be reported as auth_error for this run.", statusCode, err)
+		return creds.AccessToken, nil
+	}
+
+	updated := localCredentials{
+		AccessToken:  refreshed.AccessToken,
+		RefreshToken: refreshed.RefreshToken,
+	}
+	if refreshed.ExpiresIn > 0 {
+		updated.ExpiresAt = time.Now().Add(time.Duration(refreshed.ExpiresIn) * time.Second).UnixMilli()
+	}
+
+	// Persisted so the member's own CLI picks up the renewed login too,
+	// and so the next scheduled run doesn't spend another refresh. A
+	// write failure is survivable: this run still has a working token
+	// in memory, so it proceeds and simply refreshes again next time.
+	if err := writeRefreshedCredentials(a.credentialsPath, updated); err != nil {
+		warnf("refreshed the local Claude Code login but could not save it to %s (%v). This run still works; the next run will refresh again.", a.credentialsPath, err)
+	}
+
+	return refreshed.AccessToken, nil
+}
+
+// notifyChatTokenDisabled interrupts the member with a modal dialog
+// because bedrock-chat has permanently disabled the chat-side token
+// this machine registered.
+//
+// This is the one situation in this program that earns a popup, and it
+// is worth contrasting with the one that no longer gets one (see
+// reportUsageFailure). The chat-side token is held server-side only --
+// `claude setup-token` printed it once and saved it nowhere -- so
+// nothing on the member's machine can notice it lapsed. Meanwhile their
+// seat silently serves no chat at all until someone acts, and the fix
+// is a single double-click they can perform. Rare, invisible otherwise,
+// actionable, and costly to ignore: all four are why this one stays.
+func (a *appContext) notifyChatTokenDisabled() {
+	installDir := filepath.Join(homeDirOrEmpty(), ".claude", "claude_teams_member_agent")
+	a.notify(
+		"Claude Teams: chat token needs renewing",
+		fmt.Sprintf(
+			"The Claude token you shared with bedrock-chat for chat has stopped working (expired or revoked), so your seat is no longer serving chat requests. To fix it, double-click claude_teams_member_agent.exe in %s -- it will run 'claude setup-token' and register the new token for you. Usage reporting keeps working in the meantime.",
+			installDir,
+		),
+	)
+}
+
 // reportUsageFailure mirrors claude_teams_usage_sync's own
 // fetch_status semantics (see the .ps1 predecessor's identically named
 // logic): a 401 from Anthropic's /api/oauth/usage means THIS machine's
@@ -148,16 +267,24 @@ func (a *appContext) run() {
 // the chat-side token registered separately at first run. Any other
 // failure (network, 5xx, ...) is a generic "error" and does NOT mean
 // the token is invalid.
+//
+// Deliberately silent (no desktop popup) on that 401, unlike the
+// chat-token case in run(). The local Claude Code login this reads
+// expires within hours of not using Claude Code, and this agent never
+// refreshes it -- so for a member who simply isn't using Claude Code
+// right now, the 401 is the normal, expected state, not a problem to
+// fix. Popping a dialog on every scheduled run would nag exactly the
+// members with nothing to act on, and the thing it asked them to
+// restore (usage-limit numbers for someone not consuming any usage)
+// carries almost no information anyway. The snapshot is still reported
+// as auth_error so the admin page reflects reality, and the warning
+// still goes to stderr for anyone running the exe by hand.
 func (a *appContext) reportUsageFailure(tokenID, ingestSecret string, statusCode int, fetchErr error, sampledAtMs int64) {
 	var fetchStatus, errorMessage string
 	if statusCode == 401 {
 		fetchStatus = "auth_error"
 		errorMessage = fmt.Sprintf(
 			"401 Unauthorized calling /api/oauth/usage with this machine's .claude\\.credentials.json accessToken (expired or revoked) -- run 'claude login' on this machine to refresh it. This is unrelated to the chat-side token registered at first run, which is unaffected.",
-		)
-		showUserNotification(
-			"Claude Teams: usage tracking needs re-login",
-			"Your Claude Code login has expired, so 5-hour/7-day usage tracking stopped working (chat itself is unaffected). Run 'claude login' in a terminal to fix it -- tracking resumes automatically on the next scheduled run, or re-run claude_teams_member_agent.exe now to confirm it right away.",
 		)
 	} else {
 		fetchStatus = "error"

@@ -154,6 +154,108 @@ type anthropicUsageResponse struct {
 	} `json:"seven_day"`
 }
 
+// --- Anthropic OAuth token refresh ---
+//
+// Renews the member's LOCAL Claude Code login
+// (%USERPROFILE%\.claude\.credentials.json) when its access token has
+// already lapsed. See resolveLocalAccessToken in app.go for the
+// "already expired only" rule and why it is what makes this safe.
+//
+// The endpoint, client_id, JSON (not form-encoded) body and rotating
+// refresh_token below all mirror what the Claude Code CLI itself sends
+// -- this is the same public OAuth client the member's own CLI uses, so
+// a token refreshed here is exactly the token the CLI would have
+// obtained. None of it is documented by Anthropic, so it is pinned here
+// with that provenance noted rather than guessed.
+const (
+	anthropicTokenURL = "https://platform.claude.com/v1/oauth/token"
+	// Claude Code's public OAuth client ID. Not a secret (it ships in
+	// every copy of the CLI); a public client has no secret by design.
+	anthropicOAuthClientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+)
+
+// anthropicTokenURLForTest lets tests point the refresh at a local
+// server. Empty in production, which means "use anthropicTokenURL".
+var anthropicTokenURLForTest = ""
+
+func tokenURL() string {
+	if anthropicTokenURLForTest != "" {
+		return anthropicTokenURLForTest
+	}
+	return anthropicTokenURL
+}
+
+type oauthRefreshRequest struct {
+	GrantType    string `json:"grant_type"`
+	RefreshToken string `json:"refresh_token"`
+	ClientID     string `json:"client_id"`
+}
+
+type oauthRefreshResponse struct {
+	AccessToken string `json:"access_token"`
+	// Anthropic rotates refresh tokens: the response usually carries a
+	// new one that supersedes the token just spent. Absent means "keep
+	// using the current one" -- the CLI treats it the same way.
+	RefreshToken string `json:"refresh_token"`
+	// Seconds until access_token lapses.
+	ExpiresIn int64 `json:"expires_in"`
+}
+
+// refreshAnthropicToken exchanges a refresh token for a fresh access
+// token. Returns the renewed pair, or an error.
+//
+// Deliberately does NOT reuse doJSONRequest: that helper's error path
+// embeds up to 500 bytes of the response body into the returned error,
+// which for this endpoint can include token material. Errors here are
+// reduced to a status code and nothing else, so nothing sensitive can
+// reach a log, a console, or the usage-snapshot fetch_error_message
+// that gets stored server-side.
+func refreshAnthropicToken(refreshToken string) (*oauthRefreshResponse, int, error) {
+	return refreshAnthropicTokenAt(tokenURL(), refreshToken)
+}
+
+func refreshAnthropicTokenAt(url, refreshToken string) (*oauthRefreshResponse, int, error) {
+	body, err := json.Marshal(oauthRefreshRequest{
+		GrantType:    "refresh_token",
+		RefreshToken: refreshToken,
+		ClientID:     anthropicOAuthClientID,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		// Status only -- see the doc comment above on why the body is
+		// never included here.
+		return nil, resp.StatusCode, fmt.Errorf("token refresh failed with HTTP %d", resp.StatusCode)
+	}
+
+	var out oauthRefreshResponse
+	if err := json.Unmarshal(data, &out); err != nil {
+		return nil, resp.StatusCode, fmt.Errorf("parsing token refresh response")
+	}
+	if out.AccessToken == "" {
+		return nil, resp.StatusCode, fmt.Errorf("token refresh response contained no access_token")
+	}
+	return &out, resp.StatusCode, nil
+}
+
 func fetchAnthropicUsage(accessToken string) (*anthropicUsageResponse, int, error) {
 	req, err := http.NewRequest(http.MethodGet, usageAPIURL, nil)
 	if err != nil {
