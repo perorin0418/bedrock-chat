@@ -1,4 +1,10 @@
-import { CfnOutput, RemovalPolicy, StackProps, IgnoreMode } from "aws-cdk-lib";
+import {
+  CfnOutput,
+  RemovalPolicy,
+  Size,
+  StackProps,
+  IgnoreMode,
+} from "aws-cdk-lib";
 import {
   BlockPublicAccess,
   Bucket,
@@ -130,6 +136,12 @@ export class BedrockChatStack extends cdk.Stack {
       ],
       destinationBucket: sourceBucket,
       logRetention: logs.RetentionDays.THREE_MONTHS,
+      // This deployment zips up the whole repository, so the handler's
+      // defaults (128 MB of memory, 512 MB of /tmp) are not enough: it gets
+      // OOM-killed before it can respond, and CloudFormation then fails the
+      // custom resource with "did not receive a response".
+      memoryLimit: 1024,
+      ephemeralStorageSize: Size.gibibytes(2),
     });
     // CodeBuild used for api publication
     const apiPublishCodebuild = new ApiPublishCodebuild(
