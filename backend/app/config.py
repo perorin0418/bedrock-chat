@@ -463,6 +463,9 @@ BEDROCK_PRICING = {
         "grok-4.7": {"input": 0.002, "output": 0.006},
         # Moonshot AI models (Global cross-region inference pricing)
         "kimi-k3": {"input": 0.003, "output": 0.015},
+        # OpenAI GPT-6 models (Global cross-region inference pricing)
+        "gpt-6-luna": {"input": 0.0001, "output": 0.0005},
+        "gpt-6-sol": {"input": 0.002, "output": 0.010},
     },
     # EU regions (eu-central-1, eu-west-1, eu-west-3)
     "eu-central-1": {

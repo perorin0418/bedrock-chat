@@ -28,6 +28,8 @@ supported_base_models = {
     "amazon.nova-lite-v1:0": "amazon-nova-lite",
     "amazon.nova-micro-v1:0": "amazon-nova-micro",
     "deepseek.r1-v1:0": "deepseek-r1",
+    "openai.gpt-6-luna": "gpt-6-luna",
+    "openai.gpt-6-sol": "gpt-6-sol",
     # Meta Llama 3 models
     "meta.llama3-3-70b-instruct-v1:0": "llama3-3-70b-instruct",
     "meta.llama3-2-1b-instruct-v1:0": "llama3-2-1b-instruct",

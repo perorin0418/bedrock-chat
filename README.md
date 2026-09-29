@@ -307,7 +307,7 @@ conversationId messageId
 > [!NOTE]
 > 日本語を送るときは、上の例のように本文を `[System.Text.Encoding]::UTF8.GetBytes(...)` でUTF-8のバイト列に変換して渡してください。文字列のまま渡すと文字化けする場合があります。
 
-`model` に指定できるモデルは次の7つです。
+`model` に指定できるモデルは次の9つです。
 
 | 指定する値 | 特徴 |
 |---|---|
@@ -318,6 +318,8 @@ conversationId messageId
 | `grok-4.7` | 上記とは別系統のモデル（xAI）。用途に応じて使い分け |
 | `grok-4.6` | 前世代のGrok |
 | `kimi-k3` | Moonshot AIのモデル。用途に応じて使い分け |
+| `gpt-6-sol` | OpenAIのモデル。性能とコストのバランス型 |
+| `gpt-6-luna` | OpenAIの軽量モデル。高速・低コスト |
 
 #### 2. 回答を取得する（`GET /conversation/{conversationId}/{messageId}`）
 

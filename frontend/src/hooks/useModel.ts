@@ -38,6 +38,13 @@ const GROK_SUPPORTED_MEDIA_TYPES = [
   'image/webp',
 ];
 
+const GPT6_SUPPORTED_MEDIA_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+
 const KIMI_SUPPORTED_MEDIA_TYPES = [
   'image/jpeg',
   'image/png',
@@ -347,6 +354,22 @@ const useModel = (
         supportMediaType: [],
         supportReasoning: true,
         forceReasoningEnabled: true, // GPT-OSS always return reasoning contents.
+      },
+      {
+        modelId: 'gpt-6-luna',
+        label: t('model.gpt-6-luna.label'),
+        description: t('model.gpt-6-luna.description'),
+        supportMediaType: GPT6_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+        forceReasoningEnabled: true, // GPT-6 always returns reasoning contents.
+      },
+      {
+        modelId: 'gpt-6-sol',
+        label: t('model.gpt-6-sol.label'),
+        description: t('model.gpt-6-sol.description'),
+        supportMediaType: GPT6_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+        forceReasoningEnabled: true, // GPT-6 always returns reasoning contents.
       },
       // xAI
       {

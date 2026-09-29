@@ -240,6 +240,16 @@ const translation: typeof en = {
         description:
           'Moonshot AIのフロンティア級オープンウェイトモデル。コーディングとエージェントタスク向け。',
       },
+      'gpt-6-luna': {
+        label: 'GPT-6 Luna',
+        description:
+          '高速・低コストなOpenAIのGPT-6モデル。日常的なタスク向け。',
+      },
+      'gpt-6-sol': {
+        label: 'GPT-6 Sol',
+        description:
+          'OpenAIのGPT-6モデル。推論・コーディング・エージェント性能とコストのバランス型。',
+      },
     },
     agent: {
       label: 'エージェント',
