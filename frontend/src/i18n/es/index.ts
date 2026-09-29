@@ -59,12 +59,22 @@ const translation = {
       'claude-v5-opus': {
         label: 'Claude 5 (Opus)',
         description:
-          'El modelo Opus más avanzado, con grandes mejoras en razonamiento profundo, codificación de agentes y trabajo empresarial, con ventana de contexto de 1M de tokens.',
+          'Modelo Opus de la generación anterior, sólido en razonamiento profundo, codificación de agentes y trabajo empresarial, con ventana de contexto de 1M de tokens.',
+      },
+      'claude-v5.5-opus': {
+        label: 'Claude 5.5 (Opus)',
+        description:
+          'El modelo Opus más reciente, con la mayor inteligencia para razonamiento complejo, codificación de agentes y tareas empresariales de larga duración a un precio menor que Claude 5 (Opus), con ventana de contexto de 1M de tokens.',
       },
       'claude-v5-sonnet': {
         label: 'Claude 5 (Sonnet)',
         description:
-          'El modelo Sonnet más capaz, con inteligencia cercana a Opus manteniendo el equilibrio entre capacidad, costo y velocidad.',
+          'Modelo Sonnet de la generación anterior, con inteligencia cercana a Opus para codificación y trabajo de agentes.',
+      },
+      'claude-v5.5-sonnet': {
+        label: 'Claude 5.5 (Sonnet)',
+        description:
+          'El modelo Sonnet más reciente, equilibrando capacidad, costo y velocidad para codificación, agentes y trabajo empresarial diario, con ventana de contexto de 1M de tokens.',
       },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',
@@ -98,6 +108,16 @@ const translation = {
         label: 'Grok 4.6',
         description:
           'Modelo de frontera de xAI con ventana de contexto de 500K tokens, diseñado para programación y tareas de agentes de larga duración.',
+      },
+      'grok-4.7': {
+        label: 'Grok 4.7',
+        description:
+          'El modelo de frontera más reciente de xAI, diseñado para programación y tareas de agentes de larga duración.',
+      },
+      'kimi-k3': {
+        label: 'Kimi K3',
+        description:
+          'Modelo de pesos abiertos de frontera de Moonshot AI, diseñado para programación y tareas de agentes.',
       },
     },
     agent: {

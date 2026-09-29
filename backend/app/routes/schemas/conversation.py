@@ -12,10 +12,12 @@ type_model_name = Literal[
     "claude-v4.6-opus",
     "claude-v4.7-opus",
     "claude-v5-opus",
+    "claude-v5.5-opus",
     "claude-v4-sonnet",
     "claude-v4.5-sonnet",
     "claude-v4.6-sonnet",
     "claude-v5-sonnet",
+    "claude-v5.5-sonnet",
     "claude-v5-fable",
     "claude-v4.5-haiku",
     "claude-v3.5-sonnet",
@@ -45,6 +47,9 @@ type_model_name = Literal[
     "gpt-oss-120b",
     # xAI models
     "grok-4.6",
+    "grok-4.7",
+    # Moonshot AI models
+    "kimi-k3",
     # Claude Teams plan (via Claude Code CLI OAuth token, flat-rate quota)
     "claude-teams-opus",
     "claude-teams-sonnet",

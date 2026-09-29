@@ -38,6 +38,13 @@ const GROK_SUPPORTED_MEDIA_TYPES = [
   'image/webp',
 ];
 
+const KIMI_SUPPORTED_MEDIA_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+
 const useModelState = create<{
   modelId: Model | undefined;
   setModelId: (m: Model) => void;
@@ -131,6 +138,13 @@ const useModel = (
         supportReasoning: true,
       },
       {
+        modelId: 'claude-v5.5-opus',
+        label: t('model.claude-v5.5-opus.label'),
+        description: t('model.claude-v5.5-opus.description'),
+        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+      },
+      {
         modelId: 'claude-v4-sonnet',
         label: t('model.claude-v4-sonnet.label'),
         description: t('model.claude-v4-sonnet.description'),
@@ -155,6 +169,13 @@ const useModel = (
         modelId: 'claude-v5-sonnet',
         label: t('model.claude-v5-sonnet.label'),
         description: t('model.claude-v5-sonnet.description'),
+        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+      },
+      {
+        modelId: 'claude-v5.5-sonnet',
+        label: t('model.claude-v5.5-sonnet.label'),
+        description: t('model.claude-v5.5-sonnet.description'),
         supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
         supportReasoning: true,
       },
@@ -335,6 +356,22 @@ const useModel = (
         supportMediaType: GROK_SUPPORTED_MEDIA_TYPES,
         supportReasoning: true,
         forceReasoningEnabled: true, // Grok always returns reasoning contents.
+      },
+      {
+        modelId: 'grok-4.7',
+        label: t('model.grok-4.7.label'),
+        description: t('model.grok-4.7.description'),
+        supportMediaType: GROK_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+        forceReasoningEnabled: true, // Grok always returns reasoning contents.
+      },
+      {
+        modelId: 'kimi-k3',
+        label: t('model.kimi-k3.label'),
+        description: t('model.kimi-k3.description'),
+        supportMediaType: KIMI_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+        forceReasoningEnabled: true, // Kimi always returns reasoning contents.
       },
       // Mistral
       {

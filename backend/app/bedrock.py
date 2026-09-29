@@ -63,10 +63,12 @@ BASE_MODEL_IDS = {
     "claude-v4.6-opus": "anthropic.claude-opus-4-6-v1",
     "claude-v4.7-opus": "anthropic.claude-opus-4-7",
     "claude-v5-opus": "anthropic.claude-opus-5",
+    "claude-v5.5-opus": "anthropic.claude-opus-5-5",
     "claude-v4-sonnet": "anthropic.claude-sonnet-4-20250514-v1:0",
     "claude-v4.5-sonnet": "anthropic.claude-sonnet-4-5-20250929-v1:0",
     "claude-v4.6-sonnet": "anthropic.claude-sonnet-4-6",
     "claude-v5-sonnet": "anthropic.claude-sonnet-5",
+    "claude-v5.5-sonnet": "anthropic.claude-sonnet-5-5",
     "claude-v5-fable": "anthropic.claude-fable-5",
     "claude-v4.5-haiku": "anthropic.claude-haiku-4-5-20251001-v1:0",
     "claude-v3-haiku": "anthropic.claude-3-haiku-20240307-v1:0",
@@ -95,6 +97,10 @@ BASE_MODEL_IDS = {
     # NOTE: This bare ID cannot be invoked directly — Grok does not support
     # on-demand throughput. See PROFILE_REQUIRED_MODELS below.
     "grok-4.6": "xai.grok-4.6",
+    "grok-4.7": "xai.grok-4.7",
+    # Moonshot AI models
+    # NOTE: Like Grok, Kimi K3 cannot be invoked with on-demand throughput.
+    "kimi-k3": "moonshotai.kimi-k3",
 }
 
 # Global inference profiles
@@ -209,6 +215,80 @@ GLOBAL_INFERENCE_PROFILES = {
         ]
     },
     "claude-v5-opus": {
+        "supported_regions": [
+            "us-west-2",
+            "us-west-1",
+            "us-east-2",
+            "us-east-1",
+            "ca-west-1",
+            "ca-central-1",
+            "sa-east-1",
+            "mx-central-1",
+            "eu-west-3",
+            "eu-west-2",
+            "eu-west-1",
+            "eu-south-2",
+            "eu-south-1",
+            "eu-north-1",
+            "eu-central-2",
+            "eu-central-1",
+            "il-central-1",
+            "me-south-1",
+            "me-central-1",
+            "af-south-1",
+            "ap-southeast-7",
+            "ap-southeast-6",
+            "ap-southeast-5",
+            "ap-southeast-4",
+            "ap-southeast-3",
+            "ap-southeast-2",
+            "ap-southeast-1",
+            "ap-south-2",
+            "ap-south-1",
+            "ap-northeast-3",
+            "ap-northeast-2",
+            "ap-northeast-1",
+            "ap-east-2",
+        ]
+    },
+    "claude-v5.5-opus": {
+        "supported_regions": [
+            "us-west-2",
+            "us-west-1",
+            "us-east-2",
+            "us-east-1",
+            "ca-west-1",
+            "ca-central-1",
+            "sa-east-1",
+            "mx-central-1",
+            "eu-west-3",
+            "eu-west-2",
+            "eu-west-1",
+            "eu-south-2",
+            "eu-south-1",
+            "eu-north-1",
+            "eu-central-2",
+            "eu-central-1",
+            "il-central-1",
+            "me-south-1",
+            "me-central-1",
+            "af-south-1",
+            "ap-southeast-7",
+            "ap-southeast-6",
+            "ap-southeast-5",
+            "ap-southeast-4",
+            "ap-southeast-3",
+            "ap-southeast-2",
+            "ap-southeast-1",
+            "ap-south-2",
+            "ap-south-1",
+            "ap-northeast-3",
+            "ap-northeast-2",
+            "ap-northeast-1",
+            "ap-east-2",
+        ]
+    },
+    "claude-v5.5-sonnet": {
         "supported_regions": [
             "us-west-2",
             "us-west-1",
@@ -418,6 +498,78 @@ GLOBAL_INFERENCE_PROFILES = {
             "af-south-1",
         ]
     },
+    "grok-4.7": {
+        "supported_regions": [
+            "us-west-2",
+            "us-west-1",
+            "us-east-2",
+            "us-east-1",
+            "sa-east-1",
+            "me-south-1",
+            "me-central-1",
+            "il-central-1",
+            "eu-west-3",
+            "eu-west-2",
+            "eu-west-1",
+            "eu-south-2",
+            "eu-south-1",
+            "eu-north-1",
+            "eu-central-2",
+            "eu-central-1",
+            "ca-west-1",
+            "ca-central-1",
+            "ap-southeast-7",
+            "ap-southeast-6",
+            "ap-southeast-5",
+            "ap-southeast-4",
+            "ap-southeast-3",
+            "ap-southeast-2",
+            "ap-southeast-1",
+            "ap-south-2",
+            "ap-south-1",
+            "ap-northeast-3",
+            "ap-northeast-2",
+            "ap-northeast-1",
+            "ap-east-2",
+            "af-south-1",
+        ]
+    },
+    "kimi-k3": {
+        "supported_regions": [
+            "us-west-2",
+            "us-west-1",
+            "us-east-2",
+            "us-east-1",
+            "sa-east-1",
+            "me-south-1",
+            "me-central-1",
+            "il-central-1",
+            "eu-west-3",
+            "eu-west-2",
+            "eu-west-1",
+            "eu-south-2",
+            "eu-south-1",
+            "eu-north-1",
+            "eu-central-2",
+            "eu-central-1",
+            "ca-west-1",
+            "ca-central-1",
+            "ap-southeast-7",
+            "ap-southeast-6",
+            "ap-southeast-5",
+            "ap-southeast-4",
+            "ap-southeast-3",
+            "ap-southeast-2",
+            "ap-southeast-1",
+            "ap-south-2",
+            "ap-south-1",
+            "ap-northeast-3",
+            "ap-northeast-2",
+            "ap-northeast-1",
+            "ap-east-2",
+            "af-south-1",
+        ]
+    },
 }
 
 # Regional inference profiles
@@ -451,6 +603,19 @@ REGIONAL_INFERENCE_PROFILES = {
             "ap-southeast-4": "au",
         }
     },
+    "claude-v5.5-opus": {
+        "supported_regions": {
+            "us-east-1": "us",
+            "us-east-2": "us",
+            "us-west-1": "us",
+            "us-west-2": "us",
+            "ca-central-1": "us",
+            "ca-west-1": "us",
+            "ap-northeast-1": "jp",
+            "ap-northeast-3": "jp",
+        }
+    },
+    # "claude-v5.5-sonnet" only available on global endpoint
     "claude-v5-opus": {
         "supported_regions": {
             "us-east-1": "us",
@@ -740,12 +905,24 @@ REGIONAL_INFERENCE_PROFILES = {
             "us-west-2": "us",
         }
     },
+    "grok-4.7": {
+        "supported_regions": {
+            "us-east-1": "us",
+            "us-east-2": "us",
+            "us-west-1": "us",
+            "us-west-2": "us",
+        }
+    },
 }
 
 # Models that cannot be invoked with on-demand throughput. These must always be
 # called through an inference profile, regardless of the
 # ENABLE_BEDROCK_GLOBAL_INFERENCE / ENABLE_BEDROCK_CROSS_REGION_INFERENCE flags.
-PROFILE_REQUIRED_MODELS: set[type_model_name] = {"grok-4.6"}
+PROFILE_REQUIRED_MODELS: set[type_model_name] = {
+    "grok-4.6",
+    "grok-4.7",
+    "kimi-k3",
+}
 
 # Default reasoning effort for xAI Grok models. Grok always reasons; only the
 # depth is configurable via the model-specific `reasoning.effort` field.
@@ -805,6 +982,15 @@ def is_grok_model(model: type_model_name) -> bool:
     return "grok" in model
 
 
+def is_kimi_model(model: type_model_name) -> bool:
+    """Check if the model is a Moonshot AI Kimi model.
+
+    Same caveat as `is_grok_model`: `PROFILE_REQUIRED_MODELS` and the sampling
+    exclusion lists are per-model-key and must be updated explicitly.
+    """
+    return "kimi" in model
+
+
 def is_tooluse_supported(model: type_model_name) -> bool:
     """Check if the model is supported for tool use"""
     return model not in [
@@ -822,7 +1008,9 @@ def is_adaptive_thinking_model(model: type_model_name) -> bool:
         "claude-v4.6-sonnet",
         "claude-v4.7-opus",
         "claude-v5-opus",
+        "claude-v5.5-opus",
         "claude-v5-sonnet",
+        "claude-v5.5-sonnet",
         "claude-v5-fable",
     ]
 
@@ -834,7 +1022,9 @@ def is_prefill_supported(model: type_model_name) -> bool:
         "claude-v4.6-sonnet",
         "claude-v4.7-opus",
         "claude-v5-opus",
+        "claude-v5.5-opus",
         "claude-v5-sonnet",
+        "claude-v5.5-sonnet",
         "claude-v5-fable",
     ]
 
@@ -846,12 +1036,16 @@ def is_specify_both_temperature_and_top_p_supported(model: type_model_name) -> b
         "claude-v4.6-opus",
         "claude-v4.7-opus",
         "claude-v5-opus",
+        "claude-v5.5-opus",
         "claude-v4.5-sonnet",
         "claude-v4.6-sonnet",
         "claude-v5-sonnet",
+        "claude-v5.5-sonnet",
         "claude-v4.5-haiku",
         "claude-v5-fable",
         "grok-4.6",
+        "grok-4.7",
+        "kimi-k3",
     ]
 
 
@@ -861,9 +1055,13 @@ def is_top_k_supported(model: type_model_name) -> bool:
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
+        "claude-v5.5-opus",
         "claude-v5-sonnet",
+        "claude-v5.5-sonnet",
         "claude-v5-fable",
         "grok-4.6",
+        "grok-4.7",
+        "kimi-k3",
     ]
 
 
@@ -873,9 +1071,13 @@ def is_top_p_supported(model: type_model_name) -> bool:
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
+        "claude-v5.5-opus",
         "claude-v5-sonnet",
+        "claude-v5.5-sonnet",
         "claude-v5-fable",
         "grok-4.6",
+        "grok-4.7",
+        "kimi-k3",
     ]
 
 
@@ -885,9 +1087,13 @@ def is_temperature_supported(model: type_model_name) -> bool:
     return model not in [
         "claude-v4.7-opus",
         "claude-v5-opus",
+        "claude-v5.5-opus",
         "claude-v5-sonnet",
+        "claude-v5.5-sonnet",
         "claude-v5-fable",
         "grok-4.6",
+        "grok-4.7",
+        "kimi-k3",
     ]
 
 
@@ -902,10 +1108,12 @@ def is_prompt_caching_supported(
             "claude-v4.6-opus",
             "claude-v4.7-opus",
             "claude-v5-opus",
+            "claude-v5.5-opus",
             "claude-v4-sonnet",
             "claude-v4.5-sonnet",
             "claude-v4.6-sonnet",
             "claude-v5-sonnet",
+            "claude-v5.5-sonnet",
             "claude-v5-fable",
             "claude-v4.5-haiku",
             "claude-v3.7-sonnet",
@@ -921,10 +1129,12 @@ def is_prompt_caching_supported(
             "claude-v4.6-opus",
             "claude-v4.7-opus",
             "claude-v5-opus",
+            "claude-v5.5-opus",
             "claude-v4-sonnet",
             "claude-v4.5-sonnet",
             "claude-v4.6-sonnet",
             "claude-v5-sonnet",
+            "claude-v5.5-sonnet",
             "claude-v5-fable",
             "claude-v4.5-haiku",
             "claude-v3.7-sonnet",
@@ -1120,6 +1330,28 @@ def _prepare_grok_model_params(
         "additionalModelRequestFields": {
             "reasoning": {"effort": GROK_REASONING_EFFORT},
         },
+    }
+
+
+def _prepare_kimi_model_params(
+    model: type_model_name, generation_params: Optional[GenerationParamsModel] = None
+) -> ConverseConfiguration:
+    """
+    Prepare inference configuration for Moonshot AI Kimi models.
+
+    Kimi rejects temperature, topP and stopSequences outright, so only maxTokens
+    is passed. Reasoning is always active and is not configurable.
+    """
+    inference_config: InferenceConfiguration = {
+        "maxTokens": (
+            generation_params.max_tokens
+            if generation_params
+            else DEFAULT_GENERATION_CONFIG["max_tokens"]
+        ),
+    }
+
+    return {
+        "inferenceConfig": inference_config,
     }
 
 
@@ -1335,6 +1567,10 @@ def generation_params_to_converse_configuration(
     elif is_grok_model(model):
         # Special handling for xAI Grok models
         converse_configuration = _prepare_grok_model_params(model, generation_params)
+
+    elif is_kimi_model(model):
+        # Special handling for Moonshot AI Kimi models
+        converse_configuration = _prepare_kimi_model_params(model, generation_params)
 
     else:
         # Standard handling for non-Nova models

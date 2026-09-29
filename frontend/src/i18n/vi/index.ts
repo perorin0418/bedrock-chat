@@ -59,12 +59,22 @@ const translation = {
       'claude-v5-opus': {
         label: 'Claude 5 (Opus)',
         description:
-          'Mô hình Opus tiên tiến nhất, hỗ trợ các agent hoạt động dài hạn với cải tiến lớn về lý luận sâu, lập trình agent và công việc doanh nghiệp, với cửa sổ ngữ cảnh 1M token.',
+          'Mô hình Opus thế hệ trước, mạnh về suy luận sâu, lập trình tác tử và công việc doanh nghiệp, với cửa sổ ngữ cảnh 1M token.',
+      },
+      'claude-v5.5-opus': {
+        label: 'Claude 5.5 (Opus)',
+        description:
+          'Mô hình Opus mới nhất với trí tuệ cao nhất cho suy luận phức tạp, lập trình tác tử và các tác vụ doanh nghiệp dài hạn với giá thấp hơn Claude 5 (Opus), với cửa sổ ngữ cảnh 1M token.',
       },
       'claude-v5-sonnet': {
         label: 'Claude 5 (Sonnet)',
         description:
-          'Mô hình Sonnet mạnh nhất, mang trí tuệ gần bằng Opus trong khi vẫn giữ sự cân bằng giữa hiệu suất, chi phí và tốc độ.',
+          'Mô hình Sonnet thế hệ trước, mang trí tuệ gần bằng Opus cho lập trình và công việc tác tử.',
+      },
+      'claude-v5.5-sonnet': {
+        label: 'Claude 5.5 (Sonnet)',
+        description:
+          'Mô hình Sonnet mới nhất cân bằng hiệu suất, chi phí và tốc độ cho lập trình, tác tử và công việc doanh nghiệp hằng ngày, với cửa sổ ngữ cảnh 1M token.',
       },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',

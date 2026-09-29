@@ -57,7 +57,12 @@ const translation = {
       'claude-v5-opus': {
         label: 'Claude 5 (Opus)',
         description:
-          'Most advanced Opus model, powering long-running agents with major gains in deep reasoning, agentic coding, and enterprise work, backed by a 1M token context window.',
+          'Previous-generation Opus model with strong deep reasoning, agentic coding, and enterprise work, backed by a 1M token context window.',
+      },
+      'claude-v5.5-opus': {
+        label: 'Claude 5.5 (Opus)',
+        description:
+          'Latest Opus model with the highest intelligence for complex reasoning, agentic coding, and long-running enterprise tasks at a lower price than Claude 5 (Opus), with 1M token context window.',
       },
       'claude-v4-sonnet': {
         label: 'Claude 4 (Sonnet)',
@@ -77,7 +82,12 @@ const translation = {
       'claude-v5-sonnet': {
         label: 'Claude 5 (Sonnet)',
         description:
-          'Most capable Sonnet model, bringing near-Opus intelligence to coding and agentic work at the balance of capability, cost, and speed teams rely on Sonnet for.',
+          'Previous-generation Sonnet model bringing near-Opus intelligence to coding and agentic work.',
+      },
+      'claude-v5.5-sonnet': {
+        label: 'Claude 5.5 (Sonnet)',
+        description:
+          'Latest Sonnet model balancing capability, cost, and speed for everyday coding, agent, and enterprise work, with 1M token context window.',
       },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',
@@ -218,6 +228,16 @@ const translation = {
         label: 'Grok 4.6',
         description:
           "xAI's frontier model with a 500K context window, built for coding and long-running agentic tasks.",
+      },
+      'grok-4.7': {
+        label: 'Grok 4.7',
+        description:
+          "xAI's latest frontier model, built for coding and long-running agentic tasks.",
+      },
+      'kimi-k3': {
+        label: 'Kimi K3',
+        description:
+          "Moonshot AI's frontier open-weight model, built for coding and agentic tasks.",
       },
     },
     agent: {
