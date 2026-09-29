@@ -119,6 +119,16 @@ const translation = {
         description:
           'Modelo de pesos abiertos de frontera de Moonshot AI, diseñado para programación y tareas de agentes.',
       },
+      'gpt-6-luna': {
+        label: 'GPT-6 Luna',
+        description:
+          'Modelo GPT-6 de OpenAI rápido y de bajo costo para tareas cotidianas.',
+      },
+      'gpt-6-sol': {
+        label: 'GPT-6 Sol',
+        description:
+          'Modelo GPT-6 de OpenAI que equilibra razonamiento, programación y tareas de agentes con el costo.',
+      },
     },
     agent: {
       label: 'Agente',

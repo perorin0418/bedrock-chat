@@ -313,6 +313,59 @@ class TestKimiModel(unittest.TestCase):
         self.assertFalse(is_prompt_caching_supported("kimi-k3", target="tool"))
 
 
+class TestGpt6Model(unittest.TestCase):
+    def test_gpt6_forces_global_profile(self):
+        # GPT-6 cannot be invoked with on-demand throughput. us-east-1 also
+        # offers a geo (us.) profile, but it carries a 10% premium, so GPT-6
+        # stays on the global profile like Grok.
+        for model in ["gpt-6-luna", "gpt-6-sol"]:
+            self.assertEqual(
+                get_model_id(
+                    model,
+                    enable_global=False,
+                    enable_cross_region=True,
+                    bedrock_region="us-east-1",
+                ),
+                f"global.openai.{model}",
+            )
+            self.assertEqual(
+                get_model_id(
+                    model,
+                    enable_global=False,
+                    enable_cross_region=False,
+                    bedrock_region="ap-northeast-1",
+                ),
+                f"global.openai.{model}",
+            )
+
+    def test_gpt6_config_omits_unsupported_inference_params(self):
+        # GPT-6 rejects temperature, topP and stopSequences outright.
+        for model in ["gpt-6-luna", "gpt-6-sol"]:
+            config = generation_params_to_converse_configuration(
+                model=model,
+                generation_params=GenerationParamsModel(
+                    max_tokens=2000,
+                    top_k=250,
+                    top_p=0.9,
+                    temperature=0.7,
+                    stop_sequences=["Human: "],
+                    reasoning_params=ReasoningParamsModel(budget_tokens=1024),
+                ),
+                enable_reasoning=True,
+            )
+            self.assertEqual(config, {"inferenceConfig": {"maxTokens": 2000}})
+
+    def test_gpt6_unsupported_features(self):
+        for model in ["gpt-6-luna", "gpt-6-sol"]:
+            self.assertFalse(is_temperature_supported(model))
+            self.assertFalse(is_top_p_supported(model))
+            self.assertFalse(is_top_k_supported(model))
+            # Verified against the live API: cachePoint returns AccessDeniedException.
+            self.assertFalse(is_prompt_caching_supported(model, target="system"))
+            self.assertFalse(is_prompt_caching_supported(model, target="message"))
+            self.assertFalse(is_prompt_caching_supported(model, target="tool"))
+
+
 class TestCallConverseApi(unittest.TestCase):
     def test_call_converse_api_with_global_inference(self):
         """Actual LLM call using global inference profile"""

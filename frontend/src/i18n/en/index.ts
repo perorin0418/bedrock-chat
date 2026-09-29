@@ -239,6 +239,16 @@ const translation = {
         description:
           "Moonshot AI's frontier open-weight model, built for coding and agentic tasks.",
       },
+      'gpt-6-luna': {
+        label: 'GPT-6 Luna',
+        description:
+          'A fast, low-cost OpenAI GPT-6 model for everyday tasks.',
+      },
+      'gpt-6-sol': {
+        label: 'GPT-6 Sol',
+        description:
+          "OpenAI's GPT-6 model balancing strong reasoning, coding and agentic performance with cost.",
+      },
     },
     agent: {
       label: 'Agent',
