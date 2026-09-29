@@ -59,12 +59,22 @@ const translation = {
       'claude-v5-opus': {
         label: 'Claude 5 (Opus)',
         description:
-          'Najbardziej zaawansowany model Opus, wspierający długotrwałe agenty z dużym postępem w głębokim rozumowaniu, kodowaniu agentowym i pracy w przedsiębiorstwach, z oknem kontekstu 1M tokenów.',
+          'Model Opus poprzedniej generacji, mocny w głębokim rozumowaniu, kodowaniu agentowym i pracy w przedsiębiorstwach, z oknem kontekstu 1M tokenów.',
+      },
+      'claude-v5.5-opus': {
+        label: 'Claude 5.5 (Opus)',
+        description:
+          'Najnowszy model Opus o najwyższej inteligencji do złożonego rozumowania, kodowania agentowego i długotrwałych zadań w przedsiębiorstwach, w niższej cenie niż Claude 5 (Opus), z oknem kontekstu 1M tokenów.',
       },
       'claude-v5-sonnet': {
         label: 'Claude 5 (Sonnet)',
         description:
-          'Najwydajniejszy model Sonnet, zapewniający inteligencję zbliżoną do Opus przy zachowaniu równowagi między możliwościami, kosztem i szybkością.',
+          'Model Sonnet poprzedniej generacji, oferujący inteligencję bliską Opus w kodowaniu i pracy agentowej.',
+      },
+      'claude-v5.5-sonnet': {
+        label: 'Claude 5.5 (Sonnet)',
+        description:
+          'Najnowszy model Sonnet równoważący możliwości, koszt i szybkość w codziennym kodowaniu, pracy agentów i zadaniach firmowych, z oknem kontekstu 1M tokenów.',
       },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',

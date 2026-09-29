@@ -93,6 +93,12 @@ BEDROCK_PRICING = {
             "cache_write_input": 0.00625,
             "cache_read_input": 0.0005,
         },
+        "claude-v5.5-opus": {
+            "input": 0.004,
+            "output": 0.020,
+            "cache_write_input": 0.005,
+            "cache_read_input": 0.0002,
+        },
         "claude-v5-fable": {
             "input": 0.010,
             "output": 0.050,
@@ -122,6 +128,12 @@ BEDROCK_PRICING = {
             "output": 0.015,
             "cache_write_input": 0.00375,
             "cache_read_input": 0.0003,
+        },
+        "claude-v5.5-sonnet": {
+            "input": 0.002,
+            "output": 0.010,
+            "cache_write_input": 0.0025,
+            "cache_read_input": 0.0002,
         },
         "claude-v4.5-haiku": {
             "input": 0.001,
@@ -214,6 +226,12 @@ BEDROCK_PRICING = {
             "cache_write_input": 0.00625,
             "cache_read_input": 0.0005,
         },
+        "claude-v5.5-opus": {
+            "input": 0.004,
+            "output": 0.020,
+            "cache_write_input": 0.005,
+            "cache_read_input": 0.0002,
+        },
         "claude-v5-fable": {
             "input": 0.010,
             "output": 0.050,
@@ -243,6 +261,12 @@ BEDROCK_PRICING = {
             "output": 0.015,
             "cache_write_input": 0.00375,
             "cache_read_input": 0.0003,
+        },
+        "claude-v5.5-sonnet": {
+            "input": 0.002,
+            "output": 0.010,
+            "cache_write_input": 0.0025,
+            "cache_read_input": 0.0002,
         },
         "claude-v4.5-haiku": {
             "input": 0.001,
@@ -328,6 +352,12 @@ BEDROCK_PRICING = {
             "cache_write_input": 0.00625,
             "cache_read_input": 0.0005,
         },
+        "claude-v5.5-opus": {
+            "input": 0.004,
+            "output": 0.020,
+            "cache_write_input": 0.005,
+            "cache_read_input": 0.0002,
+        },
         "claude-v5-fable": {
             "input": 0.010,
             "output": 0.050,
@@ -357,6 +387,12 @@ BEDROCK_PRICING = {
             "output": 0.015,
             "cache_write_input": 0.00375,
             "cache_read_input": 0.0003,
+        },
+        "claude-v5.5-sonnet": {
+            "input": 0.002,
+            "output": 0.010,
+            "cache_write_input": 0.0025,
+            "cache_read_input": 0.0002,
         },
         "claude-v4.5-haiku": {
             "input": 0.001,
@@ -424,6 +460,9 @@ BEDROCK_PRICING = {
         "gpt-oss-120b": {"input": 0.00030, "output": 0.00060},
         # xAI models (Global cross-region inference pricing)
         "grok-4.6": {"input": 0.002, "output": 0.006},
+        "grok-4.7": {"input": 0.002, "output": 0.006},
+        # Moonshot AI models (Global cross-region inference pricing)
+        "kimi-k3": {"input": 0.003, "output": 0.015},
     },
     # EU regions (eu-central-1, eu-west-1, eu-west-3)
     "eu-central-1": {

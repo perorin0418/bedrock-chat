@@ -60,7 +60,12 @@ const translation: typeof en = {
       'claude-v5-opus': {
         label: 'Claude 5 (Opus)',
         description:
-          '長時間動作するエージェントを支える最高性能のOpusモデル。深い推論、エージェント型コーディング、エンタープライズ業務で大幅に向上（1Mトークンコンテキストウィンドウ）。',
+          '前世代のOpusモデル。深い推論、エージェント型コーディング、エンタープライズ業務に強い（1Mトークンコンテキストウィンドウ）。',
+      },
+      'claude-v5.5-opus': {
+        label: 'Claude 5.5 (Opus)',
+        description:
+          '最新のOpusモデル。複雑な推論、エージェント型コーディング、長時間のエンタープライズ業務に最高レベルの知性を、Claude 5 (Opus)より低価格で提供（1Mトークンコンテキストウィンドウ）。',
       },
       'claude-v4-sonnet': {
         label: 'Claude 4 (Sonnet)',
@@ -80,7 +85,12 @@ const translation: typeof en = {
       'claude-v5-sonnet': {
         label: 'Claude 5 (Sonnet)',
         description:
-          '最高性能のSonnetモデル。Sonnetならではの性能・コスト・速度のバランスを保ちながら、Opusに迫る知性でコーディングとエージェント業務に対応。',
+          '前世代のSonnetモデル。Opusに迫る知性でコーディングとエージェント業務に対応。',
+      },
+      'claude-v5.5-sonnet': {
+        label: 'Claude 5.5 (Sonnet)',
+        description:
+          '最新のSonnetモデル。性能・コスト・速度のバランスに優れ、日常的なコーディング、エージェント、エンタープライズ業務向け（1Mトークンコンテキストウィンドウ）。',
       },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',
@@ -219,6 +229,16 @@ const translation: typeof en = {
         label: 'Grok 4.6',
         description:
           '500Kトークンコンテキストウィンドウを持つxAIのフロンティアモデル。コーディングと長時間動作するエージェントタスク向けに構築。',
+      },
+      'grok-4.7': {
+        label: 'Grok 4.7',
+        description:
+          'xAIの最新フロンティアモデル。コーディングと長時間動作するエージェントタスク向けに構築。',
+      },
+      'kimi-k3': {
+        label: 'Kimi K3',
+        description:
+          'Moonshot AIのフロンティア級オープンウェイトモデル。コーディングとエージェントタスク向け。',
       },
     },
     agent: {

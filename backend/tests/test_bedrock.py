@@ -183,6 +183,27 @@ class TestGrokModelId(unittest.TestCase):
             "global.xai.grok-4.6",
         )
 
+    def test_grok_4_7_forces_global_profile(self):
+        # Grok 4.7 shares Grok 4.6's profile-only, global-only behavior.
+        self.assertEqual(
+            get_model_id(
+                "grok-4.7",
+                enable_global=False,
+                enable_cross_region=True,
+                bedrock_region="us-west-2",
+            ),
+            "global.xai.grok-4.7",
+        )
+        self.assertEqual(
+            get_model_id(
+                "grok-4.7",
+                enable_global=False,
+                enable_cross_region=False,
+                bedrock_region="ap-northeast-1",
+            ),
+            "global.xai.grok-4.7",
+        )
+
     def test_grok_raises_on_region_without_global_profile(self):
         # Match the message so this test cannot pass on the unrelated
         # "Unsupported model" ValueError raised before the model is registered.
@@ -242,12 +263,54 @@ class TestGrokConverseConfiguration(unittest.TestCase):
         self.assertFalse(is_temperature_supported("grok-4.6"))
         self.assertFalse(is_top_p_supported("grok-4.6"))
         self.assertFalse(is_top_k_supported("grok-4.6"))
+        self.assertFalse(is_temperature_supported("grok-4.7"))
+        self.assertFalse(is_top_p_supported("grok-4.7"))
+        self.assertFalse(is_top_k_supported("grok-4.7"))
 
     def test_grok_prompt_caching_reported_unsupported(self):
         # Verified against the live API: cachePoint returns AccessDeniedException.
         self.assertFalse(is_prompt_caching_supported("grok-4.6", target="system"))
         self.assertFalse(is_prompt_caching_supported("grok-4.6", target="message"))
         self.assertFalse(is_prompt_caching_supported("grok-4.6", target="tool"))
+
+
+class TestKimiModel(unittest.TestCase):
+    def test_kimi_forces_global_profile(self):
+        # Kimi K3 cannot be invoked with on-demand throughput.
+        self.assertEqual(
+            get_model_id(
+                "kimi-k3",
+                enable_global=False,
+                enable_cross_region=False,
+                bedrock_region="ap-northeast-1",
+            ),
+            "global.moonshotai.kimi-k3",
+        )
+
+    def test_kimi_config_omits_unsupported_inference_params(self):
+        # Kimi rejects temperature, topP and stopSequences outright.
+        config = generation_params_to_converse_configuration(
+            model="kimi-k3",
+            generation_params=GenerationParamsModel(
+                max_tokens=2000,
+                top_k=250,
+                top_p=0.9,
+                temperature=0.7,
+                stop_sequences=["Human: "],
+                reasoning_params=ReasoningParamsModel(budget_tokens=1024),
+            ),
+            enable_reasoning=True,
+        )
+        self.assertEqual(config, {"inferenceConfig": {"maxTokens": 2000}})
+
+    def test_kimi_unsupported_features(self):
+        self.assertFalse(is_temperature_supported("kimi-k3"))
+        self.assertFalse(is_top_p_supported("kimi-k3"))
+        self.assertFalse(is_top_k_supported("kimi-k3"))
+        # Verified against the live API: cachePoint returns ValidationException.
+        self.assertFalse(is_prompt_caching_supported("kimi-k3", target="system"))
+        self.assertFalse(is_prompt_caching_supported("kimi-k3", target="message"))
+        self.assertFalse(is_prompt_caching_supported("kimi-k3", target="tool"))
 
 
 class TestCallConverseApi(unittest.TestCase):
