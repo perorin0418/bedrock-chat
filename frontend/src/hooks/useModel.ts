@@ -201,6 +201,13 @@ const useModel = (
         supportReasoning: true,
       },
       {
+        modelId: 'claude-v5.5-haiku',
+        label: t('model.claude-v5.5-haiku.label'),
+        description: t('model.claude-v5.5-haiku.description'),
+        supportMediaType: CLAUDE_SUPPORTED_MEDIA_TYPES,
+        supportReasoning: true,
+      },
+      {
         modelId: 'claude-v3-haiku',
         label: t('model.claude-v3-haiku.label'),
         description: t('model.claude-v3-haiku.description'),

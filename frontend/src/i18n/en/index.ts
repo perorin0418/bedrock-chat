@@ -89,6 +89,11 @@ const translation = {
         description:
           'Latest Sonnet model balancing capability, cost, and speed for everyday coding, agent, and enterprise work, with 1M token context window.',
       },
+      'claude-v5.5-haiku': {
+        label: 'Claude 5.5 (Haiku)',
+        description:
+          'Latest Haiku model, the fastest in the Claude 5.5 family, built for high-volume, latency-sensitive tasks such as classification, extraction, and routing, with 1M token context window.',
+      },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',
         description:
@@ -97,7 +102,7 @@ const translation = {
       'claude-v4.5-haiku': {
         label: 'Claude 4.5 (Haiku)',
         description:
-          'The fastest and most intelligent Haiku model with near-frontier performance and extended thinking capabilities',
+          'Previous-generation Haiku model with near-frontier performance and extended thinking capabilities.',
       },
       'claude-v3-haiku': {
         label: 'Claude 3 (Haiku)',

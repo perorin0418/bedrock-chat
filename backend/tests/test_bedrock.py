@@ -366,6 +366,46 @@ class TestGpt6Model(unittest.TestCase):
             self.assertFalse(is_prompt_caching_supported(model, target="tool"))
 
 
+class TestClaudeHaiku55Model(unittest.TestCase):
+    def test_haiku_5_5_uses_global_profile(self):
+        self.assertEqual(
+            get_model_id(
+                "claude-v5.5-haiku",
+                enable_global=True,
+                enable_cross_region=True,
+                bedrock_region="ap-northeast-1",
+            ),
+            "global.anthropic.claude-haiku-5-5",
+        )
+
+    def test_haiku_5_5_uses_geo_profile_when_global_disabled(self):
+        for region, prefix in [
+            ("us-west-2", "us"),
+            ("eu-west-2", "eu"),
+            ("ap-northeast-1", "jp"),
+            ("ap-southeast-4", "au"),
+        ]:
+            with self.subTest(region=region):
+                self.assertEqual(
+                    get_model_id(
+                        "claude-v5.5-haiku",
+                        enable_global=False,
+                        enable_cross_region=True,
+                        bedrock_region=region,
+                    ),
+                    f"{prefix}.anthropic.claude-haiku-5-5",
+                )
+
+    def test_haiku_5_5_capabilities_match_claude_5(self):
+        # A non-default temperature, top_p or top_k returns a 400 error.
+        self.assertFalse(is_temperature_supported("claude-v5.5-haiku"))
+        self.assertFalse(is_top_p_supported("claude-v5.5-haiku"))
+        self.assertFalse(is_top_k_supported("claude-v5.5-haiku"))
+        self.assertTrue(is_prompt_caching_supported("claude-v5.5-haiku", "system"))
+        self.assertTrue(is_prompt_caching_supported("claude-v5.5-haiku", "message"))
+        self.assertTrue(is_prompt_caching_supported("claude-v5.5-haiku", "tool"))
+
+
 class TestCallConverseApi(unittest.TestCase):
     def test_call_converse_api_with_global_inference(self):
         """Actual LLM call using global inference profile"""
