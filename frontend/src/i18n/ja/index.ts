@@ -92,6 +92,11 @@ const translation: typeof en = {
         description:
           '最新のSonnetモデル。性能・コスト・速度のバランスに優れ、日常的なコーディング、エージェント、エンタープライズ業務向け（1Mトークンコンテキストウィンドウ）。',
       },
+      'claude-v5.5-haiku': {
+        label: 'Claude 5.5 (Haiku)',
+        description:
+          '最新のHaikuモデル。Claude 5.5ファミリーで最速。分類・抽出・ルーティングなど、大量かつ低レイテンシが求められる処理向け（1Mトークンコンテキストウィンドウ）。',
+      },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',
         description:
@@ -100,7 +105,7 @@ const translation: typeof en = {
       'claude-v4.5-haiku': {
         label: 'Claude 4.5 (Haiku)',
         description:
-          'Haikuシリーズ最速かつ最高性能。フロンティアレベルの性能と拡張思考機能を搭載',
+          '前世代のHaikuモデル。フロンティアレベルの性能と拡張思考機能を搭載。',
       },
       'claude-v3-haiku': {
         label: 'Claude 3 (Haiku)',

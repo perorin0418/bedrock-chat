@@ -96,6 +96,7 @@ export const AVAILABLE_MODEL_KEYS = [
   'claude-v5.5-sonnet',
   'claude-v5-fable',
   'claude-v4.5-haiku',
+  'claude-v5.5-haiku',
   'claude-v3-opus',
   // Claude Teams plan (via Claude Code CLI OAuth token pool)
   'claude-teams-opus',

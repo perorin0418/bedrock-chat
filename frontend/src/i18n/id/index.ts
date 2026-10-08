@@ -76,6 +76,11 @@ const translation = {
         description:
           'Model Sonnet terbaru yang menyeimbangkan kemampuan, biaya, dan kecepatan untuk coding, agen, dan pekerjaan perusahaan sehari-hari, dengan jendela konteks 1M token.',
       },
+      'claude-v5.5-haiku': {
+        label: 'Claude 5.5 (Haiku)',
+        description:
+          'Model Haiku terbaru dan tercepat di keluarga Claude 5.5, dibuat untuk tugas bervolume tinggi dan sensitif terhadap latensi seperti klasifikasi, ekstraksi, dan routing, dengan jendela konteks 1M token.',
+      },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',
         description:

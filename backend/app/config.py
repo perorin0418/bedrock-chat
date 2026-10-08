@@ -141,6 +141,14 @@ BEDROCK_PRICING = {
             "cache_write_input": 0.00125,
             "cache_read_input": 0.0001,
         },
+        # Claude Haiku 5.5: rates for prompts up to 100K tokens. Prompts over
+        # 100K tokens are billed at 5x, which this flat table does not model.
+        "claude-v5.5-haiku": {
+            "input": 0.0001,
+            "output": 0.0005,
+            "cache_write_input": 0.000125,
+            "cache_read_input": 0.00001,
+        },
         "claude-v3-haiku": {"input": 0.00025, "output": 0.00125},
         "claude-v3.5-haiku": {
             "input": 0.001,
@@ -274,6 +282,14 @@ BEDROCK_PRICING = {
             "cache_write_input": 0.00125,
             "cache_read_input": 0.0001,
         },
+        # Claude Haiku 5.5: rates for prompts up to 100K tokens. Prompts over
+        # 100K tokens are billed at 5x, which this flat table does not model.
+        "claude-v5.5-haiku": {
+            "input": 0.0001,
+            "output": 0.0005,
+            "cache_write_input": 0.000125,
+            "cache_read_input": 0.00001,
+        },
         "claude-v3.7-sonnet": {
             "input": 0.00300,
             "output": 0.01500,
@@ -399,6 +415,14 @@ BEDROCK_PRICING = {
             "output": 0.005,
             "cache_write_input": 0.00125,
             "cache_read_input": 0.0001,
+        },
+        # Claude Haiku 5.5: rates for prompts up to 100K tokens. Prompts over
+        # 100K tokens are billed at 5x, which this flat table does not model.
+        "claude-v5.5-haiku": {
+            "input": 0.0001,
+            "output": 0.0005,
+            "cache_write_input": 0.000125,
+            "cache_read_input": 0.00001,
         },
         "claude-v3-haiku": {"input": 0.00025, "output": 0.00125},
         "claude-v3.5-haiku": {

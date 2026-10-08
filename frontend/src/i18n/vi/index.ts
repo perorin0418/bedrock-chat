@@ -76,6 +76,11 @@ const translation = {
         description:
           'Mô hình Sonnet mới nhất cân bằng hiệu suất, chi phí và tốc độ cho lập trình, tác tử và công việc doanh nghiệp hằng ngày, với cửa sổ ngữ cảnh 1M token.',
       },
+      'claude-v5.5-haiku': {
+        label: 'Claude 5.5 (Haiku)',
+        description:
+          'Mô hình Haiku mới nhất và nhanh nhất trong dòng Claude 5.5, dành cho các tác vụ khối lượng lớn, nhạy cảm với độ trễ như phân loại, trích xuất và định tuyến, với cửa sổ ngữ cảnh 1M token.',
+      },
       'claude-v5-fable': {
         label: 'Claude 5 (Fable)',
         description:
